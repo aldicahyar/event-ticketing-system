@@ -49,11 +49,11 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
+    <main role="main" className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
       {/* Navbar */}
-      <nav className="p-6">
+      <nav className="p-4 sm:p-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-white" />
+          <div className="w-6 h-6 bg-white" aria-hidden="true" />
           <span className="text-2xl font-display font-bold uppercase tracking-tight">
             EventTicket.
           </span>
@@ -61,7 +61,7 @@ export default function LoginPage() {
       </nav>
 
       {/* Content */}
-      <div className="flex-grow flex items-center justify-center p-6">
+      <div className="flex-grow flex items-center justify-center p-4 sm:p-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -69,16 +69,17 @@ export default function LoginPage() {
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="font-display font-bold text-4xl uppercase text-white mb-2">
+            <h1 className="font-display font-bold text-3xl sm:text-4xl uppercase text-white mb-2">
               Welcome{' '}
               <span
                 className="text-transparent stroke-text"
                 style={{ WebkitTextStroke: '2px white' }}
+                aria-hidden="true"
               >
                 Back
               </span>
             </h1>
-            <p className="text-mono-light-grey uppercase tracking-widest text-sm">
+            <p className="text-mono-light-grey uppercase tracking-widest text-xs sm:text-sm">
               // SIGN_IN_TO_YOUR_ACCOUNT
             </p>
           </div>
@@ -88,10 +89,11 @@ export default function LoginPage() {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
+              role="alert"
               className="mb-6 p-4 bg-red-600/10 border border-red-600 flex items-center gap-3"
             >
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-              <span className="text-red-500 text-sm uppercase">{error}</span>
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" aria-hidden="true" />
+              <span className="text-red-500 text-xs sm:text-sm uppercase">{error}</span>
             </motion.div>
           )}
 
@@ -99,19 +101,20 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email */}
             <div>
-              <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+              <label htmlFor="login-email" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" />
+                <Mail className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
                 <input
+                  id="login-email"
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="w-full bg-black border border-white text-white px-12 py-4 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                  className="w-full bg-black border border-white text-white text-base px-12 py-4 min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
                   placeholder="john@example.com"
                   required
                 />
@@ -120,19 +123,20 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+              <label htmlFor="login-password" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                 Password
               </label>
               <div className="relative">
-                <Lock className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" />
+                <Lock className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
                   }
-                  className="w-full bg-black border border-white text-white px-12 py-4 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                  className="w-full bg-black border border-white text-white text-base px-12 py-4 min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
                   placeholder="********"
                   required
                   minLength={8}
@@ -140,21 +144,23 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-mono-light-grey hover:text-white transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-mono-light-grey hover:text-white transition-colors min-h-touch flex items-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                 >
                   {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-5 h-5" aria-hidden="true" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-5 h-5" aria-hidden="true" />
                   )}
                 </button>
               </div>
             </div>
 
             {/* Remember & Forgot */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="flex items-center justify-between gap-2">
+              <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
                 <input
+                  id="login-remember"
                   type="checkbox"
                   checked={formData.rememberMe}
                   onChange={(e) =>
@@ -162,13 +168,13 @@ export default function LoginPage() {
                   }
                   className="w-4 h-4 appearance-none bg-black border border-white checked:bg-white checked:text-black transition-colors cursor-pointer"
                 />
-                <span className="text-sm text-[#CCCCCC] uppercase">
+                <span className="text-xs sm:text-sm text-[#CCCCCC] uppercase">
                   Remember me
                 </span>
               </label>
               <Link
                 href="/auth/forgot-password"
-                className="text-sm text-white hover:underline uppercase tracking-wide"
+                className="text-xs sm:text-sm text-white hover:underline uppercase tracking-wide focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               >
                 Forgot Password?
               </Link>
@@ -178,13 +184,14 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
+              aria-label={loading ? 'Signing in, please wait' : 'Sign in to your account'}
+              className="w-full py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-black border-t-transparent animate-spin" />
               ) : (
                 <>
-                  Sign In <ArrowRight className="w-5 h-5" />
+                  Sign In <ArrowRight className="w-5 h-5" aria-hidden="true" />
                 </>
               )}
             </button>
@@ -203,26 +210,28 @@ export default function LoginPage() {
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
-              className="flex items-center justify-center gap-2 py-3 border border-mono-dark-grey hover:border-white transition-colors"
+              aria-label="Sign in with Google"
+              className="flex items-center justify-center gap-2 py-3 border border-mono-dark-grey hover:border-white transition-colors min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             >
-              <Smartphone className="w-5 h-5" />
+              <Smartphone className="w-5 h-5" aria-hidden="true" />
               <span className="text-sm font-bold uppercase">Google</span>
             </button>
             <button
               type="button"
-              className="flex items-center justify-center gap-2 py-3 border border-mono-dark-grey hover:border-white transition-colors"
+              aria-label="Sign in with Apple"
+              className="flex items-center justify-center gap-2 py-3 border border-mono-dark-grey hover:border-white transition-colors min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             >
-              <Smartphone className="w-5 h-5" />
+              <Smartphone className="w-5 h-5" aria-hidden="true" />
               <span className="text-sm font-bold uppercase">Apple</span>
             </button>
           </div>
 
           {/* Sign Up Link */}
-          <p className="text-center mt-8 text-sm text-[#CCCCCC]">
+          <p className="text-center mt-8 text-xs sm:text-sm text-[#CCCCCC]">
             Don&apos;t have an account?{' '}
             <Link
               href="/auth/register"
-              className="text-white font-bold uppercase hover:underline"
+              className="text-white font-bold uppercase hover:underline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             >
               Sign up
             </Link>
@@ -230,13 +239,13 @@ export default function LoginPage() {
 
           {/* Trust Badges */}
           <div className="mt-8 pt-8 border-t border-mono-dark-grey">
-            <div className="flex items-center justify-center gap-6 text-xs text-mono-light-grey">
+            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-xs text-mono-light-grey">
               <span className="flex items-center gap-1">
-                <Shield className="w-4 h-4 text-green-500" />
+                <Shield className="w-4 h-4 text-green-500" aria-hidden="true" />
                 Secure Login
               </span>
               <span className="flex items-center gap-1">
-                <CheckCircle className="w-4 h-4 text-green-500" />
+                <CheckCircle className="w-4 h-4 text-green-500" aria-hidden="true" />
                 SSL Encrypted
               </span>
             </div>

@@ -5,10 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { 
-  ArrowLeft, Calendar, MapPin, Ticket, Users, 
+  ArrowLeft, Calendar, MapPin, 
   ChevronLeft, ChevronRight, Shield, Clock,
   CreditCard, Smartphone, CheckCircle, AlertCircle
 } from 'lucide-react';
+import { Navbar } from '@/components/layout/Navbar';
 
 // Types for the event and tickets
 interface TicketTier {
@@ -255,7 +256,7 @@ export default function EventDetailPage() {
     return (
       <main className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" />
+          <div className="w-16 h-16 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" aria-hidden="true" />
           <p className="uppercase tracking-widest">Loading Event...</p>
         </div>
       </main>
@@ -266,10 +267,13 @@ export default function EventDetailPage() {
     return (
       <main className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" aria-hidden="true" />
           <h1 className="text-2xl font-bold uppercase mb-2">Event Not Found</h1>
           <p className="text-mono-light-grey mb-6">{error}</p>
-          <Link href="/events" className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white hover:border-white border-2 border-white transition-all">
+          <Link
+            href="/events"
+            className="inline-block px-6 py-3 min-h-touch bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white hover:border-white border-2 border-white transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+          >
             Back to Events
           </Link>
         </div>
@@ -279,29 +283,14 @@ export default function EventDetailPage() {
 
   return (
     <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
-        <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white" />
-            <span className="text-xl font-display font-bold uppercase">EventTicket.</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/events" className="text-sm font-semibold uppercase text-white hover:text-[#CCCCCC]">
-              Events
-            </Link>
-            <Link href="/lineup" className="text-sm font-semibold uppercase text-[#CCCCCC] hover:text-white">
-              Lineup
-            </Link>
-          </div>
-        </div>
-      </nav>
+      {/* Shared Navbar */}
+      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup' }]} showAuth={false} />
 
       {/* Hero Image */}
-      <div className="relative h-[40vh] md:h-[50vh] overflow-hidden">
+      <div className="relative h-[30vh] sm:h-[35vh] md:h-[50vh] overflow-hidden">
         <img 
           src={event.image} 
-          alt={event.artist}
+          alt={`${event.artist} concert performance`}
           className="w-full h-full object-cover opacity-60 grayscale contrast-125"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
@@ -309,9 +298,10 @@ export default function EventDetailPage() {
         {/* Back Button */}
         <Link 
           href="/events"
-          className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-2 px-4 py-2 bg-black/50 backdrop-blur-sm border border-white/20 hover:border-white transition-all"
+          aria-label="Back to events"
+          className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-2 px-4 py-2 min-h-touch bg-black/50 backdrop-blur-sm border border-white/20 hover:border-white transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           <span className="text-sm font-bold uppercase">Back</span>
         </Link>
 
@@ -321,7 +311,7 @@ export default function EventDetailPage() {
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="font-display font-bold text-3xl md:text-5xl lg:text-6xl uppercase text-white mb-2"
+              className="font-display font-bold text-2xl sm:text-3xl md:text-5xl lg:text-6xl uppercase text-white mb-2"
             >
               {event.artist}
             </motion.h1>
@@ -329,7 +319,7 @@ export default function EventDetailPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="text-lg md:text-xl text-mono-light-grey uppercase tracking-widest"
+              className="text-sm sm:text-base md:text-lg lg:text-xl text-mono-light-grey uppercase tracking-widest"
             >
               {event.tour}
             </motion.p>
@@ -345,15 +335,16 @@ export default function EventDetailPage() {
           <div className="lg:col-span-2 space-y-8">
             
             {/* Event Info */}
-            <motion.div 
+            <motion.section 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-black border border-mono-dark-grey p-6"
+              aria-labelledby="event-details-heading"
+              className="bg-black border border-mono-dark-grey p-4 md:p-6"
             >
-              <h2 className="font-display font-bold text-2xl uppercase text-white mb-4">Event Details</h2>
+              <h2 id="event-details-heading" className="font-display font-bold text-2xl uppercase text-white mb-4">Event Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-white" />
+                  <Calendar className="w-5 h-5 text-white" aria-hidden="true" />
                   <div>
                     <div className="text-xs text-mono-light-grey uppercase tracking-widest">Date</div>
                     <div className="font-bold uppercase">
@@ -362,14 +353,14 @@ export default function EventDetailPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-white" />
+                  <Clock className="w-5 h-5 text-white" aria-hidden="true" />
                   <div>
                     <div className="text-xs text-mono-light-grey uppercase tracking-widest">Time</div>
                     <div className="font-bold uppercase">19:00 WIB</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 md:col-span-2">
-                  <MapPin className="w-5 h-5 text-white" />
+                  <MapPin className="w-5 h-5 text-white" aria-hidden="true" />
                   <div>
                     <div className="text-xs text-mono-light-grey uppercase tracking-widest">Venue</div>
                     <div className="font-bold uppercase">{event.venue}</div>
@@ -377,17 +368,18 @@ export default function EventDetailPage() {
                 </div>
               </div>
               <p className="mt-4 text-[#CCCCCC] leading-relaxed">{event.description}</p>
-            </motion.div>
+            </motion.section>
 
             {/* Ticket Tiers */}
-            <motion.div 
+            <motion.section 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-black border border-mono-dark-grey p-6"
+              aria-labelledby="select-tickets-heading"
+              className="bg-black border border-mono-dark-grey p-4 md:p-6"
             >
-              <h2 className="font-display font-bold text-2xl uppercase text-white mb-6">Select Tickets</h2>
-              <div className="space-y-4">
+              <h2 id="select-tickets-heading" className="font-display font-bold text-2xl uppercase text-white mb-6">Select Tickets</h2>
+              <div className="space-y-4" role="group" aria-label="Ticket tier selection">
                 {event.tiers.map((tier) => (
                   <button
                     key={tier.id}
@@ -395,7 +387,9 @@ export default function EventDetailPage() {
                       setSelectedTier(tier.id);
                       setShowSeatMap(true);
                     }}
-                    className={`w-full p-4 border-2 text-left transition-all duration-300 ${
+                    aria-pressed={selectedTier === tier.id}
+                    aria-label={`${tier.name} tier - IDR ${tier.price.toLocaleString('id-ID')} per ticket, ${tier.available} available`}
+                    className={`w-full p-4 min-h-touch border-2 text-left transition-all duration-300 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
                       selectedTier === tier.id
                         ? 'border-white bg-white/10'
                         : 'border-mono-dark-grey hover:border-white'
@@ -406,7 +400,7 @@ export default function EventDetailPage() {
                         <div className="flex items-center gap-3 mb-2">
                           <span className="font-display font-bold text-xl uppercase text-white">{tier.name}</span>
                           {tier.available < 100 && (
-                            <span className="text-xs text-red-500 font-bold uppercase animate-pulse">
+                            <span className="text-xs text-red-500 font-bold uppercase animate-pulse" aria-label={`Only ${tier.available} tickets left`}>
                               Only {tier.available} left
                             </span>
                           )}
@@ -415,7 +409,7 @@ export default function EventDetailPage() {
                         <div className="flex flex-wrap gap-2">
                           {tier.features.slice(0, 3).map((feature, i) => (
                             <span key={i} className="text-xs bg-white/10 px-2 py-1 text-[#CCCCCC]">
-                              ✓ {feature}
+                              {feature}
                             </span>
                           ))}
                         </div>
@@ -430,22 +424,23 @@ export default function EventDetailPage() {
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </motion.section>
 
             {/* Seat Map */}
             {selectedTier && showSeatMap && (
-              <motion.div 
+              <motion.section 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-black border border-mono-dark-grey p-6"
+                aria-labelledby="seat-map-heading"
+                className="bg-black border border-mono-dark-grey p-4 md:p-6"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-display font-bold text-2xl uppercase text-white">
+                  <h2 id="seat-map-heading" className="font-display font-bold text-2xl uppercase text-white">
                     Select Seats - {selectedTierData?.name}
                   </h2>
                   <button 
                     onClick={() => setShowSeatMap(false)}
-                    className="text-xs text-mono-light-grey hover:text-white uppercase"
+                    className="text-xs text-mono-light-grey hover:text-white uppercase min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                   >
                     Close
                   </button>
@@ -453,38 +448,40 @@ export default function EventDetailPage() {
 
                 {/* Stage */}
                 <div className="mb-8">
-                  <div className="w-full h-12 bg-white text-black font-bold uppercase tracking-widest flex items-center justify-center mx-auto max-w-md">
+                  <div className="w-full h-12 bg-white text-black font-bold uppercase tracking-widest flex items-center justify-center mx-auto max-w-md" aria-hidden="true">
                     STAGE
                   </div>
                 </div>
 
                 {/* Legend */}
-                <div className="flex flex-wrap gap-4 mb-6 justify-center">
+                <div className="flex flex-wrap gap-4 mb-6 justify-center" role="group" aria-label="Seat status legend">
                   {[
-                    { color: 'bg-white', label: 'Available' },
-                    { color: 'bg-red-600', label: 'Sold' },
-                    { color: 'bg-yellow-600', label: 'Reserved' },
-                    { color: 'bg-blue-600', label: 'Selected' }
+                    { color: 'bg-white', label: 'Available', textColor: 'text-black' },
+                    { color: 'bg-red-600', label: 'Sold', textColor: 'text-white' },
+                    { color: 'bg-yellow-600', label: 'Reserved', textColor: 'text-white' },
+                    { color: 'bg-blue-600', label: 'Selected', textColor: 'text-white' }
                   ].map(item => (
                     <div key={item.label} className="flex items-center gap-2">
-                      <div className={`w-4 h-4 ${item.color}`} />
+                      <div className={`w-4 h-4 ${item.color}`} role="img" aria-label={`${item.label} seat indicator`} />
                       <span className="text-xs uppercase">{item.label}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Seat Grid */}
-                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                <div className="space-y-2 max-h-[400px] overflow-y-auto" role="group" aria-label="Seat selection grid">
                   {['A', 'B', 'C', 'D', 'E'].map((section) => (
                     <div key={section} className="mb-4">
-                      <div className="text-xs text-mono-light-grey uppercase mb-2">Section {section}</div>
-                      <div className="flex flex-wrap gap-1 justify-center">
+                      <div className="text-xs text-mono-light-grey uppercase mb-2" id={`section-${section}-label`}>Section {section}</div>
+                      <div className="flex flex-wrap gap-1 justify-center" role="group" aria-labelledby={`section-${section}-label`}>
                         {seats.filter(s => s.section === `Section ${section}`).slice(0, 20).map((seat) => (
                           <button
                             key={seat.id}
                             onClick={() => handleSeatClick(seat)}
                             disabled={seat.status !== 'available'}
-                            className={`w-6 h-6 text-[10px] font-bold transition-all duration-200 ${
+                            aria-label={`Seat ${seat.section} Row ${seat.row} Seat ${seat.number} - ${seat.status}`}
+                            aria-pressed={selectedSeats.some(s => s.id === seat.id)}
+                            className={`w-7 h-7 md:w-8 md:h-8 text-[10px] font-bold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
                               seat.status === 'sold' 
                                 ? 'bg-red-600 cursor-not-allowed'
                                 : seat.status === 'reserved'
@@ -504,18 +501,20 @@ export default function EventDetailPage() {
 
                 {/* Quick Selection */}
                 <div className="mt-6 pt-4 border-t border-mono-dark-grey">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <button 
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="w-10 h-10 border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all"
+                        aria-label="Decrease quantity"
+                        className="w-10 h-10 min-h-touch min-w-touch border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                       >
                         -
                       </button>
-                      <span className="text-xl font-bold">{quantity}</span>
+                      <span className="text-xl font-bold" aria-live="polite" aria-label={`${quantity} tickets`}>{quantity}</span>
                       <button 
                         onClick={() => setQuantity(Math.min(10, quantity + 1))}
-                        className="w-10 h-10 border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all"
+                        aria-label="Increase quantity"
+                        className="w-10 h-10 min-h-touch min-w-touch border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                       >
                         +
                       </button>
@@ -526,31 +525,32 @@ export default function EventDetailPage() {
                         const available = seats.filter(s => s.status === 'available').slice(0, quantity);
                         setSelectedSeats(available);
                       }}
-                      className="text-xs uppercase text-white hover:underline"
+                      className="text-xs uppercase text-white hover:underline min-h-touch flex items-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                     >
                       Auto-select {quantity}
                     </button>
                   </div>
                 </div>
-              </motion.div>
+              </motion.section>
             )}
           </div>
 
           {/* RIGHT - Order Summary */}
           <div className="lg:col-span-1">
-            <motion.div 
+            <motion.section 
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
-              className="sticky top-24 bg-black border border-white p-6"
+              aria-labelledby="order-summary-heading"
+              className="sticky top-24 bg-black border border-white p-4 md:p-6"
             >
-              <h2 className="font-display font-bold text-2xl uppercase text-white mb-6">Order Summary</h2>
+              <h2 id="order-summary-heading" className="font-display font-bold text-2xl uppercase text-white mb-6">Order Summary</h2>
 
               {/* Selected Event */}
               <div className="pb-4 border-b border-mono-dark-grey mb-4">
                 <div className="text-sm text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
                 <div className="font-bold uppercase text-white">{event.artist}</div>
                 <div className="text-sm text-[#CCCCCC]">
-                  {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} • {event.venue}
+                  {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} &bull; {event.venue}
                 </div>
               </div>
 
@@ -582,50 +582,50 @@ export default function EventDetailPage() {
 
               {/* Price Breakdown */}
               {selectedTierData && (
-                <div className="space-y-2 mb-6">
+                <dl className="space-y-2 mb-6" aria-label="Price breakdown">
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#CCCCCC]">
+                    <dt className="text-[#CCCCCC]">
                       {selectedSeats.length > 0 ? selectedSeats.length : quantity} x {selectedTierData.name}
-                    </span>
-                    <span className="text-white">IDR {subtotal.toLocaleString('id-ID')}</span>
+                    </dt>
+                    <dd className="text-white">IDR {subtotal.toLocaleString('id-ID')}</dd>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#CCCCCC]">Service Fee (5%)</span>
-                    <span className="text-white">IDR {serviceFee.toLocaleString('id-ID')}</span>
+                    <dt className="text-[#CCCCCC]">Service Fee (5%)</dt>
+                    <dd className="text-white">IDR {serviceFee.toLocaleString('id-ID')}</dd>
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t border-mono-dark-grey">
-                    <span className="text-white">Total</span>
-                    <span className="text-white">IDR {total.toLocaleString('id-ID')}</span>
+                    <dt className="text-white">Total</dt>
+                    <dd className="text-white" aria-live="polite">IDR {total.toLocaleString('id-ID')}</dd>
                   </div>
-                </div>
+                </dl>
               )}
 
               {/* Checkout Button */}
               <button
                 onClick={handleCheckout}
                 disabled={selectedSeats.length === 0 && quantity === 0}
-                className="w-full py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 min-h-touch bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               >
-                <CreditCard className="w-5 h-5" />
+                <CreditCard className="w-5 h-5" aria-hidden="true" />
                 Proceed to Checkout
               </button>
 
               {/* Trust Badges */}
               <div className="mt-6 pt-4 border-t border-mono-dark-grey space-y-3">
                 <div className="flex items-center gap-3 text-xs text-[#CCCCCC]">
-                  <Shield className="w-4 h-4 text-green-500" />
+                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 shrink-0" aria-hidden="true" />
                   <span>Secure checkout with SSL encryption</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-[#CCCCCC]">
-                  <Smartphone className="w-4 h-4 text-green-500" />
+                  <Smartphone className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 shrink-0" aria-hidden="true" />
                   <span>Digital tickets delivered instantly</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-[#CCCCCC]">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 shrink-0" aria-hidden="true" />
                   <span>100% official tickets guaranteed</span>
                 </div>
               </div>
-            </motion.div>
+            </motion.section>
           </div>
         </div>
       </div>

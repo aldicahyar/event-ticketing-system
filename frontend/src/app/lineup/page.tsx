@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, MapPin, Ticket, Clock, Filter } from 'lucide-react';
+import { ArrowRight, Calendar, MapPin } from 'lucide-react';
 import { IndustrialBadge } from '@/components/ui/industrial-components';
+import { Navbar } from '@/components/layout/Navbar';
 
 const LINEUP = [
   {
@@ -96,6 +97,10 @@ const LINEUP = [
   }
 ];
 
+const HERO_HEADING_ID = 'lineup-hero-heading';
+const GRID_HEADING_ID = 'lineup-grid-heading';
+const CTA_HEADING_ID = 'lineup-cta-heading';
+
 export default function LineupPage() {
   const [filter, setFilter] = useState('All');
 
@@ -105,44 +110,26 @@ export default function LineupPage() {
 
   return (
     <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
-        <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white" />
-            <span className="text-xl font-display font-bold uppercase">EventTicket.</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/events" className="text-sm font-semibold uppercase text-white hover:text-[#CCCCCC]">
-              Events
-            </Link>
-            <Link href="/lineup" className="text-sm font-semibold uppercase text-[#CCCCCC]">
-              Lineup
-            </Link>
-            <Link href="/auth/login" className="text-sm font-semibold uppercase text-white">
-              Login
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup', active: true }]} />
 
       {/* Hero Section */}
-      <section className="py-16 md:py-24 border-b border-mono-dark-grey">
+      <section aria-labelledby={HERO_HEADING_ID} className="py-16 md:py-24 border-b border-mono-dark-grey">
         <div className="container mx-auto px-4 md:px-6">
-          <h1 className="font-display font-bold text-5xl md:text-7xl uppercase text-white mb-4">
-            Artist <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }}>Lineup</span>
+          <h1 id={HERO_HEADING_ID} className="font-display font-bold text-3xl sm:text-4xl md:text-5xl md:text-7xl uppercase text-white mb-4">
+            Artist <span className="text-transparent stroke-text" aria-hidden="true" style={{ WebkitTextStroke: "2px white" }}>Lineup</span>
           </h1>
-          <p className="text-xl text-mono-light-grey uppercase tracking-widest mb-8">
+          <p className="text-lg md:text-xl text-mono-light-grey uppercase tracking-widest mb-8">
             // 2025 Tour Schedule
           </p>
 
           {/* Filters */}
-          <div className="flex flex-wrap gap-4">
+          <div role="group" aria-label="Filter lineup" className="flex gap-2 overflow-x-auto scrollbar-none pb-2">
             {['All', 'Metalcore', 'Alternative Metal', 'Progressive Metalcore', 'featured'].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-4 py-2 text-sm font-bold uppercase tracking-wide border transition-all duration-300 ${
+                aria-pressed={filter === f}
+                className={`px-3 py-2.5 md:px-4 md:py-2 text-xs md:text-sm font-bold uppercase tracking-wide border transition-all duration-300 min-h-touch whitespace-nowrap focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
                   filter === f
                     ? 'bg-white text-black border-white'
                     : 'bg-black text-[#CCCCCC] border-mono-dark-grey hover:border-white hover:text-white'
@@ -156,29 +143,31 @@ export default function LineupPage() {
       </section>
 
       {/* Lineup Grid */}
-      <section className="py-16">
+      <section aria-labelledby={GRID_HEADING_ID} className="py-16">
         <div className="container mx-auto px-4 md:px-6">
+          <h2 id={GRID_HEADING_ID} className="sr-only">Artist lineup</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredLineup.map((artist) => (
-              <Link 
-                key={artist.id} 
+              <Link
+                key={artist.id}
                 href={`/events/${artist.id}`}
-                className="group block bg-black border border-mono-dark-grey hover:border-white transition-all duration-300"
+                aria-label={artist.artist}
+                className="group block bg-black border border-mono-dark-grey hover:border-white transition-all duration-300 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               >
                 {/* Image */}
                 <div className="relative aspect-square overflow-hidden">
-                  <img 
-                    src={artist.image} 
+                  <img
+                    src={artist.image}
                     alt={artist.artist}
                     className="w-full h-full object-cover grayscale contrast-125 group-hover:grayscale-0 group-hover:scale-105 transition-all duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                  
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />
+
                   {/* Status Badge */}
                   <div className="absolute top-3 left-3">
                     <IndustrialBadge className={
-                      artist.status === 'headliner' 
-                        ? 'bg-white text-black border-white' 
+                      artist.status === 'headliner'
+                        ? 'bg-white text-black border-white'
                         : 'bg-black text-white border-white'
                     }>
                       {artist.status === 'headliner' ? 'HEADLINER' : 'FEATURED'}
@@ -192,17 +181,19 @@ export default function LineupPage() {
                     {artist.artist}
                   </h3>
                   <p className="text-xs text-mono-light-grey uppercase tracking-widest mb-3">
-                    {artist.genre} • {artist.origin}
+                    {artist.genre} &bull; {artist.origin}
                   </p>
-                  
+
                   {/* Date & Venue */}
                   <div className="space-y-1 mb-4">
                     <div className="flex items-center gap-2 text-xs text-[#CCCCCC]">
-                      <Calendar className="w-3 h-3" />
-                      <span>{new Date(artist.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <Calendar className="w-3 h-3" aria-hidden="true" />
+                      <time dateTime={artist.date}>
+                        {new Date(artist.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </time>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-[#CCCCCC]">
-                      <MapPin className="w-3 h-3" />
+                      <MapPin className="w-3 h-3" aria-hidden="true" />
                       <span className="truncate">{artist.venue}</span>
                     </div>
                   </div>
@@ -213,7 +204,7 @@ export default function LineupPage() {
                       IDR {artist.price.toLocaleString('id-ID')}
                     </span>
                     <span className="text-xs font-bold uppercase text-white group-hover:underline flex items-center gap-1">
-                      Get Tickets <ArrowRight className="w-3 h-3" />
+                      Get Tickets <ArrowRight className="w-3 h-3" aria-hidden="true" />
                     </span>
                   </div>
                 </div>
@@ -224,19 +215,20 @@ export default function LineupPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 border-t border-mono-dark-grey">
+      <section aria-labelledby={CTA_HEADING_ID} className="py-16 border-t border-mono-dark-grey">
         <div className="container mx-auto px-4 md:px-6 text-center">
-          <h2 className="font-display font-bold text-3xl md:text-4xl uppercase text-white mb-4">
-            Don't Miss the Tour
+          <h2 id={CTA_HEADING_ID} className="font-display font-bold text-2xl md:text-3xl md:text-4xl uppercase text-white mb-4">
+            Don&apos;t Miss the Tour
           </h2>
           <p className="text-mono-light-grey uppercase tracking-widest mb-8">
             Limited tickets available for all shows
           </p>
-          <Link href="/events">
-            <button className="px-8 py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 flex items-center justify-center gap-3 mx-auto">
-              View All Events
-              <ArrowRight className="w-5 h-5" />
-            </button>
+          <Link
+            href="/events"
+            className="inline-flex items-center justify-center gap-3 min-h-touch px-6 md:px-8 py-3 md:py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+          >
+            View All Events
+            <ArrowRight className="w-5 h-5" aria-hidden="true" />
           </Link>
         </div>
       </section>

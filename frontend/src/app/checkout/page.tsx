@@ -10,6 +10,7 @@ import {
   Ticket, Calendar, ChevronRight
 } from 'lucide-react';
 import { Suspense } from 'react';
+import { Navbar } from '@/components/layout/Navbar';
 
 // Checkout Steps
 const STEPS = ['Review', 'Details', 'Payment', 'Confirmation'];
@@ -93,7 +94,7 @@ function CheckoutContent() {
         <div className="text-center">
           <h1 className="text-2xl font-bold uppercase mb-4">Invalid Checkout</h1>
           <p className="text-mono-light-grey mb-6">Please select tickets first.</p>
-          <Link href="/events" className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide">
+          <Link href="/events" className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide min-h-touch inline-flex items-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
             Browse Events
           </Link>
         </div>
@@ -104,20 +105,17 @@ function CheckoutContent() {
   return (
     <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
-        <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white" />
-            <span className="text-xl font-display font-bold uppercase">EventTicket.</span>
-          </Link>
-          <div className="flex items-center gap-4 text-xs text-mono-light-grey uppercase">
-            <span className="flex items-center gap-2">
-              <Lock className="w-3 h-3" />
-              Secure Checkout
-            </span>
-          </div>
+      <Navbar links={[]} showAuth={false} />
+
+      {/* Secure Checkout Indicator */}
+      <div className="bg-black/60 border-b border-mono-dark-grey">
+        <div className="container mx-auto px-4 md:px-6 py-2 flex items-center justify-center">
+          <span className="flex items-center gap-2 text-xs text-mono-light-grey uppercase tracking-widest">
+            <Lock className="w-3 h-3" aria-hidden="true" />
+            Secure Checkout
+          </span>
         </div>
-      </nav>
+      </div>
 
       {/* Progress Steps */}
       <div className="bg-black border-b border-mono-dark-grey">
@@ -132,21 +130,21 @@ function CheckoutContent() {
                     ? 'text-green-500' 
                     : 'text-mono-dark-grey'
                 }`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                  <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                     index === currentStep 
                       ? 'bg-white text-black' 
                       : index < currentStep 
                       ? 'bg-green-500 text-black' 
                       : 'bg-mono-dark-grey text-[#666]'
                   }`}>
-                    {index < currentStep ? <CheckCircle className="w-5 h-5" /> : index + 1}
+                    {index < currentStep ? <CheckCircle className="w-4 h-4 md:w-5 md:h-5" aria-hidden="true" /> : index + 1}
                   </div>
                   <span className="hidden md:block uppercase text-sm font-bold">{step}</span>
                 </div>
                 {index < STEPS.length - 1 && (
                   <ChevronRight className={`w-4 h-4 mx-2 md:mx-4 ${
                     index < currentStep ? 'text-green-500' : 'text-mono-dark-grey'
-                  }`} />
+                  }`} aria-hidden="true" />
                 )}
               </div>
             ))}
@@ -168,25 +166,25 @@ function CheckoutContent() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-black border border-mono-dark-grey p-6"
+                  className="bg-black border border-mono-dark-grey p-4 md:p-6"
                 >
-                  <h2 className="font-display font-bold text-2xl uppercase text-white mb-6">Review Your Order</h2>
+                  <h2 className="font-display font-bold text-xl md:text-2xl uppercase text-white mb-6">Review Your Order</h2>
                   
                   {/* Event Info */}
                   <div className="bg-white/5 p-4 mb-6">
-                    <div className="flex items-start gap-4">
-                      <Ticket className="w-8 h-8 text-white mt-1" />
-                      <div>
-                        <div className="text-sm text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
-                        <h3 className="font-display font-bold text-xl uppercase text-white">{event.artist}</h3>
-                        <p className="text-[#CCCCCC]">{event.tour}</p>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-[#CCCCCC]">
+                    <div className="flex items-start gap-3 md:gap-4">
+                      <Ticket className="w-6 h-6 md:w-8 md:h-8 text-white mt-1 shrink-0" aria-hidden="true" />
+                      <div className="min-w-0">
+                        <div className="text-xs md:text-sm text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
+                        <h3 className="font-display font-bold text-lg md:text-xl uppercase text-white">{event.artist}</h3>
+                        <p className="text-[#CCCCCC] text-sm">{event.tour}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs md:text-sm text-[#CCCCCC]">
                           <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
+                            <Calendar className="w-3 h-3 md:w-4 md:h-4" aria-hidden="true" />
                             {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </span>
                           <span className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
+                            <MapPin className="w-3 h-3 md:w-4 md:h-4" aria-hidden="true" />
                             {event.venue}
                           </span>
                         </div>
@@ -200,7 +198,7 @@ function CheckoutContent() {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {event.seats.map((seat) => (
                         <div key={seat.id} className="bg-white/10 px-3 py-2 text-center border border-mono-dark-grey">
-                          <span className="text-sm font-bold">{seat.label}</span>
+                          <span className="text-xs md:text-sm font-bold">{seat.label}</span>
                         </div>
                       ))}
                     </div>
@@ -209,8 +207,8 @@ function CheckoutContent() {
                   {/* Order Total */}
                   <div className="bg-white/5 p-4">
                     <div className="flex justify-between items-center">
-                      <span className="uppercase text-mono-light-grey">Order Total</span>
-                      <span className="text-2xl font-display font-bold text-white">
+                      <span className="uppercase text-mono-light-grey text-sm">Order Total</span>
+                      <span className="text-xl md:text-2xl font-display font-bold text-white">
                         IDR {total.toLocaleString('id-ID')}
                       </span>
                     </div>
@@ -225,61 +223,69 @@ function CheckoutContent() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-black border border-mono-dark-grey p-6"
+                  className="bg-black border border-mono-dark-grey p-4 md:p-6"
                 >
-                  <h2 className="font-display font-bold text-2xl uppercase text-white mb-6">Your Details</h2>
+                  <h2 className="font-display font-bold text-xl md:text-2xl uppercase text-white mb-6">Your Details</h2>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">First Name</label>
+                      <label htmlFor="firstName" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">First Name</label>
                       <div className="relative">
-                        <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" />
+                        <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
                         <input
+                          id="firstName"
                           type="text"
                           name="firstName"
                           value={formData.firstName}
                           onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white px-10 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                          className="w-full bg-black border border-white text-white text-base px-10 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                           placeholder="JOHN"
+                          autoComplete="given-name"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Last Name</label>
+                      <label htmlFor="lastName" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Last Name</label>
                       <input
+                        id="lastName"
                         type="text"
                         name="lastName"
                         value={formData.lastName}
                         onChange={handleInputChange}
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                        className="w-full bg-black border border-white text-white text-base px-4 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                         placeholder="DOE"
+                        autoComplete="family-name"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Email</label>
+                      <label htmlFor="email" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Email</label>
                       <div className="relative">
-                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" />
+                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
                         <input
+                          id="email"
                           type="email"
                           name="email"
                           value={formData.email}
                           onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white px-10 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                          className="w-full bg-black border border-white text-white text-base px-10 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                           placeholder="john@example.com"
+                          autoComplete="email"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Phone</label>
+                      <label htmlFor="phone" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Phone</label>
                       <div className="relative">
-                        <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" />
+                        <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
                         <input
+                          id="phone"
                           type="tel"
                           name="phone"
                           value={formData.phone}
                           onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white px-10 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                          className="w-full bg-black border border-white text-white text-base px-10 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                           placeholder="+62 812 3456 7890"
+                          autoComplete="tel"
                         />
                       </div>
                     </div>
@@ -294,9 +300,9 @@ function CheckoutContent() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-black border border-mono-dark-grey p-6"
+                  className="bg-black border border-mono-dark-grey p-4 md:p-6"
                 >
-                  <h2 className="font-display font-bold text-2xl uppercase text-white mb-6">Payment Method</h2>
+                  <h2 className="font-display font-bold text-xl md:text-2xl uppercase text-white mb-6">Payment Method</h2>
                   
                   {/* Payment Options */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -307,9 +313,10 @@ function CheckoutContent() {
                     ].map((option) => (
                       <button
                         key={option.id}
-                        className="p-4 border-2 border-mono-dark-grey hover:border-white transition-all flex flex-col items-center gap-2"
+                        className="p-4 min-h-touch border-2 border-mono-dark-grey hover:border-white transition-all flex flex-col items-center gap-2 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                        aria-label={option.label}
                       >
-                        <option.icon className="w-6 h-6 text-white" />
+                        <option.icon className="w-6 h-6 text-white" aria-hidden="true" />
                         <span className="text-sm font-bold uppercase">{option.label}</span>
                       </button>
                     ))}
@@ -318,51 +325,59 @@ function CheckoutContent() {
                   {/* Card Form */}
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Card Number</label>
+                      <label htmlFor="cardNumber" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Card Number</label>
                       <div className="relative">
-                        <CreditCard className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" />
+                        <CreditCard className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
                         <input
+                          id="cardNumber"
                           type="text"
                           name="cardNumber"
                           value={formData.cardNumber}
                           onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white px-10 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                          className="w-full bg-black border border-white text-white text-base px-10 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                           placeholder="1234 5678 9012 3456"
+                          autoComplete="cc-number"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Cardholder Name</label>
+                      <label htmlFor="cardName" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Cardholder Name</label>
                       <input
+                        id="cardName"
                         type="text"
                         name="cardName"
                         value={formData.cardName}
                         onChange={handleInputChange}
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                        className="w-full bg-black border border-white text-white text-base px-4 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                         placeholder="JOHN DOE"
+                        autoComplete="cc-name"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Expiry Date</label>
+                        <label htmlFor="expiryDate" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Expiry Date</label>
                         <input
+                          id="expiryDate"
                           type="text"
                           name="expiryDate"
                           value={formData.expiryDate}
                           onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                          className="w-full bg-black border border-white text-white text-base px-4 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                           placeholder="MM/YY"
+                          autoComplete="cc-exp"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">CVV</label>
+                        <label htmlFor="cvv" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">CVV</label>
                         <input
+                          id="cvv"
                           type="text"
                           name="cvv"
                           value={formData.cvv}
                           onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
+                          className="w-full bg-black border border-white text-white text-base px-4 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
                           placeholder="123"
+                          autoComplete="cc-csc"
                         />
                       </div>
                     </div>
@@ -376,42 +391,43 @@ function CheckoutContent() {
                   key="confirmation"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-black border border-green-500/50 p-8 text-center"
+                  className="bg-black border border-green-500/50 p-6 md:p-8 text-center"
+                  role="alert"
                 >
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.2, type: 'spring' }}
-                    className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6"
+                    className="w-16 h-16 md:w-20 md:h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6"
                   >
-                    <CheckCircle className="w-10 h-10 text-black" />
+                    <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-black" aria-hidden="true" />
                   </motion.div>
                   
-                  <h2 className="font-display font-bold text-3xl uppercase text-white mb-2">Order Confirmed!</h2>
-                  <p className="text-mono-light-grey uppercase tracking-widest mb-6">Your tickets are on the way</p>
+                  <h2 className="font-display font-bold text-2xl md:text-3xl uppercase text-white mb-2">Order Confirmed!</h2>
+                  <p className="text-mono-light-grey uppercase tracking-widest text-sm md:text-base mb-6">Your tickets are on the way</p>
                   
-                  <div className="bg-white/5 p-6 mb-6 inline-block">
+                  <div className="bg-white/5 p-4 md:p-6 mb-6 inline-block">
                     <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-1">Order Number</div>
-                    <div className="text-2xl font-display font-bold text-white tracking-widest">{orderNumber}</div>
+                    <div className="text-xl md:text-2xl font-display font-bold text-white tracking-widest">{orderNumber}</div>
                   </div>
 
                   <div className="text-left bg-white/5 p-4 mb-6">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-2 gap-3 md:gap-4 text-sm">
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Event</div>
-                        <div className="font-bold uppercase">{event.artist}</div>
+                        <div className="font-bold uppercase text-xs md:text-sm">{event.artist}</div>
                       </div>
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Date</div>
-                        <div className="font-bold">{new Date(event.date).toLocaleDateString()}</div>
+                        <div className="font-bold text-xs md:text-sm">{new Date(event.date).toLocaleDateString()}</div>
                       </div>
                       <div className="col-span-2">
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Tickets</div>
-                        <div className="font-bold">{event.seats.map(s => s.label).join(', ')}</div>
+                        <div className="font-bold text-xs md:text-sm">{event.seats.map(s => s.label).join(', ')}</div>
                       </div>
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Total Paid</div>
-                        <div className="font-bold text-green-500">IDR {total.toLocaleString('id-ID')}</div>
+                        <div className="font-bold text-green-500 text-xs md:text-sm">IDR {total.toLocaleString('id-ID')}</div>
                       </div>
                     </div>
                   </div>
@@ -421,10 +437,10 @@ function CheckoutContent() {
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Link href="/" className="px-8 py-3 bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white border-2 border-white transition-all">
+                    <Link href="/" className="px-8 py-3 bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white border-2 border-white transition-all min-h-touch inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
                       Back to Home
                     </Link>
-                    <button className="px-8 py-3 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold uppercase tracking-wide hover:border-white hover:text-white transition-all">
+                    <button className="px-8 py-3 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold uppercase tracking-wide hover:border-white hover:text-white transition-all min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" aria-label="Download Tickets">
                       Download Tickets
                     </button>
                   </div>
@@ -439,7 +455,8 @@ function CheckoutContent() {
                 <button
                   onClick={prevStep}
                   disabled={currentStep === 0}
-                  className="px-6 py-3 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold uppercase tracking-wide hover:border-white hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold uppercase tracking-wide hover:border-white hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                  aria-label="Go back to previous step"
                 >
                   Back
                 </button>
@@ -447,25 +464,27 @@ function CheckoutContent() {
                 {currentStep < STEPS.length - 2 ? (
                   <button
                     onClick={nextStep}
-                    className="px-8 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all flex items-center gap-2"
+                    className="px-8 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all flex items-center gap-2 min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                    aria-label="Continue to next step"
                   >
                     Continue
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4" aria-hidden="true" />
                   </button>
                 ) : currentStep === STEPS.length - 2 ? (
                   <button
                     onClick={handlePayment}
                     disabled={loading}
-                    className="px-8 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="px-6 md:px-8 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all flex items-center gap-2 disabled:opacity-50 min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                    aria-label={loading ? 'Processing payment' : `Pay IDR ${total.toLocaleString('id-ID')}`}
                   >
                     {loading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-black border-t-transparent animate-spin" />
+                        <div className="w-4 h-4 border-2 border-black border-t-transparent animate-spin" aria-hidden="true" />
                         Processing...
                       </>
                     ) : (
                       <>
-                        <Lock className="w-4 h-4" />
+                        <Lock className="w-4 h-4" aria-hidden="true" />
                         Pay IDR {total.toLocaleString('id-ID')}
                       </>
                     )}
@@ -477,23 +496,23 @@ function CheckoutContent() {
 
           {/* RIGHT - Order Summary */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 bg-black border border-white p-6">
-              <h2 className="font-display font-bold text-xl uppercase text-white mb-6">Order Summary</h2>
+            <div className="sticky top-24 bg-black border border-white p-4 md:p-6">
+              <h2 className="font-display font-bold text-lg md:text-xl uppercase text-white mb-4 md:mb-6">Order Summary</h2>
               
               {/* Event */}
               <div className="pb-4 border-b border-mono-dark-grey mb-4">
-                <div className="text-sm text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
-                <div className="font-bold uppercase text-white">{event.artist}</div>
-                <div className="text-sm text-[#CCCCCC]">
+                <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
+                <div className="font-bold uppercase text-white text-sm md:text-base">{event.artist}</div>
+                <div className="text-xs md:text-sm text-[#CCCCCC]">
                   {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </div>
               </div>
 
               {/* Tickets */}
               <div className="pb-4 border-b border-mono-dark-grey mb-4">
-                <div className="text-sm text-mono-light-grey uppercase tracking-widest mb-2">Tickets ({event.seats.length})</div>
+                <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-2">Tickets ({event.seats.length})</div>
                 {event.seats.map((seat) => (
-                  <div key={seat.id} className="flex justify-between text-sm mb-1">
+                  <div key={seat.id} className="flex justify-between text-xs md:text-sm mb-1">
                     <span className="text-[#CCCCCC]">{seat.label}</span>
                     <span className="text-white">IDR {(total / event.seats.length).toLocaleString('id-ID')}</span>
                   </div>
@@ -501,7 +520,7 @@ function CheckoutContent() {
               </div>
 
               {/* Total */}
-              <div className="flex justify-between text-lg font-bold">
+              <div className="flex justify-between text-base md:text-lg font-bold">
                 <span className="text-white uppercase">Total</span>
                 <span className="text-white">IDR {total.toLocaleString('id-ID')}</span>
               </div>
@@ -509,15 +528,15 @@ function CheckoutContent() {
               {/* Trust Badges */}
               <div className="mt-6 pt-4 border-t border-mono-dark-grey space-y-3">
                 <div className="flex items-center gap-3 text-xs text-[#CCCCCC]">
-                  <Shield className="w-4 h-4 text-green-500" />
+                  <Shield className="w-4 h-4 text-green-500" aria-hidden="true" />
                   <span>SSL Encrypted</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-[#CCCCCC]">
-                  <Lock className="w-4 h-4 text-green-500" />
+                  <Lock className="w-4 h-4 text-green-500" aria-hidden="true" />
                   <span>Secure Payment</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-[#CCCCCC]">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <CheckCircle className="w-4 h-4 text-green-500" aria-hidden="true" />
                   <span>Official Tickets</span>
                 </div>
               </div>
@@ -534,7 +553,7 @@ function CheckoutLoading() {
   return (
     <main className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
       <div className="text-center">
-        <div className="w-16 h-16 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" />
+        <div className="w-16 h-16 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" aria-hidden="true" />
         <p className="uppercase tracking-widest">Loading Checkout...</p>
       </div>
     </main>

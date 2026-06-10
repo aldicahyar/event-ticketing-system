@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowRight, Calendar, Filter, MapPin, Clock } from 'lucide-react';
+import { ArrowRight, Calendar, Filter, MapPin } from 'lucide-react';
 import { IndustrialBadge } from '@/components/ui/industrial-components';
 import Link from 'next/link';
 
-// Mock Data - Metalcore/Alternative/Post-Hardcore Artists - 2026 Dates
 const EVENTS = [
   {
     id: '1',
@@ -79,7 +78,7 @@ export const EventList = () => {
   const [filter, setFilter] = useState('All');
   const [sortBy, setSortBy] = useState('Date');
 
-  const filteredEvents = EVENTS.filter(event => 
+  const filteredEvents = EVENTS.filter(event =>
     filter === 'All' ? true : event.genre === filter
   ).sort((a, b) => {
     if (sortBy === 'Date') return new Date(a.date).getTime() - new Date(b.date).getTime();
@@ -88,22 +87,27 @@ export const EventList = () => {
   });
 
   return (
-    <section className="bg-black py-20 border-t border-mono-dark-grey relative z-20">
-      <div className="container mx-auto px-6">
-        
+    <section
+      className="bg-black py-12 md:py-20 border-t border-mono-dark-grey relative z-20"
+      aria-labelledby="upcoming-tours-heading"
+    >
+      <div className="container mx-auto px-4 md:px-6">
+
         {/* Header & Filters */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-4 md:gap-6">
           <div>
-            <h2 className="font-display font-bold text-4xl uppercase text-white mb-2">Upcoming Tours</h2>
-            <p className="text-mono-light-grey uppercase tracking-widest text-sm">// SECURE_YOUR_SPOT</p>
+            <h2 id="upcoming-tours-heading" className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase text-white mb-2">Upcoming Tours</h2>
+            <p className="text-mono-light-grey uppercase tracking-widest text-xs sm:text-sm">// SECURE_YOUR_SPOT</p>
           </div>
 
-          <div className="flex gap-4">
-            <div className="relative group">
-              <select 
+          <div className="flex gap-3 md:gap-4 w-full md:w-auto">
+            <div className="relative group flex-1 md:flex-initial">
+              <label htmlFor="genre-filter" className="sr-only">Filter by genre</label>
+              <select
+                id="genre-filter"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="appearance-none bg-black border border-white text-white px-4 py-2 pr-8 rounded-none font-mono text-sm uppercase focus:outline-none cursor-pointer hover:bg-white hover:text-black transition-colors"
+                className="appearance-none w-full md:w-auto bg-black border border-white text-white px-4 py-3 md:py-2 pr-8 rounded-none font-mono text-sm uppercase focus:outline-none focus-visible:outline-2 focus-visible:outline-white cursor-pointer hover:bg-white hover:text-black transition-colors min-h-touch"
               >
                 <option value="All">All Genres</option>
                 <option value="Metalcore">Metalcore</option>
@@ -111,28 +115,32 @@ export const EventList = () => {
                 <option value="Progressive Metalcore">Progressive</option>
                 <option value="Melodic Hardcore">Melodic</option>
               </select>
-              <Filter className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none mix-blend-difference" />
+              <Filter className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none mix-blend-difference" aria-hidden="true" />
             </div>
 
-            <select 
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="appearance-none bg-black border border-white text-white px-4 py-2 rounded-none font-mono text-sm uppercase focus:outline-none cursor-pointer hover:bg-white hover:text-black transition-colors"
-            >
-              <option value="Date">Sort by Date</option>
-              <option value="Price">Sort by Price</option>
-            </select>
+            <div className="flex-1 md:flex-initial">
+              <label htmlFor="sort-select" className="sr-only">Sort events</label>
+              <select
+                id="sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="appearance-none w-full md:w-auto bg-black border border-white text-white px-4 py-3 md:py-2 rounded-none font-mono text-sm uppercase focus:outline-none focus-visible:outline-2 focus-visible:outline-white cursor-pointer hover:bg-white hover:text-black transition-colors min-h-touch"
+              >
+                <option value="Date">Sort by Date</option>
+                <option value="Price">Sort by Price</option>
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           {filteredEvents.map((event) => (
-            <div key={event.id} className="group border border-mono-dark-grey hover:border-white transition-colors duration-300 bg-black flex flex-col h-full">
+            <article key={event.id} className="group border border-mono-dark-grey hover:border-white transition-colors duration-300 bg-black flex flex-col h-full">
               {/* Image Container */}
               <div className="relative aspect-[16/9] overflow-hidden scanline">
-                <img 
-                  src={event.image} 
+                <img
+                  src={event.image}
                   alt={event.artist}
                   className="w-full h-full object-cover grayscale contrast-125 group-hover:grayscale-0 transition-all duration-500"
                   loading="lazy"
@@ -143,9 +151,9 @@ export const EventList = () => {
                   </IndustrialBadge>
                 </div>
                 {event.ticketsLeft < 20 && (
-                   <div className="absolute bottom-0 left-0 w-full bg-white text-black text-xs font-bold uppercase py-1 px-2 text-center animate-pulse">
-                     Only {event.ticketsLeft} tickets left
-                   </div>
+                  <div className="absolute bottom-0 left-0 w-full bg-white text-black text-xs font-bold uppercase py-1 px-2 text-center animate-pulse" role="alert">
+                    Only {event.ticketsLeft} tickets left
+                  </div>
                 )}
               </div>
 
@@ -153,44 +161,46 @@ export const EventList = () => {
               <div className="p-4 flex flex-col flex-grow justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 text-mono-light-grey text-xs mb-2">
-                    <Calendar className="w-3 h-3" />
-                    <span>{new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}</span>
-                    <span className="text-mono-dark-grey">|</span>
-                    <MapPin className="w-3 h-3" />
+                    <Calendar className="w-3 h-3" aria-hidden="true" />
+                    <time dateTime={event.date}>
+                      {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}
+                    </time>
+                    <span className="text-mono-dark-grey" aria-hidden="true">|</span>
+                    <MapPin className="w-3 h-3" aria-hidden="true" />
                     <span>{event.venue}</span>
                   </div>
-                  <h3 className="font-display font-bold text-xl uppercase text-white leading-none mb-2">{event.artist}</h3>
-                  
+                  <h3 className="font-display font-bold text-lg sm:text-xl uppercase text-white leading-none mb-2">{event.artist}</h3>
+
                   {/* Status Badge */}
                   <div className="flex items-center gap-2 mb-2">
                     <IndustrialBadge className={
-                      event.status === 'last_tickets' 
-                        ? 'bg-red-600 text-white border-red-600' 
+                      event.status === 'last_tickets'
+                        ? 'bg-red-600 text-white border-red-600'
                         : event.status === 'selling_fast'
                         ? 'bg-orange-600 text-white border-orange-600'
                         : 'bg-white text-black border-white'
                     }>
-                      {event.status === 'last_tickets' ? 'SELLING FAST' : 
-                       event.status === 'selling_fast' ? 'LIMITED TICKETS' : 
+                      {event.status === 'last_tickets' ? 'SELLING FAST' :
+                       event.status === 'selling_fast' ? 'LIMITED TICKETS' :
                        'AVAILABLE'}
                     </IndustrialBadge>
                     <span className="text-xs text-mono-light-grey">
-                      {event.ticketsLeft < 50 
-                        ? `${event.ticketsLeft} left` 
+                      {event.ticketsLeft < 50
+                        ? `${event.ticketsLeft} left`
                         : `${event.ticketsLeft.toLocaleString()} tickets`}
                     </span>
                   </div>
-                  
+
                   <p className="text-sm text-white font-bold">IDR {event.price.toLocaleString('id-ID')}</p>
                 </div>
 
-                <Link href={`/events/${event.id}`} className="block">
-                  <button className="w-full h-10 bg-white text-black border border-white font-bold uppercase tracking-wider text-sm hover:bg-black hover:text-white transition-colors duration-300 flex items-center justify-center gap-2">
-                    Get Tickets <ArrowRight className="w-4 h-4" />
+                <Link href={`/events/${event.id}`} className="block" aria-label={`Get tickets for ${event.artist}`}>
+                  <button className="w-full min-h-touch bg-white text-black border border-white font-bold uppercase tracking-wider text-sm hover:bg-black hover:text-white transition-colors duration-300 flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
+                    Get Tickets <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </Link>
               </div>
-            </div>
+            </article>
           ))}
         </div>
 

@@ -74,19 +74,19 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
+      <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey" role="navigation" aria-label="Dashboard navigation">
         <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white" />
+          <Link href="/" className="flex items-center gap-2" aria-label="EventTicket home">
+            <div className="w-4 h-4 bg-white" aria-hidden="true" />
             <span className="text-xl font-display font-bold uppercase">EventTicket.</span>
           </Link>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 hover:bg-white/10 transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            <button className="relative p-2 hover:bg-white/10 transition-colors min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" aria-label="Notifications">
+              <Bell className="w-5 h-5" aria-hidden="true" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" aria-hidden="true" />
             </button>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center" aria-hidden="true">
                 <User className="w-4 h-4 text-black" />
               </div>
               <span className="text-sm font-bold uppercase hidden md:block">
@@ -97,58 +97,88 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 md:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
           
-          {/* Sidebar */}
+          {/* Sidebar - horizontal scroll on mobile, vertical on desktop */}
           <div className="lg:col-span-1">
-            <div className="bg-black border border-mono-dark-grey p-4 sticky top-24">
-              <nav className="space-y-1">
-                {DASHBOARD_LINKS.map((link) => {
-                  const isActive = pathname === link.href;
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`flex items-center gap-3 px-4 py-3 transition-all ${
-                        isActive 
-                          ? 'bg-white text-black' 
-                          : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white'
-                      }`}
-                    >
-                      <link.icon className="w-5 h-5" />
-                      <span className="font-bold uppercase text-sm">{link.label}</span>
-                    </Link>
-                  );
-                })}
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all">
-                  <LogOut className="w-5 h-5" />
-                  <span className="font-bold uppercase text-sm">Sign Out</span>
-                </button>
-              </nav>
+            {/* Mobile: horizontal tabs */}
+            <div className="flex overflow-x-auto gap-2 mb-6 lg:mb-0 lg:flex-col lg:overflow-visible -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-none">
+              {DASHBOARD_LINKS.map((link) => {
+                const isActive = pathname === link.href;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`whitespace-nowrap min-h-touch px-4 py-3 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
+                      isActive 
+                        ? 'bg-white text-black' 
+                        : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white border border-mono-dark-grey lg:border-0'
+                    }`}
+                  >
+                    <link.icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                    <span className="font-bold uppercase text-sm">{link.label}</span>
+                  </Link>
+                );
+              })}
+              <button className="whitespace-nowrap min-h-touch px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 border border-mono-dark-grey lg:border-0">
+                <LogOut className="w-5 h-5 shrink-0" aria-hidden="true" />
+                <span className="font-bold uppercase text-sm">Sign Out</span>
+              </button>
+            </div>
+
+            {/* Desktop: sticky sidebar (hidden on mobile, shown on lg+) */}
+            <div className="hidden lg:block">
+              <div className="bg-black border border-mono-dark-grey p-4 sticky top-24">
+                <nav className="space-y-1" aria-label="Dashboard sidebar">
+                  {DASHBOARD_LINKS.map((link) => {
+                    const isActive = pathname === link.href;
+                    return (
+                      <Link
+                        key={`sidebar-${link.href}`}
+                        href={link.href}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`flex items-center gap-3 px-4 py-3 transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
+                          isActive 
+                            ? 'bg-white text-black' 
+                            : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <link.icon className="w-5 h-5" aria-hidden="true" />
+                        <span className="font-bold uppercase text-sm">{link.label}</span>
+                      </Link>
+                    );
+                  })}
+                  <button className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" aria-label="Sign out of your account">
+                    <LogOut className="w-5 h-5" aria-hidden="true" />
+                    <span className="font-bold uppercase text-sm">Sign Out</span>
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-3 space-y-8">
+          <div className="lg:col-span-3 space-y-6 md:space-y-8">
             
             {/* Greeting */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <h1 className="font-display font-bold text-4xl uppercase text-white mb-2">
+              <h1 className="font-display font-bold text-2xl md:text-4xl uppercase text-white mb-2">
                 {greeting}, <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }}>
                   {USER.firstName}
                 </span>
               </h1>
-              <p className="text-mono-light-grey uppercase tracking-widest text-sm">
+              <p className="text-mono-light-grey uppercase tracking-widest text-xs md:text-sm">
                 // WELCOME_BACK
               </p>
             </motion.div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
               {[
                 { label: 'Total Orders', value: USER.totalOrders, icon: CreditCard },
                 { label: 'Tickets Bought', value: '24', icon: Ticket },
@@ -160,13 +190,13 @@ export default function DashboardPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-black border border-mono-dark-grey p-4 hover:border-white transition-colors"
+                  className="bg-black border border-mono-dark-grey p-3 md:p-4 hover:border-white transition-colors"
                 >
-                  <stat.icon className="w-6 h-6 text-white mb-3" />
-                  <div className="text-2xl font-display font-bold text-white mb-1">
+                  <stat.icon className="w-5 h-5 md:w-6 md:h-6 text-white mb-2 md:mb-3" aria-hidden="true" />
+                  <div className="text-xl md:text-2xl font-display font-bold text-white mb-1">
                     {stat.value}
                   </div>
-                  <div className="text-xs text-mono-light-grey uppercase tracking-widest">
+                  <div className="text-[10px] md:text-xs text-mono-light-grey uppercase tracking-widest">
                     {stat.label}
                   </div>
                 </motion.div>
@@ -180,40 +210,41 @@ export default function DashboardPage() {
               transition={{ delay: 0.2 }}
               className="bg-black border border-mono-dark-grey"
             >
-              <div className="p-4 border-b border-mono-dark-grey flex items-center justify-between">
-                <h2 className="font-display font-bold text-xl uppercase text-white">
+              <div className="p-3 md:p-4 border-b border-mono-dark-grey flex items-center justify-between">
+                <h2 className="font-display font-bold text-lg md:text-xl uppercase text-white">
                   Recent Orders
                 </h2>
-                <Link href="/dashboard/orders" className="text-xs text-white hover:underline uppercase">
+                <Link href="/dashboard/orders" className="text-xs text-white hover:underline uppercase focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
                   View All
                 </Link>
               </div>
               <div className="divide-y divide-mono-dark-grey">
                 {RECENT_ORDERS.slice(0, 3).map((order) => (
-                  <div key={order.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/10 flex items-center justify-center">
-                        <Ticket className="w-6 h-6 text-white" />
+                  <div key={order.id} className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-white/5 transition-colors gap-3 sm:gap-4">
+                    <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                      <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center shrink-0" aria-hidden="true">
+                        <Ticket className="w-5 h-5 md:w-6 md:h-6 text-white" />
                       </div>
-                      <div>
-                        <div className="font-bold uppercase text-white">{order.event}</div>
+                      <div className="min-w-0">
+                        <div className="font-bold uppercase text-white text-sm md:text-base truncate">{order.event}</div>
                         <div className="text-xs text-mono-light-grey">
-                          {order.id} • {new Date(order.date).toLocaleDateString()}
+                          {order.id} &middot; {new Date(order.date).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="font-bold text-white">IDR {order.total.toLocaleString()}</div>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+                      <div className="text-left sm:text-right">
+                        <div className="font-bold text-white text-sm">IDR {order.total.toLocaleString()}</div>
                         <div className="text-xs text-mono-light-grey">
                           {order.tickets} ticket{order.tickets > 1 ? 's' : ''}
                         </div>
                       </div>
                       <Link 
                         href={`/dashboard/my-tickets/${order.id}`}
-                        className="p-2 border border-mono-dark-grey hover:border-white transition-colors"
+                        className="p-2 border border-mono-dark-grey hover:border-white transition-colors min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                        aria-label={`View order ${order.id}`}
                       >
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
@@ -228,29 +259,29 @@ export default function DashboardPage() {
               transition={{ delay: 0.3 }}
               className="bg-black border border-mono-dark-grey"
             >
-              <div className="p-4 border-b border-mono-dark-grey">
-                <h2 className="font-display font-bold text-xl uppercase text-white">
+              <div className="p-3 md:p-4 border-b border-mono-dark-grey">
+                <h2 className="font-display font-bold text-lg md:text-xl uppercase text-white">
                   Upcoming Events
                 </h2>
               </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-3 md:p-4 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {RECENT_ORDERS.filter(o => o.status === 'upcoming').map((order) => (
-                  <div key={order.id} className="bg-white/5 p-4 border border-mono-dark-grey">
+                  <div key={order.id} className="bg-white/5 p-3 md:p-4 border border-mono-dark-grey">
                     <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="font-display font-bold uppercase text-white mb-1">
+                      <div className="min-w-0 mr-2">
+                        <div className="font-display font-bold uppercase text-white text-sm md:text-base mb-1 truncate">
                           {order.event}
                         </div>
                         <div className="text-xs text-mono-light-grey">
                           {order.venue}
                         </div>
                       </div>
-                      <span className="px-2 py-1 bg-white text-black text-xs font-bold uppercase">
+                      <span className="px-2 py-1 bg-white text-black text-xs font-bold uppercase shrink-0">
                         Upcoming
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-[#CCCCCC] mb-3">
-                      <Calendar className="w-4 h-4" />
+                    <div className="flex items-center gap-2 text-xs md:text-sm text-[#CCCCCC] mb-3">
+                      <Calendar className="w-3 h-3 md:w-4 md:h-4 shrink-0" aria-hidden="true" />
                       {new Date(order.date).toLocaleDateString('en-GB', { 
                         day: 'numeric', 
                         month: 'long', 
@@ -259,9 +290,9 @@ export default function DashboardPage() {
                     </div>
                     <Link 
                       href={`/events/${order.id}`}
-                      className="text-xs text-white hover:underline uppercase"
+                      className="text-xs text-white hover:underline uppercase focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                     >
-                      View Event Details →
+                      View Event Details &rarr;
                     </Link>
                   </div>
                 ))}
@@ -273,25 +304,25 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-gradient-to-br from-white to-[#CCCCCC] text-black p-6 border border-white"
+              className="bg-gradient-to-br from-white to-[#CCCCCC] text-black p-4 md:p-6 border border-white"
             >
-              <div className="flex items-start justify-between mb-6">
+              <div className="flex items-start justify-between mb-4 md:mb-6">
                 <div>
                   <div className="text-xs uppercase tracking-widest mb-1">Member Since</div>
-                  <div className="font-display font-bold text-2xl">
+                  <div className="font-display font-bold text-lg md:text-2xl">
                     {new Date(USER.memberSince).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                   </div>
                 </div>
-                <Shield className="w-10 h-10 opacity-50" />
+                <Shield className="w-8 h-8 md:w-10 md:h-10 opacity-50" aria-hidden="true" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-widest mb-1">Loyalty Points</div>
-                  <div className="font-display font-bold text-3xl">{USER.loyaltyPoints.toLocaleString()}</div>
+                  <div className="font-display font-bold text-2xl md:text-3xl">{USER.loyaltyPoints.toLocaleString()}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs uppercase tracking-widest mb-1">Member Status</div>
-                  <div className="font-bold uppercase text-lg">Gold Member</div>
+                  <div className="font-bold uppercase text-base md:text-lg">Gold Member</div>
                 </div>
               </div>
             </motion.div>

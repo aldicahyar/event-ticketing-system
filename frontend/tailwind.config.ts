@@ -64,6 +64,16 @@ module.exports = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        none: '0px',
+      },
+      screens: {
+        'xs': '475px',
+      },
+      minWidth: {
+        'touch': '44px',
+      },
+      minHeight: {
+        'touch': '44px',
       },
       keyframes: {
         'accordion-down': {

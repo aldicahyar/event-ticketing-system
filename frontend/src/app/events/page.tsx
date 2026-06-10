@@ -8,6 +8,7 @@ import {
   Clock, ArrowRight, Users, TrendingUp
 } from 'lucide-react';
 import { IndustrialBadge } from '@/components/ui/industrial-components';
+import { Navbar } from '@/components/layout/Navbar';
 
 // Events Data
 const EVENTS = [
@@ -135,32 +136,17 @@ export default function EventsPage() {
     }
   };
 
+  const formatEventDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+
   return (
     <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
-        <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white" />
-            <span className="text-xl font-display font-bold uppercase">EventTicket.</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/events" className="text-sm font-semibold uppercase text-white hover:text-[#CCCCCC]">
-              Events
-            </Link>
-            <Link href="/lineup" className="text-sm font-semibold uppercase text-[#CCCCCC] hover:text-white">
-              Lineup
-            </Link>
-            <Link href="/auth/login" className="text-sm font-semibold uppercase text-white">
-              Login
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar links={[{ href: '/events', label: 'Events', active: true }, { href: '/lineup', label: 'Lineup' }]} />
 
       {/* Hero Section */}
-      <section className="relative py-16 md:py-24 border-b border-mono-dark-grey overflow-hidden">
+      <section aria-label="Events hero" className="relative py-16 md:py-24 border-b border-mono-dark-grey overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
         <div className="container mx-auto px-4 md:px-6 relative z-10">
           <motion.div
@@ -168,8 +154,9 @@ export default function EventsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-2xl mx-auto"
           >
-            <h1 className="font-display font-bold text-4xl md:text-6xl uppercase text-white mb-4">
-              Upcoming <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }}>Events</span>
+            <h1 id="events-heading" className="font-display font-bold text-4xl md:text-6xl uppercase text-white mb-4">
+              Upcoming <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }} aria-hidden="true">Events</span>
+              <span className="sr-only">Events</span>
             </h1>
             <p className="text-mono-light-grey uppercase tracking-widest text-sm">
               // SECURE_YOUR_SPOT_NOW
@@ -181,7 +168,7 @@ export default function EventsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="flex flex-wrap justify-center gap-8 mt-8"
+            className="flex flex-wrap justify-center gap-4 md:gap-8 mt-8"
           >
             {[
               { icon: Ticket, label: 'Total Events', value: EVENTS.length },
@@ -190,10 +177,10 @@ export default function EventsPage() {
               { icon: Calendar, label: 'Cities', value: '5+' }
             ].map((stat) => (
               <div key={stat.label} className="flex items-center gap-2">
-                <stat.icon className="w-5 h-5 text-white" />
+                <stat.icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                 <div className="text-left">
-                  <div className="text-xl font-display font-bold text-white">{stat.value}</div>
-                  <div className="text-[10px] text-mono-light-grey uppercase tracking-widest">{stat.label}</div>
+                  <div className="text-lg md:text-xl font-display font-bold text-white">{stat.value}</div>
+                  <div className="text-[9px] md:text-[10px] text-mono-light-grey uppercase tracking-widest">{stat.label}</div>
                 </div>
               </div>
             ))}
@@ -202,7 +189,7 @@ export default function EventsPage() {
       </section>
 
       {/* Filters & Content */}
-      <section className="py-8">
+      <section aria-labelledby="events-heading" className="py-8">
         <div className="container mx-auto px-4 md:px-6">
           
           {/* Filters */}
@@ -213,12 +200,12 @@ export default function EventsPage() {
             className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
           >
             {/* Genre Filter */}
-            <div className="flex flex-wrap gap-2">
+            <div role="group" aria-label="Filter by genre" className="flex gap-2 overflow-x-auto scrollbar-none pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap">
               {GENRES.map((genre) => (
                 <button
                   key={genre}
                   onClick={() => setFilter(genre)}
-                  className={`px-4 py-2 text-sm font-bold uppercase tracking-wide border transition-all ${
+                  className={`flex-shrink-0 px-3 py-2.5 md:px-4 md:py-2 text-xs md:text-sm font-bold uppercase tracking-wide border transition-all min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
                     filter === genre
                       ? 'bg-white text-black border-white'
                       : 'bg-black text-[#CCCCCC] border-mono-dark-grey hover:border-white'
@@ -231,11 +218,13 @@ export default function EventsPage() {
 
             {/* Sort */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-mono-light-grey uppercase tracking-widest">Sort by:</span>
+              <label htmlFor="sort-events" className="sr-only">Sort events</label>
+              <span className="text-xs text-mono-light-grey uppercase tracking-widest hidden md:inline" aria-hidden="true">Sort by:</span>
               <select
+                id="sort-events"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-black border border-white text-white px-4 py-2 text-sm font-bold uppercase focus:outline-none cursor-pointer"
+                className="bg-black border border-white text-white px-4 py-2 text-sm font-bold uppercase focus:outline-none focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 cursor-pointer min-h-[44px]"
               >
                 <option value="date">Date</option>
                 <option value="price">Price</option>
@@ -247,18 +236,19 @@ export default function EventsPage() {
           {/* Events Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredEvents.map((event, index) => (
-              <motion.div
+              <motion.article
                 key={event.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 * (index + 1) }}
+                aria-label={event.artist}
                 className="group bg-black border border-mono-dark-grey hover:border-white transition-all duration-300 flex flex-col h-full"
               >
                 {/* Image */}
                 <div className="relative aspect-[16/9] overflow-hidden scanline">
                   <img 
                     src={event.image} 
-                    alt={event.artist}
+                    alt={`${event.artist} concert`}
                     className="w-full h-full object-cover grayscale contrast-125 group-hover:grayscale-0 group-hover:scale-105 transition-all duration-500"
                   />
                   <div className="absolute top-3 left-3">
@@ -275,8 +265,8 @@ export default function EventsPage() {
                 <div className="p-4 flex flex-col flex-grow justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 text-mono-light-grey text-xs mb-2">
-                      <Calendar className="w-3 h-3" />
-                      <span>{new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}</span>
+                      <Calendar className="w-3 h-3" aria-hidden="true" />
+                      <time dateTime={event.date}>{formatEventDate(event.date)}</time>
                     </div>
                     <h3 className="font-display font-bold text-lg uppercase text-white leading-none mb-2 group-hover:text-white">
                       {event.artist}
@@ -285,7 +275,7 @@ export default function EventsPage() {
                       {event.tour}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-[#CCCCCC]">
-                      <MapPin className="w-3 h-3" />
+                      <MapPin className="w-3 h-3" aria-hidden="true" />
                       <span className="truncate">{event.venue}</span>
                     </div>
                   </div>
@@ -299,20 +289,20 @@ export default function EventsPage() {
                       </div>
                     </div>
                     <Link href={`/events/${event.id}`}>
-                      <button className="px-4 py-2 bg-white text-black border border-white font-bold uppercase text-xs tracking-wide hover:bg-black hover:text-white transition-colors flex items-center gap-1">
-                        Get Tickets <ArrowRight className="w-3 h-3" />
+                      <button className="px-4 py-2 bg-white text-black border border-white font-bold uppercase text-xs tracking-wide hover:bg-black hover:text-white transition-colors flex items-center gap-1 min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
+                        Get Tickets <ArrowRight className="w-3 h-3" aria-hidden="true" />
                       </button>
                     </Link>
                   </div>
                 </div>
-              </motion.div>
+              </motion.article>
             ))}
           </div>
 
           {/* Empty State */}
           {filteredEvents.length === 0 && (
-            <div className="text-center py-16 border border-mono-dark-grey">
-              <Ticket className="w-16 h-16 text-mono-dark-grey mx-auto mb-4" />
+            <div role="alert" className="text-center py-16 border border-mono-dark-grey">
+              <Ticket className="w-16 h-16 text-mono-dark-grey mx-auto mb-4" aria-hidden="true" />
               <h3 className="font-display font-bold text-2xl uppercase text-white mb-2">
                 No Events Found
               </h3>
@@ -321,7 +311,7 @@ export default function EventsPage() {
               </p>
               <button
                 onClick={() => setFilter('All')}
-                className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide"
+                className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               >
                 View All Events
               </button>
@@ -334,15 +324,16 @@ export default function EventsPage() {
       {/* CTA Section */}
       <section className="py-16 border-t border-mono-dark-grey">
         <div className="container mx-auto px-4 md:px-6 text-center">
-          <h2 className="font-display font-bold text-3xl md:text-4xl uppercase text-white mb-4">
-            Don't Miss the <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }}>Tour</span>
+          <h2 className="font-display font-bold text-2xl md:text-3xl lg:text-4xl uppercase text-white mb-4">
+            Don&apos;t Miss the <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }} aria-hidden="true">Tour</span>
+            <span className="sr-only">Tour</span>
           </h2>
           <p className="text-mono-light-grey uppercase tracking-widest text-sm mb-8 max-w-md mx-auto">
             Subscribe to get pre-sale access and exclusive updates
           </p>
           <Link 
             href="/lineup"
-            className="inline-block px-8 py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300"
+            className="inline-block px-8 py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
           >
             View Full Lineup
           </Link>
@@ -353,7 +344,7 @@ export default function EventsPage() {
       <footer className="border-t border-mono-dark-grey py-8">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-mono-light-grey">
-            <p>© 2024 EventTicket. All rights reserved.</p>
+            <p>&copy; 2024 EventTicket. All rights reserved.</p>
             <div className="flex gap-6">
               <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

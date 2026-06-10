@@ -1,0 +1,307 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - navigation "Main navigation" [ref=e3]:
+      - generic [ref=e4]:
+        - link "EventTicket home" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - text: EventTicket.
+        - generic [ref=e6]:
+          - link "Events" [ref=e7] [cursor=pointer]:
+            - /url: /events
+          - link "Lineup" [ref=e8] [cursor=pointer]:
+            - /url: /lineup
+          - link "Login" [ref=e9] [cursor=pointer]:
+            - /url: /auth/login
+        - button "Open menu" [ref=e10]:
+          - img [ref=e11]
+    - region "Help" [ref=e12]:
+      - generic [ref=e13]:
+        - heading "Help" [level=1] [ref=e14]: Help Center
+        - paragraph [ref=e15]: // FIND_ANSWERS_FAST
+        - generic [ref=e16]:
+          - text: Search help articles
+          - img [ref=e17]
+          - searchbox "Search help articles" [ref=e20]
+    - generic [ref=e23]:
+      - button "All Topics" [ref=e24]
+      - button "Getting Started" [ref=e25]:
+        - img [ref=e26]
+        - text: Getting Started
+      - button "Tickets & Booking" [ref=e31]:
+        - img [ref=e32]
+        - text: Tickets & Booking
+      - button "Account & Security" [ref=e34]:
+        - img [ref=e35]
+        - text: Account & Security
+      - button "Events" [ref=e37]:
+        - img [ref=e38]
+        - text: Events
+      - button "Payment & Refunds" [ref=e40]:
+        - img [ref=e41]
+        - text: Payment & Refunds
+    - generic [ref=e44]:
+      - complementary "Help categories" [ref=e45]:
+        - generic [ref=e46]:
+          - heading "Categories" [level=2] [ref=e47]
+          - navigation [ref=e48]:
+            - button "All Topics" [ref=e49]
+            - button "Getting Started" [ref=e50]:
+              - img [ref=e51]
+              - text: Getting Started
+            - button "Tickets & Booking" [ref=e56]:
+              - img [ref=e57]
+              - text: Tickets & Booking
+            - button "Account & Security" [ref=e59]:
+              - img [ref=e60]
+              - text: Account & Security
+            - button "Events" [ref=e62]:
+              - img [ref=e63]
+              - text: Events
+            - button "Payment & Refunds" [ref=e65]:
+              - img [ref=e66]
+              - text: Payment & Refunds
+          - generic [ref=e68]:
+            - heading "Need More Help?" [level=3] [ref=e69]
+            - link "Contact Support" [ref=e70] [cursor=pointer]:
+              - /url: /contact
+              - img [ref=e71]
+              - text: Contact Support
+      - generic [ref=e75]:
+        - article [ref=e76]:
+          - generic [ref=e77]:
+            - generic [ref=e78]:
+              - img [ref=e79]
+              - generic [ref=e84]:
+                - heading "Creating Your Account" [level=3] [ref=e85]
+                - paragraph [ref=e86]: Learn how to sign up and set up your EventTicket account in minutes.
+            - button "Read Creating Your Account" [ref=e87]:
+              - text: Read Article
+              - img [ref=e88]
+        - article [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - img [ref=e93]
+              - generic [ref=e98]:
+                - heading "Buying Your First Ticket" [level=3] [ref=e99]
+                - paragraph [ref=e100]: Step-by-step guide to purchasing your first event ticket.
+            - button "Read Buying Your First Ticket" [ref=e101]:
+              - text: Read Article
+              - img [ref=e102]
+        - article [ref=e104]:
+          - generic [ref=e105]:
+            - generic [ref=e106]:
+              - img [ref=e107]
+              - generic [ref=e112]:
+                - heading "Navigating the Platform" [level=3] [ref=e113]
+                - paragraph [ref=e114]: Overview of the EventTicket interface and main features.
+            - button "Read Navigating the Platform" [ref=e115]:
+              - text: Read Article
+              - img [ref=e116]
+        - article [ref=e118]:
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - img [ref=e121]
+              - generic [ref=e123]:
+                - heading "How to Select Seats" [level=3] [ref=e124]
+                - paragraph [ref=e125]: Understanding the seat map and choosing the best seats for your event.
+            - button "Read How to Select Seats" [ref=e126]:
+              - text: Read Article
+              - img [ref=e127]
+        - article [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - img [ref=e132]
+              - generic [ref=e134]:
+                - heading "Payment Methods" [level=3] [ref=e135]
+                - paragraph [ref=e136]: Available payment options and how to complete your purchase.
+            - button "Read Payment Methods" [ref=e137]:
+              - text: Read Article
+              - img [ref=e138]
+        - article [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]:
+              - img [ref=e143]
+              - generic [ref=e145]:
+                - heading "Understanding Ticket Tiers" [level=3] [ref=e146]
+                - paragraph [ref=e147]: Differences between VIP, Premium, Standard, and Economy tickets.
+            - button "Read Understanding Ticket Tiers" [ref=e148]:
+              - text: Read Article
+              - img [ref=e149]
+        - article [ref=e151]:
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - img [ref=e154]
+              - generic [ref=e156]:
+                - heading "Resetting Your Password" [level=3] [ref=e157]
+                - paragraph [ref=e158]: How to recover your account if you forget your password.
+            - button "Read Resetting Your Password" [ref=e159]:
+              - text: Read Article
+              - img [ref=e160]
+        - article [ref=e162]:
+          - generic [ref=e163]:
+            - generic [ref=e164]:
+              - img [ref=e165]
+              - generic [ref=e167]:
+                - heading "Setting Up Two-Factor Authentication" [level=3] [ref=e168]
+                - paragraph [ref=e169]: Add an extra layer of security to your account with 2FA.
+            - button "Read Setting Up Two-Factor Authentication" [ref=e170]:
+              - text: Read Article
+              - img [ref=e171]
+        - article [ref=e173]:
+          - generic [ref=e174]:
+            - generic [ref=e175]:
+              - img [ref=e176]
+              - generic [ref=e178]:
+                - heading "Updating Profile Information" [level=3] [ref=e179]
+                - paragraph [ref=e180]: How to edit your personal details and preferences.
+            - button "Read Updating Profile Information" [ref=e181]:
+              - text: Read Article
+              - img [ref=e182]
+        - article [ref=e184]:
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - img [ref=e187]
+              - generic [ref=e189]:
+                - heading "Finding Events" [level=3] [ref=e190]
+                - paragraph [ref=e191]: Tips for discovering events that match your interests.
+            - button "Read Finding Events" [ref=e192]:
+              - text: Read Article
+              - img [ref=e193]
+        - article [ref=e195]:
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - img [ref=e198]
+              - generic [ref=e200]:
+                - heading "Understanding Event Details" [level=3] [ref=e201]
+                - paragraph [ref=e202]: What to know before attending an event.
+            - button "Read Understanding Event Details" [ref=e203]:
+              - text: Read Article
+              - img [ref=e204]
+        - article [ref=e206]:
+          - generic [ref=e207]:
+            - generic [ref=e208]:
+              - img [ref=e209]
+              - generic [ref=e211]:
+                - heading "Refund Policy" [level=3] [ref=e212]
+                - paragraph [ref=e213]: When and how refunds are issued for ticket purchases.
+            - button "Read Refund Policy" [ref=e214]:
+              - text: Read Article
+              - img [ref=e215]
+    - contentinfo [ref=e217]:
+      - generic [ref=e220]:
+        - generic [ref=e221]:
+          - heading "Stay in the Loop" [level=3] [ref=e222]
+          - paragraph [ref=e223]: // GET EXCLUSIVE ACCESS TO NEW TOURS AND PRE-SALE
+        - form "Newsletter subscription" [ref=e224]:
+          - generic [ref=e225]:
+            - text: Email address
+            - img [ref=e226]
+            - textbox "Email address" [ref=e229]:
+              - /placeholder: Enter your email
+          - button "Subscribe" [ref=e230]:
+            - text: Subscribe
+            - img [ref=e231]
+      - generic [ref=e234]:
+        - generic [ref=e235]:
+          - link "EventTicket home" [ref=e236] [cursor=pointer]:
+            - /url: /
+            - text: EventTicket.
+          - paragraph [ref=e237]: Your official gateway to the world's best concerts and live events.
+          - generic [ref=e239]:
+            - img [ref=e240]
+            - text: SSL Secured
+        - generic [ref=e242]:
+          - heading "Events" [level=4] [ref=e243]
+          - list [ref=e244]:
+            - listitem [ref=e245]:
+              - link "Upcoming Tours" [ref=e246] [cursor=pointer]:
+                - /url: /events?filter=upcoming
+            - listitem [ref=e247]:
+              - link "Lineup" [ref=e248] [cursor=pointer]:
+                - /url: /lineup
+            - listitem [ref=e249]:
+              - link "Artists" [ref=e250] [cursor=pointer]:
+                - /url: /lineup
+            - listitem [ref=e251]:
+              - link "Venues" [ref=e252] [cursor=pointer]:
+                - /url: /venues
+        - generic [ref=e253]:
+          - heading "Support" [level=4] [ref=e254]
+          - list [ref=e255]:
+            - listitem [ref=e256]:
+              - link "Help Center" [ref=e257] [cursor=pointer]:
+                - /url: /help
+            - listitem [ref=e258]:
+              - link "Contact Us" [ref=e259] [cursor=pointer]:
+                - /url: /contact
+            - listitem [ref=e260]:
+              - link "FAQs" [ref=e261] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e262]:
+              - link "Refund Policy" [ref=e263] [cursor=pointer]:
+                - /url: /refund
+        - generic [ref=e264]:
+          - heading "Company" [level=4] [ref=e265]
+          - list [ref=e266]:
+            - listitem [ref=e267]:
+              - link "About Us" [ref=e268] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e269]:
+              - link "Careers" [ref=e270] [cursor=pointer]:
+                - /url: /careers
+            - listitem [ref=e271]:
+              - link "Press" [ref=e272] [cursor=pointer]:
+                - /url: /press
+            - listitem [ref=e273]:
+              - link "Partners" [ref=e274] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e275]:
+          - heading "Legal" [level=4] [ref=e276]
+          - list [ref=e277]:
+            - listitem [ref=e278]:
+              - link "Terms of Service" [ref=e279] [cursor=pointer]:
+                - /url: /terms
+            - listitem [ref=e280]:
+              - link "Privacy Policy" [ref=e281] [cursor=pointer]:
+                - /url: /privacy
+            - listitem [ref=e282]:
+              - link "Cookie Policy" [ref=e283] [cursor=pointer]:
+                - /url: /cookies
+            - listitem [ref=e284]:
+              - link "Accessibility" [ref=e285] [cursor=pointer]:
+                - /url: /accessibility
+      - generic [ref=e288]:
+        - generic [ref=e289]:
+          - generic [ref=e290]:
+            - img [ref=e291]
+            - text: Secure Payment Methods
+          - generic [ref=e294]:
+            - generic "Visa" [ref=e295]
+            - generic "Mastercard" [ref=e296]
+            - generic "BCA" [ref=e297]
+            - generic "Mandiri" [ref=e298]
+            - generic "BNI" [ref=e299]
+            - generic "BRI" [ref=e300]
+            - generic "DANA" [ref=e301]
+            - generic "GoPay" [ref=e302]
+            - generic "OVO" [ref=e303]
+        - generic [ref=e304]:
+          - text: Follow Us
+          - generic [ref=e305]:
+            - link "Facebook" [ref=e306] [cursor=pointer]:
+              - /url: "#facebook"
+              - img [ref=e307]
+            - link "Twitter" [ref=e309] [cursor=pointer]:
+              - /url: "#twitter"
+              - img [ref=e310]
+            - link "Instagram" [ref=e312] [cursor=pointer]:
+              - /url: "#instagram"
+              - img [ref=e313]
+            - link "YouTube" [ref=e316] [cursor=pointer]:
+              - /url: "#youtube"
+              - img [ref=e317]
+      - generic [ref=e322]:
+        - paragraph [ref=e323]: © 2024 EventTicket. All rights reserved.
+        - paragraph [ref=e324]: Made with precision for metalheads worldwide.
+  - region "Notifications (F8)":
+    - list
