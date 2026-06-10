@@ -1,0 +1,260 @@
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
+
+@Injectable()
+export class RedisService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(RedisService.name);
+  private redis: Redis;
+  private redisPublisher: Redis;
+  private redisSubscriber: Redis;
+  private isConnected = false;
+  private isRedisEnabled = true;
+
+  constructor(private configService: ConfigService) {
+    this.isRedisEnabled = this.configService.get<string>('REDIS_ENABLED', 'true') === 'true';
+  }
+
+  async onModuleInit() {
+    if (!this.isRedisEnabled) {
+      this.logger.warn('⚠️ Redis is disabled. Running without caching.');
+      return;
+    }
+
+    const redisUrl = this.configService.get<string>('REDIS_URL', 'redis://localhost:6379');
+    const maxRetries = 3;
+    const retryDelay = 2000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.redis = new Redis(redisUrl, {
+          maxRetriesPerRequest: maxRetries,
+          retryStrategy: (times: number) => {
+            if (times > maxRetries) {
+              this.logger.warn('⚠️ Redis connection failed after retries. Running without caching.');
+              return null;
+            }
+            const delay = attempt * retryDelay;
+            this.logger.warn(`Redis connection attempt ${attempt} failed. Retrying in ${delay}ms...`);
+            return delay;
+          },
+          enableReadyCheck: true,
+        });
+
+        this.redisPublisher = new Redis(redisUrl, {
+          maxRetriesPerRequest: maxRetries,
+        });
+
+        this.redisSubscriber = new Redis(redisUrl, {
+          maxRetriesPerRequest: maxRetries,
+        });
+
+        this.redis.on('connect', () => {
+          this.isConnected = true;
+          this.logger.log('✅ Redis connected successfully');
+        });
+
+        this.redis.on('error', (error) => {
+          if (this.isConnected) {
+            this.logger.error('Redis connection error', error);
+            this.isConnected = false;
+          }
+        });
+
+        this.redisPublisher.on('error', (error) => {
+          this.logger.error('Redis publisher error', error);
+        });
+
+        this.redisSubscriber.on('error', (error) => {
+          this.logger.error('Redis subscriber error', error);
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            this.logger.warn('Redis connection timeout');
+            reject(new Error('Connection timeout'));
+          }, 5000);
+
+          this.redis.once('connect', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+
+          this.redis.once('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+
+        this.logger.log(`✅ Redis connected on attempt ${attempt}`);
+        return;
+      } catch (error) {
+        this.logger.error(`Redis connection attempt ${attempt} failed`, error);
+
+        if (attempt === maxRetries) {
+          this.logger.warn('⚠️ All Redis connection attempts failed. Running without caching.');
+          this.isRedisEnabled = false;
+        } else {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+      }
+    }
+  }
+
+  async onModuleDestroy() {
+    try {
+      await this.redis?.quit();
+      await this.redisPublisher?.quit();
+      await this.redisSubscriber?.quit();
+      this.logger.log('Redis disconnected');
+    } catch (error) {
+      this.logger.error('Error during Redis disconnection', error);
+    }
+  }
+
+  async get<T>(key: string): Promise<T | null> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return null;
+    }
+
+    const value = await this.redis.get(key);
+    if (!value) return null;
+
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return value as T;
+    }
+  }
+
+  async set(key: string, value: any, ttl?: number): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+
+    const serializedValue = typeof value === 'string' ? value : JSON.stringify(value);
+
+    if (ttl) {
+      await this.redis.set(key, serializedValue, 'EX', ttl);
+    } else {
+      await this.redis.set(key, serializedValue);
+    }
+  }
+
+  async del(key: string): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+    await this.redis.del(key);
+  }
+
+  async delPattern(pattern: string): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+
+    const keys = await this.redis.keys(pattern);
+    if (keys.length > 0) {
+      await this.redis.del(keys);
+    }
+  }
+
+  async incr(key: string): Promise<number> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return 0;
+    }
+    return this.redis.incr(key);
+  }
+
+  async expire(key: string, ttl: number): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+    await this.redis.expire(key, ttl);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return false;
+    }
+    const result = await this.redis.exists(key);
+    return result === 1;
+  }
+
+  async publish(channel: string, message: any): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+    await this.redisPublisher.publish(channel, JSON.stringify(message));
+  }
+
+  async subscribe(channel: string, callback: (message: any) => void): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+    await this.redisSubscriber.subscribe(channel);
+
+    this.redisSubscriber.on('message', (receivedChannel, message) => {
+      if (receivedChannel === channel) {
+        try {
+          const parsedMessage = JSON.parse(message);
+          callback(parsedMessage);
+        } catch (error) {
+          this.logger.error('Failed to parse Redis message', error);
+        }
+      }
+    });
+  }
+
+  async unsubscribe(channel: string): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+    await this.redisSubscriber.unsubscribe(channel);
+  }
+
+  async addToSet(key: string, member: string): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+    await this.redis.sadd(key, member);
+  }
+
+  async removeFromSet(key: string, member: string): Promise<void> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return;
+    }
+    await this.redis.srem(key, member);
+  }
+
+  async getSetMembers(key: string): Promise<string[]> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return [];
+    }
+    return this.redis.smembers(key);
+  }
+
+  async isSetMember(key: string, member: string): Promise<boolean> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return false;
+    }
+    const result = await this.redis.sismember(key, member);
+    return result === 1;
+  }
+
+  getClient(): Redis | null {
+    return this.isRedisEnabled && this.isConnected ? this.redis : null;
+  }
+
+  getPublisher(): Redis | null {
+    return this.isRedisEnabled && this.isConnected ? this.redisPublisher : null;
+  }
+
+  getSubscriber(): Redis | null {
+    return this.isRedisEnabled && this.isConnected ? this.redisSubscriber : null;
+  }
+
+  isAvailable(): boolean {
+    return this.isRedisEnabled && this.isConnected;
+  }
+}

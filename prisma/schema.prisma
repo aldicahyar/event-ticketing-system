@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ORGANIZER
+  ATTENDEE
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum SeatType {
+  REGULAR
+  VIP
+  PREMIUM
+}
+
+enum SeatStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  password             String?
+  name                 String
+  role                 Role      @default(ATTENDEE)
+  provider             String    @default("local")
+  providerId           String?
+  avatar               String?
+  isActive             Boolean   @default(true)
+  emailVerified        Boolean   @default(false)
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+  lastLoginAt          DateTime?
+  lastFailedLoginAt    DateTime?
+  passwordChangedAt    DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  bookings             Booking[]
+  oauthAccounts        OAuthAccount[]
+  securityLogs         SecurityLog[]
+
+  @@index([email])
+  @@index([provider, providerId])
+  @@index([lockedUntil])
+}
+
+/// Audit log for security events
+model SecurityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // LOGIN, LOGIN_FAILED, LOGOUT, PASSWORD_CHANGE, ACCOUNT_LOCKED, ACCOUNT_UNLOCKED
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?    // Additional context
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model OAuthAccount {
+  id         String   @id @default(cuid())
+  userId     String
+  provider   String
+  providerId String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+}
+
+model Venue {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  country     String
+  capacity    Int
+  seatMap     Json
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events Event[]
+  seats  Seat[]
+
+  @@index([city])
+}
+
+model Event {
+  id            String      @id @default(cuid())
+  title         String
+  description   String
+  venueId       String
+  startDateTime DateTime
+  endDateTime   DateTime
+  status        EventStatus @default(DRAFT)
+  imageUrl      String?
+  basePrice     Decimal     @db.Decimal(10, 2)
+  currency      String      @default("USD")
+  organizerId   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  venue    Venue     @relation(fields: [venueId], references: [id])
+  seats    Seat[]
+  bookings Booking[]
+
+  @@index([venueId])
+  @@index([status])
+  @@index([startDateTime])
+}
+
+model Seat {
+  id        String     @id @default(cuid())
+  eventId   String
+  venueId   String
+  row       String
+  number    Int
+  type      SeatType   @default(REGULAR)
+  status    SeatStatus @default(AVAILABLE)
+  price     Decimal    @db.Decimal(10, 2)
+  bookingId String?    @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venue   Venue    @relation(fields: [venueId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([eventId, row, number])
+  @@index([eventId])
+  @@index([status])
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  userId      String
+  eventId     String
+  bookingCode String        @unique
+  totalPrice  Decimal       @db.Decimal(10, 2)
+  currency    String        @default("USD")
+  status      BookingStatus @default(PENDING)
+  expiresAt   DateTime?
+  bookedAt    DateTime      @default(now())
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+
+  user    User     @relation(fields: [userId], references: [id])
+  event   Event    @relation(fields: [eventId], references: [id])
+  seats   Seat[]
+  payment Payment?
+  tickets Ticket[]
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([status])
+  @@index([bookingCode])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  bookingId    String        @unique
+  amount       Decimal       @db.Decimal(10, 2)
+  currency     String        @default("USD")
+  provider     String
+  providerTxId String?       @unique
+  status       PaymentStatus @default(PENDING)
+  paymentUrl   String?
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([provider, providerTxId])
+}
+
+model Ticket {
+  id          String    @id @default(cuid())
+  bookingId   String
+  seatId      String
+  qrCode      String    @unique
+  isCheckedIn Boolean   @default(false)
+  checkedInAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([qrCode])
+  @@index([bookingId])
+}
