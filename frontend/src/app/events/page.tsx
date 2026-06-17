@@ -50,12 +50,12 @@ const EVENTS = [
   },
   {
     id: '4',
-    artist: 'THORNILL',
+    artist: 'THORNHILL',
     tour: 'MOMENTS OF CLARITY',
     date: '2026-08-15',
     venue: 'Bali Jimbarana Panggung',
     price: 400000,
-    image: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=800&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=800&auto=format&fit=crop',
     genre: 'Metalcore',
     ticketsLeft: 200,
     status: 'available'

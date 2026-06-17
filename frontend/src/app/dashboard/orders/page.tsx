@@ -74,7 +74,7 @@ const ORDERS = [
   {
     id: 'ORD-2024-005',
     date: '2024-06-10',
-    event: 'THORNILL',
+    event: 'THORNHILL',
     tour: 'MOMENTS OF CLARITY TOUR',
     dateEvent: '2024-07-15',
     venue: 'Bali Jimbarana',

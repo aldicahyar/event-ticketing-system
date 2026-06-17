@@ -41,11 +41,11 @@ const EVENTS = [
   },
   {
     id: '4',
-    artist: 'THORNILL',
+    artist: 'THORNHILL',
     date: '2026-08-15',
     price: 400000,
     genre: 'Metalcore',
-    image: 'https://images.unsplash.com/photo-1514525253440-b393452e8d26?q=80&w=1000&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=1000&auto=format&fit=crop',
     ticketsLeft: 200,
     status: 'available',
     venue: 'Bali Jimbarana Panggung'

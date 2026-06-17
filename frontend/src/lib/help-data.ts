@@ -9,6 +9,12 @@ export interface Article {
   relatedArticles?: string[]; // IDs of related articles
 }
 
+export interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -675,4 +681,47 @@ Can't attend? Consider:
 - Using our ticket resale platform (coming soon)`,
     tags: ['refund', 'cancellation', 'policy', 'money back']
   }
+];
+
+export const FAQ_DATA: FAQItem[] = [
+  {
+    id: 'faq-1',
+    question: 'How do I buy tickets?',
+    answer: 'Browse events on our Events page, select your preferred ticket tier and seats, then proceed to checkout. You can pay via credit card, bank transfer, or e-wallet. Digital tickets are delivered instantly to your email.',
+  },
+  {
+    id: 'faq-2',
+    question: 'Can I get a refund for my ticket?',
+    answer: 'Refunds are available for cancelled events. For other circumstances, you can request a refund through our support ticket system. Refunds are processed to the original payment method within 5–10 business days.',
+  },
+  {
+    id: 'faq-3',
+    question: 'How do I reset my password?',
+    answer: 'On the login page, click "Forgot Password?", enter your registered email, and follow the reset link sent to your inbox. The link is valid for 1 hour.',
+  },
+  {
+    id: 'faq-4',
+    question: 'Is my payment secure?',
+    answer: 'Yes. All transactions are SSL encrypted and PCI DSS compliant. We support 3D Secure authentication for card payments. Your full card details are never stored on our servers.',
+  },
+  {
+    id: 'faq-5',
+    question: 'Can I transfer my ticket to someone else?',
+    answer: 'Ticket transfer policies vary by event. Check the specific event details or contact support for assistance. Some events allow transfers through our platform.',
+  },
+  {
+    id: 'faq-6',
+    question: 'What payment methods do you accept?',
+    answer: 'We accept Visa, Mastercard, American Express, JCB, and local bank transfers (BCA, Mandiri, BNI, BRI). E-wallet options include DANA, GoPay, OVO, and ShopeePay.',
+  },
+  {
+    id: 'faq-7',
+    question: 'How long does it take to receive my tickets?',
+    answer: 'Digital tickets are delivered instantly after successful payment to your registered email. You can also access them from Dashboard > My Tickets.',
+  },
+  {
+    id: 'faq-8',
+    question: 'What if an event is cancelled?',
+    answer: 'If an event is cancelled by the organizer, a full refund including service fees is automatically processed. You will receive an email notification with refund details.',
+  },
 ];

@@ -42,13 +42,13 @@ const LINEUP = [
   },
   {
     id: '4',
-    artist: 'THORNILL',
+    artist: 'THORNHILL',
     genre: 'Metalcore',
     origin: 'USA',
     date: '2026-08-15',
     venue: 'Bali Jimbarana Panggung',
     price: 400000,
-    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=1000&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=1000&auto=format&fit=crop',
     status: 'featured'
   },
   {

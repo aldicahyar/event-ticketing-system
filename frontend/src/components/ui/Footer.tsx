@@ -14,7 +14,6 @@ const FOOTER_LINKS = {
   'Support': [
     { label: 'Help Center', href: '/help' },
     { label: 'Contact Us', href: '/contact' },
-    { label: 'FAQs', href: '/faq' },
     { label: 'Refund Policy', href: '/refund' }
   ],
   'Company': [

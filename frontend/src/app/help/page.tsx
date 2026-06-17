@@ -1,20 +1,37 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/ui/Footer';
 import { Search, ChevronRight, Mail, Calendar, Ticket, Shield, CreditCard, Rocket, ArrowLeft, ExternalLink } from 'lucide-react';
-import { HELP_CATEGORIES, HELP_ARTICLES, type Article, type Category } from '@/lib/help-data';
+import { HELP_CATEGORIES, HELP_ARTICLES, FAQ_DATA, type Article, type FAQItem } from '@/lib/help-data';
+import { FAQAccordion } from '@/components/help/FAQAccordion';
 import ReactMarkdown from 'react-markdown';
 
-// Icon mapping
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  'Rocket': Rocket,
-  'Ticket': Ticket,
-  'Shield': Shield,
-  'Calendar': Calendar,
-  'CreditCard': CreditCard,
+  Rocket,
+  Ticket,
+  Shield,
+  Calendar,
+  CreditCard,
+};
+
+// Page transition variants — consistent with other pages
+const pageVariants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] as const } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.2, ease: 'easeIn' as const } },
+};
+
+const staggerContainer = {
+  animate: { transition: { staggerChildren: 0.05 } },
+};
+
+const staggerItem = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export default function HelpPage() {
@@ -22,16 +39,11 @@ export default function HelpPage() {
   const [activeArticle, setActiveArticle] = useState<Article | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter articles based on search and category
   const filteredArticles = useMemo(() => {
     let articles = HELP_ARTICLES;
-
-    // Filter by category
     if (activeCategory) {
       articles = articles.filter(a => a.categoryId === activeCategory);
     }
-
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       articles = articles.filter(a =>
@@ -41,17 +53,14 @@ export default function HelpPage() {
         a.tags.some(tag => tag.toLowerCase().includes(query))
       );
     }
-
     return articles;
   }, [activeCategory, searchQuery]);
 
-  // Get related articles
   const relatedArticles = useMemo(() => {
-    if (!activeArticle || !activeArticle.relatedArticles) return [];
+    if (!activeArticle?.relatedArticles) return [];
     return HELP_ARTICLES.filter(a => activeArticle.relatedArticles?.includes(a.id));
   }, [activeArticle]);
 
-  // Get category info
   const activeCategoryInfo = useMemo(() => {
     return HELP_CATEGORIES.find(c => c.id === activeCategory);
   }, [activeCategory]);
@@ -78,10 +87,16 @@ export default function HelpPage() {
 
   return (
     <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
-      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup' }]} />
+      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup' }, { href: '/help', label: 'Help', active: true }]} />
 
       {/* Hero Header */}
-      <section className="border-b border-mono-dark-grey py-12 md:py-16" aria-labelledby="help-heading">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="border-b border-mono-dark-grey py-12 md:py-16"
+        aria-labelledby="help-heading"
+      >
         <div className="container mx-auto px-4 md:px-6">
           <h1 id="help-heading" className="font-display font-bold text-3xl sm:text-4xl md:text-5xl uppercase text-white mb-2">
             Help <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }} aria-hidden="true">Center</span>
@@ -90,7 +105,6 @@ export default function HelpPage() {
             // FIND_ANSWERS_FAST
           </p>
 
-          {/* Search Bar */}
           <div className="relative max-w-2xl">
             <label htmlFor="help-search" className="sr-only">Search help articles</label>
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
@@ -104,7 +118,7 @@ export default function HelpPage() {
             />
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Category Tabs (Mobile Only) */}
       <div className="lg:hidden border-b border-mono-dark-grey overflow-x-auto scrollbar-none">
@@ -145,7 +159,7 @@ export default function HelpPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 md:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
+
           {/* Sidebar (Desktop Only) */}
           <aside className="hidden lg:block lg:col-span-1" aria-label="Help categories">
             <div className="sticky top-24 bg-black border border-mono-dark-grey p-4">
@@ -181,15 +195,21 @@ export default function HelpPage() {
                 })}
               </nav>
 
-              {/* Contact Support */}
               <div className="mt-6 pt-6 border-t border-mono-dark-grey">
                 <h3 className="font-bold uppercase text-white mb-2 text-xs">Need More Help?</h3>
                 <Link
-                  href="/contact"
+                  href="/help/contact"
                   className="flex items-center gap-2 text-xs text-[#CCCCCC] hover:text-white transition-colors py-2 focus-visible:outline-2 focus-visible:outline-white"
                 >
                   <Mail className="w-4 h-4" aria-hidden="true" />
-                  Contact Support
+                  Submit a Support Ticket
+                </Link>
+                <Link
+                  href="/contact"
+                  className="flex items-center gap-2 text-xs text-[#CCCCCC] hover:text-white transition-colors py-2 mt-2 focus-visible:outline-2 focus-visible:outline-white"
+                >
+                  <Mail className="w-4 h-4" aria-hidden="true" />
+                  General Contact
                 </Link>
               </div>
             </div>
@@ -197,190 +217,277 @@ export default function HelpPage() {
 
           {/* Main Content Area */}
           <div className="lg:col-span-3">
-            
+
             {/* Breadcrumb */}
-            {(activeCategory || activeArticle) && (
-              <nav aria-label="Breadcrumb" className="mb-6">
-                <ol className="flex items-center gap-2 text-xs text-mono-light-grey">
-                  <li>
-                    <button
-                      onClick={handleBackToCategories}
-                      className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white"
-                    >
-                      Help
-                    </button>
-                  </li>
-                  {activeCategory && (
-                    <>
-                      <ChevronRight className="w-3 h-3" aria-hidden="true" />
-                      <li>
-                        <button
-                          onClick={handleBackToList}
-                          className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white"
-                        >
-                          {activeCategoryInfo?.name}
-                        </button>
-                      </li>
-                    </>
-                  )}
-                  {activeArticle && (
-                    <>
-                      <ChevronRight className="w-3 h-3" aria-hidden="true" />
-                      <li className="text-white" aria-current="page">{activeArticle.title}</li>
-                    </>
-                  )}
-                </ol>
-              </nav>
-            )}
-
-            {/* Article View */}
-            {activeArticle ? (
-              <article className="bg-black border border-mono-dark-grey p-6 md:p-8">
-                <button
-                  onClick={handleBackToList}
-                  className="flex items-center gap-2 text-sm text-mono-light-grey hover:text-white transition-colors mb-6 focus-visible:outline-2 focus-visible:outline-white"
+            <AnimatePresence>
+              {(activeCategory || activeArticle) && (
+                <motion.nav
+                  key="breadcrumb"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.25 }}
+                  aria-label="Breadcrumb"
+                  className="mb-6 overflow-hidden"
                 >
-                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                  Back to articles
-                </button>
-
-                <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase text-white mb-4">
-                  {activeArticle.title}
-                </h1>
-
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {activeArticle.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 bg-white/10 border border-mono-dark-grey text-[#CCCCCC] text-xs uppercase"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="prose prose-invert prose-sm md:prose-base max-w-none">
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ children }) => <h2 className="font-display font-bold text-2xl uppercase text-white mt-8 mb-4 first:mt-0">{children}</h2>,
-                      h2: ({ children }) => <h3 className="font-display font-bold text-xl uppercase text-white mt-6 mb-3">{children}</h3>,
-                      h3: ({ children }) => <h4 className="font-bold text-lg uppercase text-white mt-4 mb-2">{children}</h4>,
-                      p: ({ children }) => <p className="text-[#CCCCCC] leading-relaxed mb-4">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc list-inside text-[#CCCCCC] mb-4 space-y-2">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-inside text-[#CCCCCC] mb-4 space-y-2">{children}</ol>,
-                      li: ({ children }) => <li className="ml-4">{children}</li>,
-                      strong: ({ children }) => <strong className="text-white font-bold">{children}</strong>,
-                      a: ({ href, children }) => (
-                        <a
-                          href={href}
-                          className="text-white underline hover:text-mono-light-grey transition-colors inline-flex items-center gap-1"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {children}
-                          <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                        </a>
-                      ),
-                    }}
-                  >
-                    {activeArticle.content}
-                  </ReactMarkdown>
-                </div>
-
-                {/* Related Articles */}
-                {relatedArticles.length > 0 && (
-                  <div className="mt-12 pt-8 border-t border-mono-dark-grey">
-                    <h2 className="font-display font-bold text-xl uppercase text-white mb-4">Related Articles</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {relatedArticles.map((article) => (
-                        <button
-                          key={article.id}
-                          onClick={() => handleArticleClick(article)}
-                          className="text-left p-4 border border-mono-dark-grey hover:border-white transition-all group focus-visible:outline-2 focus-visible:outline-white"
-                        >
-                          <h3 className="font-bold uppercase text-white mb-2 text-sm group-hover:text-white">
-                            {article.title}
-                          </h3>
-                          <p className="text-xs text-mono-light-grey line-clamp-2">{article.excerpt}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </article>
-            ) : (
-              /* Article Grid */
-              <>
-                {searchQuery && (
-                  <div className="mb-6">
-                    <p className="text-sm text-mono-light-grey">
-                      Found <span className="text-white font-bold">{filteredArticles.length}</span> article{filteredArticles.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
-                    </p>
-                  </div>
-                )}
-
-                {activeCategory && activeCategoryInfo && !searchQuery && (
-                  <div className="mb-6 p-4 md:p-6 bg-black border border-mono-dark-grey">
-                    <h2 className="font-display font-bold text-xl uppercase text-white mb-2">
-                      {activeCategoryInfo.name}
-                    </h2>
-                    <p className="text-sm text-mono-light-grey">{activeCategoryInfo.description}</p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-                  {filteredArticles.map((article) => {
-                    const category = HELP_CATEGORIES.find(c => c.id === article.categoryId);
-                    const IconComponent = category ? (ICON_MAP[category.icon] || Ticket) : Ticket;
-
-                    return (
-                      <article
-                        key={article.id}
-                        className="group bg-black border border-mono-dark-grey hover:border-white transition-all duration-300 flex flex-col h-full"
+                  <ol className="flex items-center gap-2 text-xs text-mono-light-grey">
+                    <li>
+                      <button
+                        onClick={handleBackToCategories}
+                        className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white"
                       >
-                        <div className="p-4 md:p-6 flex flex-col h-full">
-                          <div className="flex items-start gap-3 mb-3">
-                            <IconComponent className="w-6 h-6 text-white shrink-0" aria-hidden="true" />
-                            <div className="flex-1">
-                              <h3 className="font-display font-bold text-base md:text-lg uppercase text-white leading-tight mb-2 group-hover:text-white">
+                        Help
+                      </button>
+                    </li>
+                    {activeCategory && (
+                      <>
+                        <ChevronRight className="w-3 h-3" aria-hidden="true" />
+                        <li>
+                          <button
+                            onClick={handleBackToList}
+                            className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white"
+                          >
+                            {activeCategoryInfo?.name}
+                          </button>
+                        </li>
+                      </>
+                    )}
+                    {activeArticle && (
+                      <>
+                        <ChevronRight className="w-3 h-3" aria-hidden="true" />
+                        <li className="text-white" aria-current="page">{activeArticle.title}</li>
+                      </>
+                    )}
+                  </ol>
+                </motion.nav>
+              )}
+            </AnimatePresence>
+
+            {/* View Switcher with AnimatePresence */}
+            <AnimatePresence mode="wait">
+              {activeArticle ? (
+                <motion.div
+                  key={`article-${activeArticle.id}`}
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                >
+                  <article className="bg-black border border-mono-dark-grey p-6 md:p-8">
+                    <motion.button
+                      onClick={handleBackToList}
+                      className="flex items-center gap-2 text-sm text-mono-light-grey hover:text-white transition-colors mb-6 focus-visible:outline-2 focus-visible:outline-white"
+                      whileHover={{ x: -3 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                      Back to articles
+                    </motion.button>
+
+                    <motion.h1
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1, duration: 0.3 }}
+                      className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase text-white mb-4"
+                    >
+                      {activeArticle.title}
+                    </motion.h1>
+
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                      className="flex flex-wrap gap-2 mb-6"
+                    >
+                      {activeArticle.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 bg-white/10 border border-mono-dark-grey text-[#CCCCCC] text-xs uppercase"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2, duration: 0.35 }}
+                      className="prose prose-invert prose-sm md:prose-base max-w-none"
+                    >
+                      <ReactMarkdown
+                        components={{
+                          h1: ({ children }) => <h2 className="font-display font-bold text-2xl uppercase text-white mt-8 mb-4 first:mt-0">{children}</h2>,
+                          h2: ({ children }) => <h3 className="font-display font-bold text-xl uppercase text-white mt-6 mb-3">{children}</h3>,
+                          h3: ({ children }) => <h4 className="font-bold text-lg uppercase text-white mt-4 mb-2">{children}</h4>,
+                          p: ({ children }) => <p className="text-[#CCCCCC] leading-relaxed mb-4">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc list-inside text-[#CCCCCC] mb-4 space-y-2">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside text-[#CCCCCC] mb-4 space-y-2">{children}</ol>,
+                          li: ({ children }) => <li className="ml-4">{children}</li>,
+                          strong: ({ children }) => <strong className="text-white font-bold">{children}</strong>,
+                          a: ({ href, children }) => (
+                            <a
+                              href={href}
+                              className="text-white underline hover:text-mono-light-grey transition-colors inline-flex items-center gap-1"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {children}
+                              <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                            </a>
+                          ),
+                        }}
+                      >
+                        {activeArticle.content}
+                      </ReactMarkdown>
+                    </motion.div>
+
+                    {/* Related Articles */}
+                    {relatedArticles.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.4 }}
+                        className="mt-12 pt-8 border-t border-mono-dark-grey"
+                      >
+                        <h2 className="font-display font-bold text-xl uppercase text-white mb-4">Related Articles</h2>
+                        <motion.div
+                          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                          variants={staggerContainer}
+                          initial="initial"
+                          animate="animate"
+                        >
+                          {relatedArticles.map((article) => (
+                            <motion.button
+                              key={article.id}
+                              variants={staggerItem}
+                              onClick={() => handleArticleClick(article)}
+                              className="text-left p-4 border border-mono-dark-grey hover:border-white transition-all group focus-visible:outline-2 focus-visible:outline-white"
+                              whileHover={{ y: -2, borderColor: '#FFFFFF' }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <h3 className="font-bold uppercase text-white mb-2 text-sm">
                                 {article.title}
                               </h3>
                               <p className="text-xs text-mono-light-grey line-clamp-2">{article.excerpt}</p>
+                            </motion.button>
+                          ))}
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </article>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={`grid-${activeCategory || 'all'}-${searchQuery}`}
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                >
+                  {/* Category Header */}
+                  {activeCategory && activeCategoryInfo && !searchQuery && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 }}
+                      className="mb-6 p-4 md:p-6 bg-black border border-mono-dark-grey"
+                    >
+                      <h2 className="font-display font-bold text-xl uppercase text-white mb-2">
+                        {activeCategoryInfo.name}
+                      </h2>
+                      <p className="text-sm text-mono-light-grey">{activeCategoryInfo.description}</p>
+                    </motion.div>
+                  )}
+
+                  {/* Search Results Count */}
+                  {searchQuery && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="mb-6 text-sm text-mono-light-grey"
+                    >
+                      Found <span className="text-white font-bold">{filteredArticles.length}</span> article{filteredArticles.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
+                    </motion.p>
+                  )}
+
+                  {/* FAQ Section - only on main page */}
+                  {!activeCategory && !searchQuery && (
+                    <FAQAccordion items={FAQ_DATA} />
+                  )}
+
+                  {/* Article Grid */}
+                  <motion.div
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6"
+                    variants={staggerContainer}
+                    initial="initial"
+                    animate="animate"
+                  >
+                    {filteredArticles.map((article) => {
+                      const category = HELP_CATEGORIES.find(c => c.id === article.categoryId);
+                      const IconComponent = category ? (ICON_MAP[category.icon] || Ticket) : Ticket;
+
+                      return (
+                        <motion.article
+                          key={article.id}
+                          variants={staggerItem}
+                          className="group bg-black border border-mono-dark-grey hover:border-white transition-colors duration-300 flex flex-col h-full"
+                        >
+                          <div
+                            className="p-4 md:p-6 flex flex-col h-full cursor-pointer"
+                            onClick={() => handleArticleClick(article)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleArticleClick(article); }}
+                            aria-label={`Read article: ${article.title}`}
+                          >
+                            <div className="flex items-start gap-3 mb-3">
+                              <IconComponent className="w-6 h-6 text-white shrink-0" aria-hidden="true" />
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-display font-bold text-base md:text-lg uppercase text-white leading-tight mb-2">
+                                  {article.title}
+                                </h3>
+                                <p className="text-xs text-mono-light-grey line-clamp-2">{article.excerpt}</p>
+                              </div>
+                            </div>
+
+                            <div className="mt-auto flex items-center gap-1 pt-4 border-t border-mono-dark-grey">
+                              <span className="text-xs text-white hover:underline uppercase flex items-center gap-1">
+                                Read Article <ChevronRight className="w-3 h-3" aria-hidden="true" />
+                              </span>
                             </div>
                           </div>
+                        </motion.article>
+                      );
+                    })}
+                  </motion.div>
 
-                          <button
-                            onClick={() => handleArticleClick(article)}
-                            className="mt-auto text-xs text-white hover:underline uppercase flex items-center gap-1 pt-4 border-t border-mono-dark-grey focus-visible:outline-2 focus-visible:outline-white"
-                            aria-label={`Read ${article.title}`}
-                          >
-                            Read Article <ChevronRight className="w-3 h-3" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-
-                {filteredArticles.length === 0 && (
-                  <div className="text-center py-16 border border-mono-dark-grey" role="alert">
-                    <Search className="w-16 h-16 text-mono-dark-grey mx-auto mb-4" aria-hidden="true" />
-                    <h3 className="font-display font-bold text-2xl uppercase text-white mb-2">
-                      No Articles Found
-                    </h3>
-                    <p className="text-mono-light-grey uppercase tracking-widest text-sm mb-4">
-                      Try different keywords or browse categories
-                    </p>
-                    <button
-                      onClick={handleBackToCategories}
-                      className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white hover:border-white border-2 border-white transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                  {/* Empty State */}
+                  {filteredArticles.length === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.97 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-center py-16 border border-mono-dark-grey"
+                      role="alert"
                     >
-                      View All Topics
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
+                      <Search className="w-16 h-16 text-mono-dark-grey mx-auto mb-4" aria-hidden="true" />
+                      <h3 className="font-display font-bold text-2xl uppercase text-white mb-2">
+                        No Articles Found
+                      </h3>
+                      <p className="text-mono-light-grey uppercase tracking-widest text-sm mb-4">
+                        Try different keywords or browse categories
+                      </p>
+                      <button
+                        onClick={handleBackToCategories}
+                        className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white hover:border-white border-2 border-white transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                      >
+                        View All Topics
+                      </button>
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           </div>
         </div>
