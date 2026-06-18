@@ -30,7 +30,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${oswald.variable} ${spaceMono.variable} font-mono bg-black text-white`}>
         <Providers>
-          {children}
+          <a href="#main-content" className="skip-to-content">
+            Skip to content
+          </a>
+          <main id="main-content" tabIndex={-1}>{children}</main>
           <Toaster />
         </Providers>
       </body>

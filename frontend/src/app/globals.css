@@ -77,6 +77,10 @@
   .skip-to-content:focus {
     @apply top-4;
   }
+  #main-content {
+    scroll-margin-top: 5rem;
+    outline: none;
+  }
 
   /* Respect reduced motion preference */
   @media (prefers-reduced-motion: reduce) {
@@ -111,6 +115,15 @@
   .delay-500 { animation-delay: 500ms; }
   .delay-700 { animation-delay: 700ms; }
 
+  /* Marquee animation */
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+
   /* Scanline Effect */
   .scanline::after {
     content: "";
@@ -136,14 +149,6 @@
     -webkit-text-stroke: 2px currentColor;
     color: transparent;
   }
-  .animate-marquee {
-    animation: marquee 30s linear infinite;
-  }
-}
-
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-100%); }
 }
 
 @keyframes float {
