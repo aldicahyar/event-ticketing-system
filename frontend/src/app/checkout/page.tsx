@@ -90,7 +90,7 @@ function CheckoutContent() {
 
   if (!eventId || !seatsParam || !totalParam) {
     return (
-      <main className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
+      <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold uppercase mb-4">Invalid Checkout</h1>
           <p className="text-mono-light-grey mb-6">Please select tickets first.</p>
@@ -98,12 +98,12 @@ function CheckoutContent() {
             Browse Events
           </Link>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       {/* Navbar */}
       <Navbar links={[]} showAuth={false} />
 
@@ -545,18 +545,18 @@ function CheckoutContent() {
 
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
 function CheckoutLoading() {
   return (
-    <main className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
+    <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
       <div className="text-center">
         <div className="w-16 h-16 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" aria-hidden="true" />
         <p className="uppercase tracking-widest">Loading Checkout...</p>
       </div>
-    </main>
+    </div>
   );
 }
 

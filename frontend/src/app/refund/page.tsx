@@ -130,7 +130,7 @@ export default function RefundPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       <Navbar links={[
         { href: '/events', label: 'Events' },
         { href: '/lineup', label: 'Lineup' },
@@ -492,6 +492,6 @@ export default function RefundPage() {
       </section>
 
       <Footer />
-    </main>
+    </div>
   );
 }

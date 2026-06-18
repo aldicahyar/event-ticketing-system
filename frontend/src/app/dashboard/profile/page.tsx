@@ -55,7 +55,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
@@ -186,9 +186,12 @@ export default function ProfilePage() {
                       </label>
                       <input
                         type="text"
+                        id="profile-firstName"
+                        name="firstName"
+                        autoComplete="given-name"
                         value={formData.firstName}
                         onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 uppercase"
+                        className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white uppercase min-h-touch"
                       />
                     </div>
                     <div>
@@ -197,9 +200,12 @@ export default function ProfilePage() {
                       </label>
                       <input
                         type="text"
+                        id="profile-lastName"
+                        name="lastName"
+                        autoComplete="family-name"
                         value={formData.lastName}
                         onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 uppercase"
+                        className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white uppercase min-h-touch"
                       />
                     </div>
                     <div>
@@ -210,9 +216,12 @@ export default function ProfilePage() {
                         <Mail className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" />
                         <input
                           type="email"
+                          id="profile-email"
+                          name="email"
+                          autoComplete="email"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="w-full bg-black border border-white text-white px-12 py-3 focus:outline-none focus:border-white/50"
+                          className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                         />
                         {USER.emailVerified && (
                           <CheckCircle className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
@@ -227,9 +236,12 @@ export default function ProfilePage() {
                         <Smartphone className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" />
                         <input
                           type="tel"
+                          id="profile-phone"
+                          name="phone"
+                          autoComplete="tel"
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="w-full bg-black border border-white text-white px-12 py-3 focus:outline-none focus:border-white/50"
+                          className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                         />
                         {USER.phoneVerified && (
                           <CheckCircle className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
@@ -242,9 +254,12 @@ export default function ProfilePage() {
                       </label>
                       <input
                         type="date"
+                        id="profile-dob"
+                        name="dateOfBirth"
+                        autoComplete="bday"
                         value={formData.dateOfBirth}
                         onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50"
+                        className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                       />
                     </div>
                     <div>
@@ -330,33 +345,42 @@ export default function ProfilePage() {
                   <h3 className="font-bold uppercase text-white mb-6">Change Password</h3>
                   <div className="space-y-4 max-w-md">
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                      <label htmlFor="profile-current-password" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                         Current Password
                       </label>
                       <input
                         type="password"
+                        id="profile-current-password"
+                        name="currentPassword"
+                        autoComplete="current-password"
                         placeholder="••••••••"
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50"
+                        className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                      <label htmlFor="profile-new-password" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                         New Password
                       </label>
                       <input
                         type="password"
+                        id="profile-new-password"
+                        name="newPassword"
+                        autoComplete="new-password"
                         placeholder="••••••••"
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50"
+                        className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                      <label htmlFor="profile-confirm-password" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                         Confirm New Password
                       </label>
                       <input
                         type="password"
+                        id="profile-confirm-password"
+                        name="confirmPassword"
+                        autoComplete="new-password"
                         placeholder="••••••••"
-                        className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50"
+                        className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                       />
                     </div>
                     <button className="px-6 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all">
@@ -421,6 +445,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

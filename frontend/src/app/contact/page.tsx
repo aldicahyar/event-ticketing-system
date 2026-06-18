@@ -85,7 +85,7 @@ export default function ContactPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup' }, { href: '/help', label: 'Help' }]} />
 
       {/* Hero Header */}
@@ -210,6 +210,7 @@ export default function ContactPage() {
                     <input
                       id="contact-subject"
                       type="text"
+                      autoComplete="off"
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                       placeholder="What's this about?"
@@ -300,6 +301,6 @@ export default function ContactPage() {
       </section>
 
       <Footer />
-    </main>
+    </div>
   );
 }

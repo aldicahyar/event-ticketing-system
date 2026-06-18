@@ -71,7 +71,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey" role="navigation" aria-label="Dashboard navigation">
@@ -330,6 +330,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

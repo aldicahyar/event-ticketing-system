@@ -60,7 +60,7 @@ export default function MyTicketsPage() {
   const filteredTickets = MY_TICKETS.filter(t => t.status === filter);
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
@@ -298,6 +298,6 @@ export default function MyTicketsPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

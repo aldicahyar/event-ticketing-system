@@ -140,7 +140,7 @@ export default function EventsPage() {
     new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
       <Navbar links={[{ href: '/events', label: 'Events', active: true }, { href: '/lineup', label: 'Lineup' }]} />
@@ -353,6 +353,6 @@ export default function EventsPage() {
           </div>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }

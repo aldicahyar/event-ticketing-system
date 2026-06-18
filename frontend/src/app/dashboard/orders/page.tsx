@@ -117,7 +117,7 @@ export default function OrdersPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey">
@@ -197,13 +197,16 @@ export default function OrdersPage() {
             >
               {/* Search */}
               <div className="relative flex-grow">
-                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" />
+                <label htmlFor="orders-search" className="sr-only">Search orders</label>
+                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
                 <input
+                  id="orders-search"
                   type="text"
+                  autoComplete="off"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search orders..."
-                  className="w-full bg-black border border-white text-white px-12 py-3 focus:outline-none focus:border-white/50"
+                  className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />
               </div>
               
@@ -343,6 +346,6 @@ export default function OrdersPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

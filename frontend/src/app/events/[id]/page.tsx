@@ -254,18 +254,18 @@ export default function EventDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
+      <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" aria-hidden="true" />
           <p className="uppercase tracking-widest">Loading Event...</p>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (error || !event) {
     return (
-      <main className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
+      <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" aria-hidden="true" />
           <h1 className="text-2xl font-bold uppercase mb-2">Event Not Found</h1>
@@ -277,12 +277,12 @@ export default function EventDetailPage() {
             Back to Events
           </Link>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       {/* Shared Navbar */}
       <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup' }]} showAuth={false} />
 
@@ -629,6 +629,6 @@ export default function EventDetailPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

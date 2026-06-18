@@ -86,7 +86,7 @@ export default function HelpPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup' }, { href: '/help', label: 'Help', active: true }]} />
 
       {/* Hero Header */}
@@ -111,6 +111,7 @@ export default function HelpPage() {
             <input
               id="help-search"
               type="search"
+              autoComplete="off"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search articles, topics, or keywords..."
@@ -494,6 +495,6 @@ export default function HelpPage() {
       </div>
 
       <Footer />
-    </main>
+    </div>
   );
 }

@@ -135,7 +135,7 @@ export default function HelpContactPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       <Navbar links={[
         { href: '/events', label: 'Events' },
         { href: '/lineup', label: 'Lineup' },
@@ -265,7 +265,7 @@ export default function HelpContactPage() {
                     <motion.div className="space-y-5" variants={rowVariants} initial="initial" animate="animate">
                       <motion.div variants={fieldVariants}>
                         <label htmlFor="ticket-subject" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Subject <span className="text-red-500">*</span></label>
-                        <input id="ticket-subject" type="text" value={formData.subject} onChange={(e) => handleChange('subject', e.target.value)} placeholder="Brief description of your issue" className={`w-full bg-black border text-white px-4 py-3 text-base focus:outline-none focus-visible:outline-2 focus-visible:outline-white transition-colors placeholder-[#666] min-h-touch ${errors.subject ? 'border-red-500' : 'border-white focus:border-white/50'}`} aria-invalid={!!errors.subject} aria-describedby={errors.subject ? 'subject-error' : undefined} />
+                          <input id="ticket-subject" type="text" autoComplete="off" value={formData.subject} onChange={(e) => handleChange('subject', e.target.value)} placeholder="Brief description of your issue" className={`w-full bg-black border text-white px-4 py-3 text-base focus:outline-none focus-visible:outline-2 focus-visible:outline-white transition-colors placeholder-[#666] min-h-touch ${errors.subject ? 'border-red-500' : 'border-white focus:border-white/50'}`} aria-invalid={!!errors.subject} aria-describedby={errors.subject ? 'subject-error' : undefined} />
                         {errors.subject && <p id="subject-error" className="text-[10px] text-red-500 mt-1 uppercase" role="alert">{errors.subject}</p>}
                       </motion.div>
 
@@ -315,7 +315,7 @@ export default function HelpContactPage() {
                         <label htmlFor="ticket-order" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Order Number <span className="text-mono-dark-grey">(optional)</span></label>
                         <div className="relative">
                           <FileText className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
-                          <input id="ticket-order" type="text" value={formData.orderNumber} onChange={(e) => handleChange('orderNumber', e.target.value)} placeholder="EVT-XXXXXX" className="w-full bg-black border border-white text-white pl-10 pr-4 py-3 text-base focus:outline-none focus-visible:outline-2 focus-visible:outline-white transition-colors placeholder-[#666] min-h-touch" />
+                          <input id="ticket-order" type="text" autoComplete="off" value={formData.orderNumber} onChange={(e) => handleChange('orderNumber', e.target.value)} placeholder="EVT-XXXXXX" className="w-full bg-black border border-white text-white pl-10 pr-4 py-3 text-base focus:outline-none focus-visible:outline-2 focus-visible:outline-white transition-colors placeholder-[#666] min-h-touch" />
                         </div>
                       </motion.div>
 
@@ -366,6 +366,6 @@ export default function HelpContactPage() {
       </div>
 
       <Footer />
-    </main>
+    </div>
   );
 }
