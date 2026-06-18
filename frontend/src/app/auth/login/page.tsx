@@ -49,7 +49,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main role="main" className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
+    <div role="main" className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
       {/* Navbar */}
       <nav className="p-4 sm:p-6">
         <Link href="/" className="flex items-center gap-2">
@@ -110,6 +110,7 @@ export default function LoginPage() {
                   id="login-email"
                   type="email"
                   name="email"
+                  autoComplete="email"
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
@@ -132,6 +133,7 @@ export default function LoginPage() {
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   name="password"
+                  autoComplete="current-password"
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
@@ -252,6 +254,6 @@ export default function LoginPage() {
           </div>
         </motion.div>
       </div>
-    </main>
+    </div>
   );
 }

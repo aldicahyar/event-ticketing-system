@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main role="main" className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
+    <div role="main" className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
       
       {/* Navbar */}
       <nav className="p-4 sm:p-6">
@@ -90,6 +90,7 @@ export default function ForgotPasswordPage() {
                     <input
                       id="forgot-email"
                       type="email"
+                      autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-black border border-white text-white text-base px-12 py-4 min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 focus:outline-none focus:border-white/50 transition-colors placeholder-[#666]"
@@ -163,6 +164,6 @@ export default function ForgotPasswordPage() {
 
         </motion.div>
       </div>
-    </main>
+    </div>
   );
 }

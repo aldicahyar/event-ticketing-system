@@ -99,7 +99,7 @@ export default function RegisterPage() {
   const strengthLevel = getStrengthLevel(formData.password);
 
   return (
-    <main role="main" className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
+    <div role="main" className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black flex flex-col">
       {/* Navbar */}
       <nav className="p-4 sm:p-6">
         <Link href="/" className="flex items-center gap-2">
@@ -160,6 +160,7 @@ export default function RegisterPage() {
                   id="register-name"
                   type="text"
                   name="name"
+                  autoComplete="name"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -183,6 +184,7 @@ export default function RegisterPage() {
                   id="register-email"
                   type="email"
                   name="email"
+                  autoComplete="email"
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
@@ -205,6 +207,7 @@ export default function RegisterPage() {
                   id="register-password"
                   type={showPassword ? 'text' : 'password'}
                   name="password"
+                  autoComplete="new-password"
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
@@ -325,6 +328,7 @@ export default function RegisterPage() {
                   id="register-confirm-password"
                   type={showPassword ? 'text' : 'password'}
                   name="confirmPassword"
+                  autoComplete="new-password"
                   value={formData.confirmPassword}
                   onChange={(e) =>
                     setFormData({ ...formData, confirmPassword: e.target.value })
@@ -416,6 +420,6 @@ export default function RegisterPage() {
           </div>
         </motion.div>
       </div>
-    </main>
+    </div>
   );
 }
