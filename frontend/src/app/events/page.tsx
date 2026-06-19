@@ -143,7 +143,7 @@ export default function EventsPage() {
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
-      <Navbar links={[{ href: '/events', label: 'Events', active: true }, { href: '/lineup', label: 'Lineup' }]} />
+      <Navbar links={[{ href: '/events', label: 'Events', active: true }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup' }]} />
 
       {/* Hero Section */}
       <section aria-label="Events hero" className="relative py-16 md:py-24 border-b border-mono-dark-grey overflow-hidden">

@@ -9,6 +9,7 @@ import { Menu, X } from 'lucide-react';
 
 const NAV_LINKS = [
   { href: '/events', label: 'Events' },
+  { href: '/venues', label: 'Venues' },
   { href: '/lineup', label: 'Lineup' },
   { href: '/auth/login', label: 'Login' },
   { href: '/auth/register', label: 'Sign Up' },

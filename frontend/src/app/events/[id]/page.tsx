@@ -284,7 +284,7 @@ export default function EventDetailPage() {
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       {/* Shared Navbar */}
-      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/lineup', label: 'Lineup' }]} showAuth={false} />
+      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup' }]} showAuth={false} />
 
       {/* Hero Image */}
       <div className="relative h-[30vh] sm:h-[35vh] md:h-[50vh] overflow-hidden">
