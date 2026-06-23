@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { 
@@ -9,114 +9,61 @@ import {
 } from 'lucide-react';
 import { IndustrialBadge } from '@/components/ui/industrial-components';
 import { Navbar } from '@/components/layout/Navbar';
+import { apiClient } from '@/lib/api-client';
 
-// Events Data
-const EVENTS = [
-  {
-    id: '1',
-    artist: 'BRING ME THE HORIZON',
-    tour: 'POST HUMAN: SURVIVAL HORROR',
-    date: '2026-03-15',
-    venue: 'Jakarta GBK Stadium',
-    price: 750000,
-    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=800&auto=format&fit=crop',
-    genre: 'Metalcore',
-    ticketsLeft: 2500,
-    status: 'available'
-  },
-  {
-    id: '2',
-    artist: 'BAD OMENS',
-    tour: 'THE DEATH OF PEACE OF MIND',
-    date: '2026-05-20',
-    venue: 'Jakarta ICE BSD',
-    price: 650000,
-    image: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=800&auto=format&fit=crop',
-    genre: 'Alternative Metal',
-    ticketsLeft: 180,
-    status: 'selling_fast'
-  },
-  {
-    id: '3',
-    artist: 'NORTHLANE',
-    tour: 'CHARACTER CHANGE TOUR',
-    date: '2026-07-10',
-    venue: 'Surabaya Grand City',
-    price: 450000,
-    image: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=800&auto=format&fit=crop',
-    genre: 'Progressive Metalcore',
-    ticketsLeft: 50,
-    status: 'last_tickets'
-  },
-  {
-    id: '4',
-    artist: 'THORNHILL',
-    tour: 'MOMENTS OF CLARITY',
-    date: '2026-08-15',
-    venue: 'Bali Jimbarana Panggung',
-    price: 400000,
-    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=800&auto=format&fit=crop',
+interface EventListItem {
+  id: string;
+  artist: string;
+  tour: string;
+  date: string;
+  venue: string;
+  price: number;
+  image: string;
+  genre: string;
+  ticketsLeft: number;
+  status: string;
+}
+
+const mapDbEventToFrontend = (e: any): EventListItem => {
+  return {
+    id: e.id,
+    artist: e.title,
+    tour: e.description ? e.description.split('.')[0] : 'Live Show',
+    date: e.startDateTime,
+    venue: e.venue?.name || 'Venue',
+    price: Number(e.basePrice),
+    image: e.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
     genre: 'Metalcore',
     ticketsLeft: 200,
-    status: 'available'
-  },
-  {
-    id: '5',
-    artist: 'FIT FOR A KING',
-    tour: 'DEATHGRIP WORLD TOUR',
-    date: '2026-09-05',
-    venue: 'Jakarta Matraman',
-    price: 550000,
-    image: 'https://images.unsplash.com/photo-1557787163-1635e2efb160?q=80&w=800&auto=format&fit=crop',
-    genre: 'Metalcore',
-    ticketsLeft: 15,
-    status: 'last_tickets'
-  },
-  {
-    id: '6',
-    artist: 'COUNTERPARTS',
-    tour: 'THE HEALING OF HARLOTS',
-    date: '2026-10-22',
-    venue: 'Bandung Grand Locke',
-    price: 450000,
-    image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=800&auto=format&fit=crop',
-    genre: 'Melodic Hardcore',
-    ticketsLeft: 300,
-    status: 'available'
-  },
-  {
-    id: '7',
-    artist: 'LANDMVRKS',
-    tour: 'DARKNESS IN THE LIGHT',
-    date: '2026-11-15',
-    venue: 'Yogyakarta Soc',
-    price: 350000,
-    image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=800&auto=format&fit=crop',
-    genre: 'Alternative Rock',
-    ticketsLeft: 400,
-    status: 'available'
-  },
-  {
-    id: '8',
-    artist: 'CURRENTS',
-    tour: 'THE DEPRESSION SESSIONS',
-    date: '2026-12-01',
-    venue: 'Malang Polaris',
-    price: 400000,
-    image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=800&auto=format&fit=crop',
-    genre: 'Progressive Metalcore',
-    ticketsLeft: 250,
-    status: 'available'
-  }
-];
+    status: e.status === 'PUBLISHED' ? 'available' : 'selling_fast'
+  };
+};
 
 const GENRES = ['All', 'Metalcore', 'Alternative Metal', 'Progressive Metalcore', 'Melodic Hardcore', 'Alternative Rock'];
 
 export default function EventsPage() {
+  const [events, setEvents] = useState<EventListItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
   const [sortBy, setSortBy] = useState('date');
 
-  const filteredEvents = EVENTS.filter(event => 
+  useEffect(() => {
+    async function loadEvents() {
+      try {
+        const list = await apiClient.get<any[]>('/events');
+        if (list && Array.isArray(list)) {
+          setEvents(list.map(mapDbEventToFrontend));
+        }
+      } catch (err) {
+        console.error('Failed to load events:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadEvents();
+  }, []);
+
+  const filteredEvents = events.filter(event => 
     filter === 'All' ? true : event.genre === filter
   ).sort((a, b) => {
     if (sortBy === 'date') return new Date(a.date).getTime() - new Date(b.date).getTime();
@@ -171,9 +118,9 @@ export default function EventsPage() {
             className="flex flex-wrap justify-center gap-4 md:gap-8 mt-8"
           >
             {[
-              { icon: Ticket, label: 'Total Events', value: EVENTS.length },
+              { icon: Ticket, label: 'Total Events', value: events.length },
               { icon: Users, label: 'Tickets Sold', value: '50K+' },
-              { icon: TrendingUp, label: 'Upcoming', value: EVENTS.filter(e => new Date(e.date) > new Date()).length },
+              { icon: TrendingUp, label: 'Upcoming', value: events.filter(e => new Date(e.date) > new Date()).length },
               { icon: Calendar, label: 'Cities', value: '5+' }
             ].map((stat) => (
               <div key={stat.label} className="flex items-center gap-2">
@@ -235,7 +182,12 @@ export default function EventsPage() {
 
           {/* Events Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredEvents.map((event, index) => (
+            {loading ? (
+              <div className="col-span-full text-center py-24">
+                <div className="w-12 h-12 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" />
+                <p className="uppercase tracking-widest text-sm">// LOADING_EVENTS...</p>
+              </div>
+            ) : filteredEvents.map((event, index) => (
               <motion.article
                 key={event.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -288,10 +240,11 @@ export default function EventsPage() {
                         IDR {event.price.toLocaleString('id-ID')}
                       </div>
                     </div>
-                    <Link href={`/events/${event.id}`}>
-                      <button className="px-4 py-2 bg-white text-black border border-white font-bold uppercase text-xs tracking-wide hover:bg-black hover:text-white transition-colors flex items-center gap-1 min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
-                        Get Tickets <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                      </button>
+                    <Link
+                      href={`/events/${event.id}`}
+                      className="px-4 py-2 bg-white text-black border border-white font-bold uppercase text-xs tracking-wide hover:bg-black hover:text-white transition-colors flex items-center gap-1 min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 text-center"
+                    >
+                      Get Tickets <ArrowRight className="w-3 h-3" aria-hidden="true" />
                     </Link>
                   </div>
                 </div>

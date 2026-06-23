@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Search, X, ArrowRight } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/ui/Footer';
 import { VenueCard } from '@/components/venues/VenueCard';
+import { apiClient } from '@/lib/api-client';
 import {
-  VENUES,
-  VENUE_CITIES,
+  Venue,
   VENUE_TYPES,
   VENUE_TYPE_LABELS,
   VENUE_CAPACITY_BUCKETS,
@@ -43,15 +43,69 @@ const gridItem = {
   show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
 };
 
+const mapDbVenueToFrontend = (v: any): Venue => {
+  return {
+    id: v.id,
+    slug: v.id,
+    name: v.name,
+    type: (v.seatMap?.layout?.toLowerCase() || 'arena') as any,
+    shortDescription: v.description || '',
+    description: v.description || '',
+    city: v.city,
+    address: v.address,
+    province: v.country || 'Indonesia',
+    postalCode: '',
+    capacity: {
+      seated: Math.round(v.capacity * 0.7),
+      standing: Math.round(v.capacity * 0.3),
+      total: v.capacity
+    },
+    facilities: ['Car', 'Accessibility', 'Wifi', 'Coffee', 'Shield', 'Music'],
+    images: [{ url: v.imageUrl || 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678', alt: v.name }],
+    geo: { lat: -6.2186, lng: 106.8019 },
+    contact: { phone: '+62 21 5723 333', email: 'info@venue.id' },
+    rating: 4.5,
+    reviewCount: 120,
+    upcomingEventsCount: v._count?.events || v.events?.length || 0,
+    pastEventsCount: 50,
+    isAccessible: true,
+    parkingSpots: 1000,
+    publicTransport: ['Station', 'Bus'],
+    established: 2020
+  };
+};
+
 export default function VenuesPage() {
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [loading, setLoading] = useState(true);
   const [city, setCity] = useState('All');
   const [type, setType] = useState<string>('all');
   const [capacity, setCapacity] = useState('all');
   const [search, setSearch] = useState('');
 
+  useEffect(() => {
+    async function loadVenues() {
+      try {
+        const list = await apiClient.get<any[]>('/venues');
+        if (list && Array.isArray(list)) {
+          setVenues(list.map(mapDbVenueToFrontend));
+        }
+      } catch (err) {
+        console.error('Failed to load venues:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadVenues();
+  }, []);
+
+  const cities = useMemo(() => {
+    return ['All', ...Array.from(new Set(venues.map((v) => v.city)))];
+  }, [venues]);
+
   const filtered = useMemo(() => {
     const bucket = VENUE_CAPACITY_BUCKETS.find((b) => b.id === capacity)!;
-    return VENUES.filter((v) => {
+    return venues.filter((v) => {
       if (city !== 'All' && v.city !== city) return false;
       if (type !== 'all' && v.type !== type) return false;
       if (v.capacity.total < bucket.min || v.capacity.total > bucket.max) return false;
@@ -65,7 +119,7 @@ export default function VenuesPage() {
       }
       return true;
     });
-  }, [city, type, capacity, search]);
+  }, [venues, city, type, capacity, search]);
 
   const totalCapacity = filtered.reduce((sum, v) => sum + v.capacity.total, 0);
   const totalUpcoming = filtered.reduce((sum, v) => sum + v.upcomingEventsCount, 0);
@@ -189,7 +243,7 @@ export default function VenuesPage() {
                     onChange={(e) => setCity(e.target.value)}
                     className="appearance-none w-full bg-black border border-white text-white px-4 pr-10 py-3 text-base focus:outline-none focus-visible:outline-2 focus-visible:outline-white cursor-pointer min-h-touch"
                   >
-                    {VENUE_CITIES.map((c) => (
+                    {cities.map((c) => (
                       <option key={c} value={c}>
                         {c === 'All' ? 'All Cities' : c}
                       </option>
@@ -281,7 +335,12 @@ export default function VenuesPage() {
       <section className="py-12 md:py-16" aria-label="Venue list">
         <div className="container mx-auto px-4 md:px-6">
           <AnimatePresence mode="wait">
-            {filtered.length > 0 ? (
+            {loading ? (
+              <div key="loading" className="text-center py-24 border border-mono-dark-grey w-full">
+                <div className="w-12 h-12 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" />
+                <p className="uppercase tracking-widest text-sm">// LOADING_VENUES...</p>
+              </div>
+            ) : filtered.length > 0 ? (
               <motion.div
                 key={`${city}-${type}-${capacity}-${search}`}
                 variants={gridStaggerContainer}

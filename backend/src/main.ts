@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -7,8 +7,6 @@ import helmet from '@fastify/helmet';
 import compress from '@fastify/compress';
 import rateLimit from '@fastify/rate-limit';
 import cors from '@fastify/cors';
-import fastifyStatic from '@fastify/static';
-import { join } from 'path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -69,7 +67,6 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
 
   // Configure Swagger with NestJS Swagger Module (works with Fastify)
-  /*
   const config = new DocumentBuilder()
     .setTitle('Event Ticketing System API')
     .setDescription('API documentation for Event Ticketing System')
@@ -80,12 +77,11 @@ async function bootstrap() {
         scheme: 'bearer',
         bearerFormat: 'JWT',
       },
-      'JWT',
+      'bearer',
     )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
-  */
 
   await app.listen(port, '0.0.0.0');
   logger.log(`🚀 Application is running on: http://localhost:${port}`);

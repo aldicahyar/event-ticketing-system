@@ -2,23 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
-  User, Ticket, Clock, Settings, LogOut, 
+  User, Ticket, Settings, LogOut, 
   ArrowRight, Calendar, CreditCard, Bell,
-  ChevronRight, Shield, TrendingUp, Users
+  Shield, TrendingUp, Users
 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
-// Mock user data
-const USER = {
-  firstName: 'John',
-  lastName: 'Doe',
-  email: 'john.doe@example.com',
-  memberSince: '2024-03-15',
-  totalOrders: 12,
-  totalSpent: 8750000,
-  loyaltyPoints: 2450
+// Default user data (fallback)
+const DEFAULT_USER = {
+  firstName: 'Guest',
+  lastName: '',
+  email: '',
+  memberSince: new Date().toISOString(),
+  totalOrders: 0,
+  totalSpent: 0,
+  loyaltyPoints: 0
 };
 
 const RECENT_ORDERS = [
@@ -61,14 +62,41 @@ const DASHBOARD_LINKS = [
 
 export default function DashboardPage() {
   const pathname = usePathname();
+  const router = useRouter();
   const [greeting, setGreeting] = useState('');
+  const [currentUser, setCurrentUser] = useState(DEFAULT_USER);
 
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good Morning');
     else if (hour < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
+
+    // Load real user from localStorage
+    const storedUser = apiClient.getUser();
+    if (storedUser) {
+      const nameParts = (storedUser.name || '').split(' ');
+      setCurrentUser({
+        firstName: nameParts[0] || 'User',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: storedUser.email || '',
+        memberSince: new Date().toISOString(),
+        totalOrders: 0,
+        totalSpent: 0,
+        loyaltyPoints: 0
+      });
+    }
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await apiClient.logout();
+    } catch {
+      // ignore
+    } finally {
+      router.push('/auth/login');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
@@ -90,7 +118,7 @@ export default function DashboardPage() {
                 <User className="w-4 h-4 text-black" />
               </div>
               <span className="text-sm font-bold uppercase hidden md:block">
-                {USER.firstName} {USER.lastName}
+                {currentUser.firstName} {currentUser.lastName}
               </span>
             </div>
           </div>
@@ -122,7 +150,7 @@ export default function DashboardPage() {
                   </Link>
                 );
               })}
-              <button className="whitespace-nowrap min-h-touch px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 border border-mono-dark-grey lg:border-0">
+              <button onClick={handleLogout} className="whitespace-nowrap min-h-touch px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 border border-mono-dark-grey lg:border-0">
                 <LogOut className="w-5 h-5 shrink-0" aria-hidden="true" />
                 <span className="font-bold uppercase text-sm">Sign Out</span>
               </button>
@@ -150,7 +178,7 @@ export default function DashboardPage() {
                       </Link>
                     );
                   })}
-                  <button className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" aria-label="Sign out of your account">
+                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" aria-label="Sign out of your account">
                     <LogOut className="w-5 h-5" aria-hidden="true" />
                     <span className="font-bold uppercase text-sm">Sign Out</span>
                   </button>
@@ -169,21 +197,21 @@ export default function DashboardPage() {
             >
               <h1 className="font-display font-bold text-2xl md:text-4xl uppercase text-white mb-2">
                 {greeting}, <span className="text-transparent stroke-text" style={{ WebkitTextStroke: "2px white" }}>
-                  {USER.firstName}
+                  {currentUser.firstName}
                 </span>
               </h1>
               <p className="text-mono-light-grey uppercase tracking-widest text-xs md:text-sm">
-                // WELCOME_BACK
+                {'// WELCOME_BACK'}
               </p>
             </motion.div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-3 md:gap-4">
               {[
-                { label: 'Total Orders', value: USER.totalOrders, icon: CreditCard },
-                { label: 'Tickets Bought', value: '24', icon: Ticket },
-                { label: 'Loyalty Points', value: USER.loyaltyPoints.toLocaleString(), icon: Users },
-                { label: 'Total Spent', value: `IDR ${(USER.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp }
+                { label: 'Total Orders', value: currentUser.totalOrders, icon: CreditCard },
+                { label: 'Tickets Bought', value: '0', icon: Ticket },
+                { label: 'Loyalty Points', value: currentUser.loyaltyPoints.toLocaleString(), icon: Users },
+                { label: 'Total Spent', value: `IDR ${(currentUser.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp }
               ].map((stat, index) => (
                 <motion.div
                   key={stat.label}
@@ -310,7 +338,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="text-xs uppercase tracking-widest mb-1">Member Since</div>
                   <div className="font-display font-bold text-lg md:text-2xl">
-                    {new Date(USER.memberSince).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                    {new Date(currentUser.memberSince).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                   </div>
                 </div>
                 <Shield className="w-8 h-8 md:w-10 md:h-10 opacity-50" aria-hidden="true" />
@@ -318,7 +346,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-3 md:gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-widest mb-1">Loyalty Points</div>
-                  <div className="font-display font-bold text-2xl md:text-3xl">{USER.loyaltyPoints.toLocaleString()}</div>
+                  <div className="font-display font-bold text-2xl md:text-3xl">{currentUser.loyaltyPoints.toLocaleString()}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs uppercase tracking-widest mb-1">Member Status</div>

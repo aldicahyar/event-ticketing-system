@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -10,6 +10,7 @@ import {
   CreditCard, Smartphone, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
+import { apiClient } from '@/lib/api-client';
 
 // Types for the event and tickets
 interface TicketTier {
@@ -44,133 +45,59 @@ interface Event {
   tiers: TicketTier[];
 }
 
-// Mock API Service - Easy to swap to real API later
-const EventService = {
-  async getEvent(id: string): Promise<Event | null> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+const mapDbSeatToFrontend = (s: any): Seat => {
+  return {
+    id: s.id,
+    row: s.row,
+    number: s.number,
+    section: `Section ${s.row}`,
+    status: s.status.toLowerCase() as Seat['status'],
+    tier: s.type
+  };
+};
 
-    const eventsData: Record<string, Event> = {
-      '1': {
-        id: '1',
-        artist: 'BRING ME THE HORIZON',
-        tour: 'POST HUMAN: SURVIVAL HORROR',
-        date: '2026-03-15',
-        venue: 'Jakarta GBK Stadium',
-        price: 750000,
-        image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2000&auto=format&fit=crop',
-        genre: 'Metalcore',
-        description: 'Bring Me The Horizon returns with their most explosive tour yet. Experience the Post Human: Survival Horror tour live in Jakarta!',
-        ticketsLeft: 2500,
-        tiers: [
-          {
-            id: 'vip',
-            name: 'VIP',
-            price: 1500000,
-            description: 'Premium experience with exclusive perks',
-            available: 50,
-            features: ['Front row access', 'Meet & Greet', 'Exclusive merchandise', 'Soundcheck access', 'VIP lounge']
-          },
-          {
-            id: 'premium',
-            name: 'PREMIUM',
-            price: 1000000,
-            description: 'Best views with premium seating',
-            available: 200,
-            features: ['Section A seating', 'Early entry', 'Premium gift pack', 'Dedicated entrance']
-          },
-          {
-            id: 'standard',
-            name: 'STANDARD',
-            price: 750000,
-            description: 'General admission with great views',
-            available: 1500,
-            features: ['Section B/C seating', 'Standard entry', 'Event program']
-          },
-          {
-            id: 'economy',
-            name: 'ECONOMY',
-            price: 450000,
-            description: 'Budget-friendly option',
-            available: 800,
-            features: ['Section D/E seating', 'Standard entry']
-          }
-        ]
-      },
-      '2': {
-        id: '2',
-        artist: 'BAD OMENS',
-        tour: 'THE DEATH OF PEACE OF MIND',
-        date: '2026-05-20',
-        venue: 'Jakarta ICE BSD',
-        price: 650000,
-        image: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=2000&auto=format&fit=crop',
-        genre: 'Alternative Metal',
-        description: 'Bad Omens brings their critically acclaimed Death Of Peace Of Mind tour to Jakarta.',
-        ticketsLeft: 1800,
-        tiers: [
-          {
-            id: 'vip',
-            name: 'VIP',
-            price: 1200000,
-            description: 'Premium experience',
-            available: 100,
-            features: ['Front row access', 'Meet & Greet', 'Exclusive merchandise']
-          },
-          {
-            id: 'premium',
-            name: 'PREMIUM',
-            price: 850000,
-            description: 'Best views',
-            available: 300,
-            features: ['Section A seating', 'Early entry']
-          },
-          {
-            id: 'standard',
-            name: 'STANDARD',
-            price: 650000,
-            description: 'General admission',
-            available: 1000,
-            features: ['Section B seating', 'Standard entry']
-          }
-        ]
+const computeTiersFromSeats = (seats: any[]): TicketTier[] => {
+  const tierMap = new Map<string, { price: number; available: number }>();
+  seats.forEach(s => {
+    const type = s.type; // VIP, PREMIUM, REGULAR
+    const price = Number(s.price);
+    const isAvailable = s.status === 'AVAILABLE';
+    if (!tierMap.has(type)) {
+      tierMap.set(type, { price, available: 0 });
+    }
+    if (isAvailable) {
+      tierMap.get(type)!.available += 1;
+    }
+  });
+
+  const tiers: TicketTier[] = [];
+  const order = ['VIP', 'PREMIUM', 'REGULAR'];
+  order.forEach(type => {
+    const val = tierMap.get(type);
+    if (val) {
+      let features: string[] = [];
+      let description = '';
+      if (type === 'VIP') {
+        description = 'Premium experience with exclusive perks';
+        features = ['Front row access', 'Dedicated entrance', 'VIP lounge', 'Event program'];
+      } else if (type === 'PREMIUM') {
+        description = 'Best views with premium seating';
+        features = ['Best views', 'Early entry', 'Dedicated entrance'];
+      } else {
+        description = 'General admission with standard seating';
+        features = ['Standard entry', 'Standard seating'];
       }
-    };
-
-    return eventsData[id] || null;
-  },
-
-  async getSeats(eventId: string, tierId: string): Promise<Seat[]> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Generate mock seats
-    const seats: Seat[] = [];
-    const sections = ['A', 'B', 'C', 'D'];
-    const rows = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-
-    sections.forEach((section, sectionIndex) => {
-      rows.forEach((row, rowIndex) => {
-        const seatsPerRow = sectionIndex === 0 ? 10 : sectionIndex === 1 ? 15 : 20;
-        for (let i = 1; i <= seatsPerRow; i++) {
-          const random = Math.random();
-          let status: Seat['status'] = 'available';
-          if (random > 0.7) status = 'sold';
-          else if (random > 0.85) status = 'reserved';
-
-          seats.push({
-            id: `${section}${row}${i}`,
-            row,
-            number: i,
-            section: `Section ${section}`,
-            status,
-            tier: tierId
-          });
-        }
+      tiers.push({
+        id: type,
+        name: type,
+        price: val.price,
+        description,
+        available: val.available,
+        features
       });
-    });
-
-    return seats;
-  }
+    }
+  });
+  return tiers;
 };
 
 export default function EventDetailPage() {
@@ -179,6 +106,7 @@ export default function EventDetailPage() {
   const eventId = params.id as string;
 
   const [event, setEvent] = useState<Event | null>(null);
+  const [allSeats, setAllSeats] = useState<Seat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -193,12 +121,30 @@ export default function EventDetailPage() {
   useEffect(() => {
     async function fetchEvent() {
       try {
-        const eventData = await EventService.getEvent(eventId);
+        const eventData = await apiClient.get<any>(`/events/${eventId}`);
         if (eventData) {
-          setEvent(eventData);
+          const computedTiers = computeTiersFromSeats(eventData.seats || []);
+          const frontEvent: Event = {
+            id: eventData.id,
+            artist: eventData.title,
+            tour: eventData.description ? eventData.description.split('.')[0] : 'Live Show',
+            date: eventData.startDateTime,
+            venue: eventData.venue?.name || 'Venue',
+            price: Number(eventData.basePrice),
+            image: eventData.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
+            genre: 'Metalcore',
+            description: eventData.description || '',
+            ticketsLeft: (eventData.seats || []).filter((s: any) => s.status === 'AVAILABLE').length,
+            tiers: computedTiers
+          };
+          setEvent(frontEvent);
+
+          const mappedSeats = (eventData.seats || []).map(mapDbSeatToFrontend);
+          setAllSeats(mappedSeats);
+
           // Default to first tier
-          if (eventData.tiers.length > 0) {
-            setSelectedTier(eventData.tiers[0].id);
+          if (computedTiers.length > 0) {
+            setSelectedTier(computedTiers[0].id);
           }
         } else {
           setError('Event not found');
@@ -210,24 +156,26 @@ export default function EventDetailPage() {
       }
     }
 
-    fetchEvent();
+    if (eventId) {
+      fetchEvent();
+    }
   }, [eventId]);
 
   // Fetch seats when tier changes
   useEffect(() => {
-    if (selectedTier && event) {
-      async function fetchSeats() {
-        const tierId = selectedTier || '';
-        const seatData = await EventService.getSeats(eventId, tierId);
-        setSeats(seatData);
-        setSelectedSeats([]);
-        setQuantity(1);
-      }
-      fetchSeats();
+    if (selectedTier && allSeats.length > 0) {
+      const tierSeats = allSeats.filter(s => s.tier === selectedTier);
+      setSeats(tierSeats);
+      setSelectedSeats([]);
+      setQuantity(1);
     }
-  }, [selectedTier, eventId, event]);
+  }, [selectedTier, allSeats]);
 
   const selectedTierData = event?.tiers.find(t => t.id === selectedTier);
+
+  const uniqueRows = useMemo(() => {
+    return Array.from(new Set(seats.map(s => s.row))).sort();
+  }, [seats]);
 
   const handleSeatClick = (seat: Seat) => {
     if (seat.status !== 'available') return;
@@ -470,11 +418,11 @@ export default function EventDetailPage() {
 
                 {/* Seat Grid */}
                 <div className="space-y-2 max-h-[400px] overflow-y-auto" role="group" aria-label="Seat selection grid">
-                  {['A', 'B', 'C', 'D', 'E'].map((section) => (
-                    <div key={section} className="mb-4">
-                      <div className="text-xs text-mono-light-grey uppercase mb-2" id={`section-${section}-label`}>Section {section}</div>
-                      <div className="flex flex-wrap gap-1 justify-center" role="group" aria-labelledby={`section-${section}-label`}>
-                        {seats.filter(s => s.section === `Section ${section}`).slice(0, 20).map((seat) => (
+                  {uniqueRows.map((rowName) => (
+                    <div key={rowName} className="mb-4">
+                      <div className="text-xs text-mono-light-grey uppercase mb-2" id={`row-${rowName}-label`}>Row {rowName}</div>
+                      <div className="flex flex-wrap gap-1 justify-center" role="group" aria-labelledby={`row-${rowName}-label`}>
+                        {seats.filter(s => s.row === rowName).map((seat) => (
                           <button
                             key={seat.id}
                             onClick={() => handleSeatClick(seat)}

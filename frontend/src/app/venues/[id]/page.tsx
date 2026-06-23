@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -41,12 +41,12 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/ui/Footer';
 import { VenueCard } from '@/components/venues/VenueCard';
 import {
-  getVenueById,
-  getRelatedVenues,
+  Venue,
   VENUE_TYPE_LABELS,
   formatCapacity,
   VENUE_FACILITIES,
 } from '@/lib/venues-data';
+import { apiClient } from '@/lib/api-client';
 
 const FACILITY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Car,
@@ -92,11 +92,83 @@ const staggerItem = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
+const mapDbVenueToFrontend = (v: any): Venue => {
+  return {
+    id: v.id,
+    slug: v.id,
+    name: v.name,
+    type: (v.seatMap?.layout?.toLowerCase() || 'arena') as any,
+    shortDescription: v.description || '',
+    description: v.description || '',
+    city: v.city,
+    address: v.address,
+    province: v.country || 'Indonesia',
+    postalCode: '',
+    capacity: {
+      seated: Math.round(v.capacity * 0.7),
+      standing: Math.round(v.capacity * 0.3),
+      total: v.capacity
+    },
+    facilities: ['Car', 'Accessibility', 'Wifi', 'Coffee', 'Shield', 'Music'],
+    images: [{ url: v.imageUrl || 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678', alt: v.name }],
+    geo: { lat: -6.2186, lng: 106.8019 },
+    contact: { phone: '+62 21 5723 333', email: 'info@venue.id' },
+    rating: 4.5,
+    reviewCount: 120,
+    upcomingEventsCount: v._count?.events || v.events?.length || 0,
+    pastEventsCount: 50,
+    isAccessible: true,
+    parkingSpots: 1000,
+    publicTransport: ['Station', 'Bus'],
+    established: 2020
+  };
+};
+
 export default function VenueDetailPage() {
   const params = useParams<{ id: string }>();
   const venueId = params?.id ?? '';
-  const venue = useMemo(() => getVenueById(venueId), [venueId]);
-  const related = useMemo(() => getRelatedVenues(venueId, 3), [venueId]);
+  const [venue, setVenue] = useState<Venue | null>(null);
+  const [related, setRelated] = useState<Venue[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadVenueDetails() {
+      if (!venueId) return;
+      try {
+        const item = await apiClient.get<any>(`/venues/${venueId}`);
+        if (item) {
+          const frontVenue = mapDbVenueToFrontend(item);
+          setVenue(frontVenue);
+
+          // Fetch related venues (filter similar ones on the client side)
+          const allVenues = await apiClient.get<any[]>('/venues');
+          if (allVenues && Array.isArray(allVenues)) {
+            const parsed = allVenues.map(mapDbVenueToFrontend);
+            const filteredRelated = parsed
+              .filter((v) => v.id !== venueId && (v.city === frontVenue.city || v.type === frontVenue.type))
+              .slice(0, 3);
+            setRelated(filteredRelated);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load venue details:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadVenueDetails();
+  }, [venueId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" aria-hidden="true" />
+          <p className="uppercase tracking-widest">// LOADING_VENUE_DETAILS...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!venue) {
     return (
