@@ -130,7 +130,11 @@ export class OAuthCallbackDto {
 }
 
 export class VerifyEmailDto {
-  @ApiProperty({ example: 'abc123verificationtoken' })
+  @ApiProperty({ example: 'john@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: '482917', description: '6-digit verification code' })
   @IsString()
   token: string;
 }

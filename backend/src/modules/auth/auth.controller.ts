@@ -24,6 +24,8 @@ import {
   LoginDto,
   RefreshTokenDto,
   ChangePasswordDto,
+  VerifyEmailDto,
+  ResendVerificationDto,
 } from './dto/auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -55,6 +57,30 @@ export class AuthController {
     const ipAddress = this.getClientIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
     return this.authService.register(dto, ipAddress, userAgent);
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Verify email address' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Email verified successfully',
+  })
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.email, dto.token);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Resend verification email' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Verification code resent',
+  })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto.email);
   }
 
   @Post('login')

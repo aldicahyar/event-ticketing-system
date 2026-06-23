@@ -10,6 +10,7 @@ import {
   ChevronRight, Shield, Mail, Smartphone, Camera,
   CheckCircle, AlertCircle
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const USER = {
   firstName: 'John',
@@ -37,6 +38,7 @@ const DASHBOARD_LINKS = [
 
 export default function ProfilePage() {
   const pathname = usePathname();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
   const [formData, setFormData] = useState({
     firstName: USER.firstName,
@@ -102,7 +104,7 @@ export default function ProfilePage() {
                     </Link>
                   );
                 })}
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all">
+                <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all">
                   <LogOut className="w-5 h-5" />
                   <span className="font-bold uppercase text-sm">Sign Out</span>
                 </button>

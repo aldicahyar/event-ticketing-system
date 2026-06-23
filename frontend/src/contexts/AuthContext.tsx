@@ -34,6 +34,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  verifyEmail: (email: string, token: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,16 +79,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return response;
   }, []);
 
+  const verifyEmail = useCallback(async (email: string, token: string) => {
+    const response = await apiClient.verifyEmail(email, token);
+    setUser(response.user);
+  }, []);
+
+  const resendVerification = useCallback(async (email: string) => {
+    await apiClient.resendVerification(email);
+  }, []);
+
   const logout = useCallback(async () => {
     await apiClient.logout();
     setUser(null);
-    router.push('/auth/login');
+    router.push('/');
   }, [router]);
 
   const logoutAll = useCallback(async () => {
     await apiClient.logoutAll();
     setUser(null);
-    router.push('/auth/login');
+    router.push('/');
   }, [router]);
 
   const refreshUser = useCallback(async () => {
@@ -108,6 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     logoutAll,
     refreshUser,
+    verifyEmail,
+    resendVerification,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

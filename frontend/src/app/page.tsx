@@ -6,17 +6,26 @@ import { BrutalistHero } from '@/components/hero/BrutalistHero';
 import { EventList } from '@/components/events/EventList';
 import { Footer } from '@/components/ui/Footer';
 import { Menu, X } from 'lucide-react';
-
-const NAV_LINKS = [
-  { href: '/events', label: 'Events' },
-  { href: '/venues', label: 'Venues' },
-  { href: '/lineup', label: 'Lineup' },
-  { href: '/auth/login', label: 'Login' },
-  { href: '/auth/register', label: 'Sign Up' },
-];
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
+
+  const navLinks = isAuthenticated
+    ? [
+        { href: '/events', label: 'Events' },
+        { href: '/venues', label: 'Venues' },
+        { href: '/lineup', label: 'Lineup' },
+        { href: '/dashboard', label: 'Dashboard' },
+      ]
+    : [
+        { href: '/events', label: 'Events' },
+        { href: '/venues', label: 'Venues' },
+        { href: '/lineup', label: 'Lineup' },
+        { href: '/auth/login', label: 'Login' },
+        { href: '/auth/register', label: 'Sign Up' },
+      ];
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black font-mono">
@@ -37,7 +46,7 @@ export default function Home() {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-0 pointer-events-auto">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -69,7 +78,7 @@ export default function Home() {
           role="dialog"
           aria-label="Mobile navigation menu"
         >
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}

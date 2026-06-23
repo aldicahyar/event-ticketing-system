@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -22,7 +22,13 @@ import { apiClient } from '@/lib/api-client';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -87,7 +93,7 @@ export default function RegisterPage() {
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       });
-      router.push('/dashboard');
+      router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
     } catch (err) {
       setError(apiClient.getErrorMessage(err));
     } finally {

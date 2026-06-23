@@ -23,6 +23,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly JWT_ACCESS_EXPIRATION = '15m';
   private readonly JWT_REFRESH_EXPIRATION = '7d';
+  private readonly verificationCodes = new Map<string, { code: string; expiresAt: Date }>();
 
   constructor(
     private prisma: PrismaService,
@@ -82,12 +83,123 @@ export class AuthService {
 
     this.logger.log(`User registered: ${user.email}`);
 
+    // Generate email verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    this.verificationCodes.set(normalizedEmail, { code: verificationCode, expiresAt });
+    this.logger.log(`[Mock Email] Verification code for ${user.email} is: ${verificationCode}`);
+
     const tokens = await this.generateTokens(user);
 
     return {
       user,
       ...tokens,
     };
+  }
+
+  async verifyEmail(email: string, token: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.emailVerified) {
+      const userWithoutPassword = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        isActive: user.isActive,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+      };
+      const tokens = await this.generateTokens(userWithoutPassword);
+      return {
+        user: userWithoutPassword,
+        ...tokens,
+      };
+    }
+
+    const stored = this.verificationCodes.get(normalizedEmail);
+    if (!stored) {
+      throw new BadRequestException('Verification code expired or not found. Please request a new one.');
+    }
+
+    if (stored.expiresAt < new Date()) {
+      this.verificationCodes.delete(normalizedEmail);
+      throw new BadRequestException('Verification code has expired. Please request a new one.');
+    }
+
+    if (stored.code !== token) {
+      throw new BadRequestException('Invalid verification code');
+    }
+
+    // Code is valid! Clean up code from memory
+    this.verificationCodes.delete(normalizedEmail);
+
+    // Update user in DB
+    const updatedUser = await this.prisma.user.update({
+      where: { email: normalizedEmail },
+      data: { emailVerified: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+      },
+    });
+
+    // Log verification
+    await this.prisma.securityLog.create({
+      data: {
+        userId: updatedUser.id,
+        action: 'EMAIL_VERIFIED',
+        metadata: { method: 'local' },
+      },
+    });
+
+    this.logger.log(`Email verified for user: ${updatedUser.email}`);
+
+    // Generate tokens so they are logged in directly
+    const tokens = await this.generateTokens(updatedUser);
+
+    return {
+      user: updatedUser,
+      ...tokens,
+    };
+  }
+
+  async resendVerification(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.emailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    this.verificationCodes.set(normalizedEmail, { code: verificationCode, expiresAt });
+
+    this.logger.log(`[Mock Email] Resent verification code for ${normalizedEmail} is: ${verificationCode}`);
+
+    return { message: 'Verification code sent successfully' };
   }
 
   async login(dto: LoginDto, ipAddress: string, userAgent: string) {

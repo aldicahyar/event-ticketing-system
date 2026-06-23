@@ -10,6 +10,7 @@ import {
   Shield, TrendingUp, Users
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Default user data (fallback)
 const DEFAULT_USER = {
@@ -63,8 +64,19 @@ const DASHBOARD_LINKS = [
 export default function DashboardPage() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [greeting, setGreeting] = useState('');
   const [currentUser, setCurrentUser] = useState(DEFAULT_USER);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        router.push('/auth/login');
+      } else if (user && !user.emailVerified) {
+        router.push(`/auth/verify-email?email=${encodeURIComponent(user.email)}`);
+      }
+    }
+  }, [user, isAuthenticated, isLoading, router]);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -90,11 +102,9 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await apiClient.logout();
+      await logout();
     } catch {
       // ignore
-    } finally {
-      router.push('/auth/login');
     }
   };
 
@@ -131,7 +141,7 @@ export default function DashboardPage() {
           {/* Sidebar - horizontal scroll on mobile, vertical on desktop */}
           <div className="lg:col-span-1">
             {/* Mobile: horizontal tabs */}
-            <div className="flex overflow-x-auto gap-2 mb-6 lg:mb-0 lg:flex-col lg:overflow-visible -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-none">
+            <div className="flex lg:hidden overflow-x-auto gap-2 mb-6 -mx-4 px-4 scrollbar-none">
               {DASHBOARD_LINKS.map((link) => {
                 const isActive = pathname === link.href;
                 return (

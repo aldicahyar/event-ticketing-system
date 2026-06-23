@@ -218,6 +218,21 @@ class ApiClient {
     return result;
   }
 
+  async verifyEmail(email: string, token: string): Promise<LoginResponse> {
+    const response = await this.client.post<ApiResponse<LoginResponse>>(
+      '/auth/verify-email',
+      { email, token }
+    );
+    const result = response.data.data as LoginResponse;
+    this.setTokens(result.accessToken, result.refreshToken);
+    this.setUser(result.user);
+    return result;
+  }
+
+  async resendVerification(email: string): Promise<void> {
+    await this.client.post('/auth/resend-verification', { email });
+  }
+
   async logout(): Promise<void> {
     const refreshToken = this.getRefreshToken();
     try {

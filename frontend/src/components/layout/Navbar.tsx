@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavLink {
   href: string;
@@ -17,10 +18,16 @@ interface NavbarProps {
 
 export const Navbar = ({ links, showAuth = true }: NavbarProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
 
-  const allLinks = showAuth
-    ? [...links, { href: '/auth/login', label: 'Login' }]
-    : links;
+  const allLinks = [...links];
+  if (showAuth) {
+    if (isAuthenticated) {
+      allLinks.push({ href: '/dashboard', label: 'Dashboard' });
+    } else {
+      allLinks.push({ href: '/auth/login', label: 'Login' });
+    }
+  }
 
   return (
     <>
