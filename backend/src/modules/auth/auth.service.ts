@@ -16,11 +16,7 @@ import { randomInt } from 'node:crypto';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { AccountLockoutService } from './account-lockout.service';
-import {
-  RegisterDto,
-  LoginDto,
-  ChangePasswordDto,
-} from './dto/auth.dto';
+import { RegisterDto, LoginDto, ChangePasswordDto } from './dto/auth.dto';
 
 const enum OtpConfig {
   TTL_SECONDS = 15 * 60,
@@ -172,7 +168,9 @@ export class AuthService {
 
     const storedCode = await this.getVerificationCode(normalizedEmail);
     if (!storedCode) {
-      throw new BadRequestException('Verification code expired or not found. Please request a new one.');
+      throw new BadRequestException(
+        'Verification code expired or not found. Please request a new one.',
+      );
     }
 
     if (storedCode !== token) {
@@ -275,7 +273,10 @@ export class AuthService {
           metadata: { email: normalizedEmail },
         },
       });
-      throw new HttpException('Please wait before requesting a new code.', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Please wait before requesting a new code.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const verificationCode = this.generateOtpCode();
@@ -284,7 +285,9 @@ export class AuthService {
     // Set cooldown key with TTL (auto-expires)
     await this.redisService.set(cooldownKey, '1', OtpConfig.COOLDOWN_SECONDS);
 
-    this.logger.debug(`[Mock Email] Resent verification code for ${normalizedEmail} is: ${verificationCode}`);
+    this.logger.debug(
+      `[Mock Email] Resent verification code for ${normalizedEmail} is: ${verificationCode}`,
+    );
 
     // Log OTP sent event
     await this.prisma.securityLog.create({
@@ -320,11 +323,7 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
 
     if (!isPasswordValid) {
-      const result = await this.lockoutService.recordFailedAttempt(
-        user.id,
-        ipAddress,
-        userAgent,
-      );
+      const result = await this.lockoutService.recordFailedAttempt(user.id, ipAddress, userAgent);
 
       if (result.isLocked) {
         throw new ForbiddenException(
@@ -375,7 +374,7 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshToken: string, ipAddress: string) {
+  async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
@@ -438,9 +437,9 @@ export class AuthService {
   async logout(refreshToken: string, userId: string, ipAddress: string) {
     try {
       const payload = this.jwtService.decode(refreshToken) as any;
-      
+
       await this.revokeRefreshToken(refreshToken);
-      
+
       // Delete all user sessions
       await this.redisService.delPattern(`session:${userId}:*`);
 
@@ -551,7 +550,9 @@ export class AuthService {
   private async storeVerificationCode(email: string, code: string): Promise<void> {
     if (!this.redisService.isAvailable()) {
       this.logger.error('Redis unavailable, cannot store verification code');
-      throw new ServiceUnavailableException('Email verification service unavailable. Please try again.');
+      throw new ServiceUnavailableException(
+        'Email verification service unavailable. Please try again.',
+      );
     }
     const codeKey = `${OtpRedisKeys.VERIFY_PREFIX}${email}`;
     const attemptsKey = `${OtpRedisKeys.ATTEMPTS_PREFIX}${email}`;
@@ -561,7 +562,9 @@ export class AuthService {
 
   private async getVerificationCode(email: string): Promise<string | null> {
     if (!this.redisService.isAvailable()) {
-      throw new ServiceUnavailableException('Email verification service unavailable. Please try again.');
+      throw new ServiceUnavailableException(
+        'Email verification service unavailable. Please try again.',
+      );
     }
     const codeKey = `${OtpRedisKeys.VERIFY_PREFIX}${email}`;
     const code = await this.redisService.get<any>(codeKey);
@@ -582,7 +585,9 @@ export class AuthService {
    */
   private async incrAttempts(email: string): Promise<number> {
     if (!this.redisService.isAvailable()) {
-      throw new ServiceUnavailableException('Email verification service unavailable. Please try again.');
+      throw new ServiceUnavailableException(
+        'Email verification service unavailable. Please try again.',
+      );
     }
     const attemptsKey = `${OtpRedisKeys.ATTEMPTS_PREFIX}${email}`;
     return this.redisService.incr(attemptsKey);
@@ -680,11 +685,7 @@ export class AuthService {
   }
 
   // Admin: Unlock user account
-  async adminUnlockAccount(
-    targetUserId: string,
-    adminId: string,
-    ipAddress: string,
-  ) {
+  async adminUnlockAccount(targetUserId: string, adminId: string, ipAddress: string) {
     await this.lockoutService.unlockAccount(targetUserId, adminId, ipAddress);
     return { message: 'Account unlocked successfully' };
   }

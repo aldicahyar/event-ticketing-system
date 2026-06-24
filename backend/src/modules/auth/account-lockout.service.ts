@@ -22,18 +22,14 @@ export class AccountLockoutService {
   ) {
     this.config = {
       maxAttempts: this.configService.get<number>('AUTH_MAX_LOGIN_ATTEMPTS', 5),
-      lockoutDurationMinutes: this.configService.get<number>(
-        'AUTH_LOCKOUT_DURATION_MINUTES',
-        30,
-      ),
-      attemptWindowMinutes: this.configService.get<number>(
-        'AUTH_ATTEMPT_WINDOW_MINUTES',
-        15,
-      ),
+      lockoutDurationMinutes: this.configService.get<number>('AUTH_LOCKOUT_DURATION_MINUTES', 30),
+      attemptWindowMinutes: this.configService.get<number>('AUTH_ATTEMPT_WINDOW_MINUTES', 15),
     };
   }
 
-  async checkLockout(userId: string): Promise<{ isLocked: boolean; lockedUntil?: Date; remainingTime?: number }> {
+  async checkLockout(
+    userId: string,
+  ): Promise<{ isLocked: boolean; lockedUntil?: Date; remainingTime?: number }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { lockedUntil: true, isActive: true },
@@ -48,16 +44,16 @@ export class AccountLockoutService {
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      const remainingTime = Math.ceil(
-        (user.lockedUntil.getTime() - Date.now()) / 1000 / 60,
-      );
+      const remainingTime = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000 / 60);
       return { isLocked: true, lockedUntil: user.lockedUntil, remainingTime };
     }
 
     return { isLocked: false };
   }
 
-  async checkLockoutByEmail(email: string): Promise<{ isLocked: boolean; lockedUntil?: Date; remainingTime?: number }> {
+  async checkLockoutByEmail(
+    email: string,
+  ): Promise<{ isLocked: boolean; lockedUntil?: Date; remainingTime?: number }> {
     const user = await this.prisma.user.findUnique({
       where: { email: email.toLowerCase() },
       select: { id: true, lockedUntil: true, isActive: true },
@@ -97,9 +93,7 @@ export class AccountLockoutService {
     };
 
     if (isLocked) {
-      const lockedUntil = new Date(
-        Date.now() + this.config.lockoutDurationMinutes * 60 * 1000,
-      );
+      const lockedUntil = new Date(Date.now() + this.config.lockoutDurationMinutes * 60 * 1000);
       updateData.lockedUntil = lockedUntil;
 
       await this.prisma.securityLog.create({
@@ -116,9 +110,7 @@ export class AccountLockoutService {
         },
       });
 
-      this.logger.warn(
-        `Account locked for user ${userId} after ${newAttempts} failed attempts`,
-      );
+      this.logger.warn(`Account locked for user ${userId} after ${newAttempts} failed attempts`);
 
       return { attempts: newAttempts, isLocked: true, lockedUntil };
     }
@@ -155,11 +147,7 @@ export class AccountLockoutService {
     });
   }
 
-  async unlockAccount(
-    userId: string,
-    unlockedBy: string,
-    ipAddress: string,
-  ): Promise<void> {
+  async unlockAccount(userId: string, unlockedBy: string, ipAddress: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
       data: {

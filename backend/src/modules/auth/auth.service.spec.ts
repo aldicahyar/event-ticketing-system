@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -132,7 +131,9 @@ describe('AuthService - OTP via Redis', () => {
     it('logs OTP_RATE_LIMITED security event when rate-limited', async () => {
       redisMock.store.set('otp:cooldown:test@example.com', '1');
 
-      try { await service.resendVerification('test@example.com'); } catch {}
+      try {
+        await service.resendVerification('test@example.com');
+      } catch {}
 
       expect(prismaMock.securityLog.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ action: 'OTP_RATE_LIMITED' }) }),
@@ -161,7 +162,9 @@ describe('AuthService - OTP via Redis', () => {
       await redisMock.set('otp:verify:test@example.com', '482917', 900);
       await redisMock.set('otp:attempts:test@example.com', '0', 900);
 
-      await expect(service.verifyEmail('test@example.com', '000000')).rejects.toThrow(BadRequestException);
+      await expect(service.verifyEmail('test@example.com', '000000')).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(redisMock.incr).toHaveBeenCalledWith('otp:attempts:test@example.com');
       expect(redisMock.store.get('otp:attempts:test@example.com')).toBe('1');
@@ -238,7 +241,12 @@ describe('AuthService - OTP via Redis', () => {
 
       await expect(
         service.register(
-          { email: 'new@test.com', password: 'Password1!', confirmPassword: 'Password1!', name: 'New' } as any,
+          {
+            email: 'new@test.com',
+            password: 'Password1!',
+            confirmPassword: 'Password1!',
+            name: 'New',
+          } as any,
           '127.0.0.1',
           'test-agent',
         ),
@@ -251,16 +259,25 @@ describe('AuthService - OTP via Redis', () => {
     it('register rolls back user record if OTP storage fails after user creation', async () => {
       // Redis is available for the pre-flight check, then goes down for storeVerificationCode
       redisMock.isAvailable
-        .mockReturnValueOnce(true)   // pre-flight check passes
+        .mockReturnValueOnce(true) // pre-flight check passes
         .mockReturnValueOnce(false); // storeVerificationCode guard fails
 
       prismaMock.user.findUnique.mockResolvedValue(null);
-      prismaMock.user.create.mockResolvedValue({ ...mockUser, id: 'new-user-id', email: 'new@test.com' });
+      prismaMock.user.create.mockResolvedValue({
+        ...mockUser,
+        id: 'new-user-id',
+        email: 'new@test.com',
+      });
       prismaMock.user.delete.mockResolvedValue(undefined);
 
       await expect(
         service.register(
-          { email: 'new@test.com', password: 'Password1!', confirmPassword: 'Password1!', name: 'New' } as any,
+          {
+            email: 'new@test.com',
+            password: 'Password1!',
+            confirmPassword: 'Password1!',
+            name: 'New',
+          } as any,
           '127.0.0.1',
           'test-agent',
         ),
@@ -277,7 +294,12 @@ describe('AuthService - OTP via Redis', () => {
       prismaMock.user.create.mockResolvedValue(mockUser);
 
       await service.register(
-        { email: 'new@test.com', password: 'Password1!', confirmPassword: 'Password1!', name: 'New' } as any,
+        {
+          email: 'new@test.com',
+          password: 'Password1!',
+          confirmPassword: 'Password1!',
+          name: 'New',
+        } as any,
         '127.0.0.1',
         'test-agent',
       );

@@ -143,7 +143,9 @@ async function runTests() {
   }
   const venueDetailData = (await getVenueDetailRes.json()) as any;
   if (venueDetailData.data.name !== 'Venue One (Capacity 100)') {
-    throw new Error(`Venue name mismatch: expected "Venue One (Capacity 100)", got "${venueDetailData.data.name}"`);
+    throw new Error(
+      `Venue name mismatch: expected "Venue One (Capacity 100)", got "${venueDetailData.data.name}"`,
+    );
   }
   console.log('   ✅ GET /venues/:id returned correct details.');
 
@@ -196,7 +198,9 @@ async function runTests() {
   const vipSeats = seats.filter((s: any) => s.type === 'VIP');
   const premiumSeats = seats.filter((s: any) => s.type === 'PREMIUM');
   const regularSeats = seats.filter((s: any) => s.type === 'REGULAR');
-  console.log(`   VIP Seats: ${vipSeats.length}, Premium Seats: ${premiumSeats.length}, Regular Seats: ${regularSeats.length}`);
+  console.log(
+    `   VIP Seats: ${vipSeats.length}, Premium Seats: ${premiumSeats.length}, Regular Seats: ${regularSeats.length}`,
+  );
   if (vipSeats.length === 0 || premiumSeats.length === 0 || regularSeats.length === 0) {
     throw new Error('Expected seats to be divided into VIP, PREMIUM, and REGULAR tiers');
   }

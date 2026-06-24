@@ -33,11 +33,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           maxRetriesPerRequest: maxRetries,
           retryStrategy: (times: number) => {
             if (times > maxRetries) {
-              this.logger.warn('⚠️ Redis connection failed after retries. Running without caching.');
+              this.logger.warn(
+                '⚠️ Redis connection failed after retries. Running without caching.',
+              );
               return null;
             }
             const delay = attempt * retryDelay;
-            this.logger.warn(`Redis connection attempt ${attempt} failed. Retrying in ${delay}ms...`);
+            this.logger.warn(
+              `Redis connection attempt ${attempt} failed. Retrying in ${delay}ms...`,
+            );
             return delay;
           },
           enableReadyCheck: true,
@@ -111,7 +115,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           this.hasLoggedConnectionFailure = true;
           this.isRedisEnabled = false;
         } else {
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
     }

@@ -123,9 +123,8 @@ export class AuthController {
   @ApiTooManyRequestsResponse({
     description: 'Too many refresh attempts',
   })
-  async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
-    const ipAddress = this.getClientIp(req);
-    return this.authService.refreshToken(dto.refreshToken, ipAddress);
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshToken(dto.refreshToken);
   }
 
   @Post('logout')
@@ -138,11 +137,7 @@ export class AuthController {
     status: HttpStatus.OK,
     description: 'User successfully logged out',
   })
-  async logout(
-    @Body() dto: RefreshTokenDto,
-    @CurrentUser() user: any,
-    @Req() req: Request,
-  ) {
+  async logout(@Body() dto: RefreshTokenDto, @CurrentUser() user: any, @Req() req: Request) {
     const ipAddress = this.getClientIp(req);
     await this.authService.logout(dto.refreshToken, user.id, ipAddress);
     return { message: 'Logged out successfully' };

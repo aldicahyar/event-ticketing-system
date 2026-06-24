@@ -52,19 +52,13 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   }
 
   @SubscribeMessage('join:room')
-  handleJoinRoom(
-    @MessageBody() data: { eventId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
+  handleJoinRoom(@MessageBody() data: { eventId: string }, @ConnectedSocket() client: Socket) {
     client.join(`event:${data.eventId}`);
     this.logger.log(`Client ${client.id} joined room: event:${data.eventId}`);
   }
 
   @SubscribeMessage('leave:room')
-  handleLeaveRoom(
-    @MessageBody() data: { eventId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
+  handleLeaveRoom(@MessageBody() data: { eventId: string }, @ConnectedSocket() client: Socket) {
     client.leave(`event:${data.eventId}`);
     this.logger.log(`Client ${client.id} left room: event:${data.eventId}`);
   }

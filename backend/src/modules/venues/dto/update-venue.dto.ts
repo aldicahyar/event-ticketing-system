@@ -1,12 +1,4 @@
-import {
-  IsString,
-  IsInt,
-  IsOptional,
-  IsObject,
-  Min,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsInt, IsOptional, IsObject, Min, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateVenueDto {

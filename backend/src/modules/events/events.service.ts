@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma, Venue } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -79,10 +75,7 @@ export class EventsService {
       include: {
         venue: true,
         seats: {
-          orderBy: [
-            { row: 'asc' },
-            { number: 'asc' },
-          ],
+          orderBy: [{ row: 'asc' }, { number: 'asc' }],
         },
       },
     });

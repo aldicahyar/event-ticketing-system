@@ -14,12 +14,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  // @ts-ignore
-  const app: any = await NestFactory.create(
-    AppModule,
-    // @ts-ignore
-    new FastifyAdapter(),
-  );
+  const app: any = await NestFactory.create(AppModule, new FastifyAdapter() as any);
 
   const configService = app.get(ConfigService);
   const port = configService.get('PORT', 3000);
@@ -35,13 +30,7 @@ async function bootstrap() {
   await app.register(cors, {
     origin: true, // Allow all origins in development
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'Accept',
-      'Origin',
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     credentials: true,
   });
 
