@@ -10,8 +10,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private redisSubscriber: Redis;
   private isConnected = false;
   private isRedisEnabled = true;
+  /** Prevents repeated error log spam after connection failure has been acknowledged. */
+  private hasLoggedConnectionFailure = false;
 
-  constructor(private configService: ConfigService) {
+  constructor(private readonly configService: ConfigService) {
     this.isRedisEnabled = this.configService.get<string>('REDIS_ENABLED', 'true') === 'true';
   }
 
@@ -43,14 +45,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
         this.redisPublisher = new Redis(redisUrl, {
           maxRetriesPerRequest: maxRetries,
+          // Don't auto-retry independently — main client governs the connection status
+          retryStrategy: () => null,
         });
 
         this.redisSubscriber = new Redis(redisUrl, {
           maxRetriesPerRequest: maxRetries,
+          retryStrategy: () => null,
         });
 
         this.redis.on('connect', () => {
           this.isConnected = true;
+          this.hasLoggedConnectionFailure = false;
           this.logger.log('✅ Redis connected successfully');
         });
 
@@ -61,12 +67,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           }
         });
 
-        this.redisPublisher.on('error', (error) => {
-          this.logger.error('Redis publisher error', error);
+        // Suppress repeated error logs from publisher/subscriber —
+        // they mirror the main client's state and would otherwise spam the console.
+        this.redisPublisher.on('error', () => {
+          if (!this.hasLoggedConnectionFailure) {
+            this.logger.warn('Redis publisher connection failed');
+          }
         });
 
-        this.redisSubscriber.on('error', (error) => {
-          this.logger.error('Redis subscriber error', error);
+        this.redisSubscriber.on('error', () => {
+          if (!this.hasLoggedConnectionFailure) {
+            this.logger.warn('Redis subscriber connection failed');
+          }
         });
 
         await new Promise<void>((resolve, reject) => {
@@ -91,8 +103,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       } catch (error) {
         this.logger.error(`Redis connection attempt ${attempt} failed`, error);
 
+        // Disconnect orphan clients before retrying or giving up
+        await this.disconnectQuietly();
+
         if (attempt === maxRetries) {
           this.logger.warn('⚠️ All Redis connection attempts failed. Running without caching.');
+          this.hasLoggedConnectionFailure = true;
           this.isRedisEnabled = false;
         } else {
           await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -102,13 +118,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    try {
-      await this.redis?.quit();
-      await this.redisPublisher?.quit();
-      await this.redisSubscriber?.quit();
-      this.logger.log('Redis disconnected');
-    } catch (error) {
-      this.logger.error('Error during Redis disconnection', error);
+    await this.disconnectQuietly();
+    this.logger.log('Redis disconnected');
+  }
+
+  /** Quietly disconnect all Redis clients, ignoring errors. */
+  private async disconnectQuietly(): Promise<void> {
+    for (const client of [this.redis, this.redisPublisher, this.redisSubscriber]) {
+      try {
+        client?.disconnect();
+      } catch {
+        // Intentionally swallowed — client may already be disconnected
+      }
     }
   }
 
@@ -179,6 +200,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
     const result = await this.redis.exists(key);
     return result === 1;
+  }
+
+  /**
+   * Returns TTL in seconds. -2 means key does not exist; -1 means key exists
+   * but has no associated expiration.
+   */
+  async ttl(key: string): Promise<number> {
+    if (!this.isRedisEnabled || !this.isConnected) {
+      return -2;
+    }
+    return this.redis.ttl(key);
   }
 
   async publish(channel: string, message: any): Promise<void> {

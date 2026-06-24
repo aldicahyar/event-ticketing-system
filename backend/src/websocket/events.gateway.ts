@@ -4,37 +4,47 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { RedisService } from '@common/redis/redis.service';
-import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 
 @WebSocketGateway({
   cors: {
     origin: '*',
   },
 })
-export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(EventsGateway.name);
 
-  constructor(private redisService: RedisService) {}
+  constructor(private readonly redisService: RedisService) {}
 
-  async handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
-
+  /**
+   * Subscribe to Redis channels once when the gateway initialises,
+   * then broadcast to all connected clients. This avoids the previous bug
+   * where every new client connection added duplicate Redis subscriptions
+   * that were never cleaned up (memory leak).
+   */
+  afterInit() {
     this.redisService.subscribe('events:seat:update', (data) => {
-      client.emit('seat:update', data);
+      this.server.emit('seat:update', data);
     });
 
     this.redisService.subscribe('events:booking:new', (data) => {
-      client.emit('booking:new', data);
+      this.server.emit('booking:new', data);
     });
+
+    this.logger.log('WebSocket gateway initialised — Redis subscriptions active');
+  }
+
+  handleConnection(client: Socket) {
+    this.logger.log(`Client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {

@@ -39,7 +39,8 @@ Production-ready event ticketing platform built with NestJS and Next.js.
 
 - Node.js 18.17.0 or higher
 - npm 9.0.0 or higher
-- Docker (for PostgreSQL, Redis, and MinIO)
+- Docker (for Redis)
+- PostgreSQL 15+ (local install, Docker, or cloud-hosted)
 
 ### Installation
 
@@ -49,10 +50,16 @@ git clone <repository-url>
 cd event-ticketing-system
 ```
 
-2. Start the development environment:
+2. Start Redis:
 ```bash
 docker-compose up -d
 ```
+
+> **Note:** The default `docker-compose.yml` only starts Redis. If you need the full stack
+> (PostgreSQL + Redis + MinIO), use the full compose file instead:
+> ```bash
+> docker-compose -f docker-compose.full.yml up -d
+> ```
 
 3. Install dependencies:
 ```bash

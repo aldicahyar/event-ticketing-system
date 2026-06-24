@@ -5,10 +5,14 @@ import {
   Logger,
   BadRequestException,
   ForbiddenException,
+  ServiceUnavailableException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'node:crypto';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { AccountLockoutService } from './account-lockout.service';
@@ -18,12 +22,24 @@ import {
   ChangePasswordDto,
 } from './dto/auth.dto';
 
+const enum OtpConfig {
+  TTL_SECONDS = 15 * 60,
+  COOLDOWN_SECONDS = 60,
+  MAX_ATTEMPTS = 5,
+  CODE_LENGTH = 6,
+}
+
+const enum OtpRedisKeys {
+  VERIFY_PREFIX = 'otp:verify:',
+  ATTEMPTS_PREFIX = 'otp:attempts:',
+  COOLDOWN_PREFIX = 'otp:cooldown:',
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly JWT_ACCESS_EXPIRATION = '15m';
   private readonly JWT_REFRESH_EXPIRATION = '7d';
-  private readonly verificationCodes = new Map<string, { code: string; expiresAt: Date }>();
 
   constructor(
     private prisma: PrismaService,
@@ -42,6 +58,15 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
+    // Pre-flight: ensure Redis is available BEFORE creating the user record
+    // to prevent orphan users (user created in DB but no OTP stored in Redis).
+    if (!this.redisService.isAvailable()) {
+      this.logger.error('Redis unavailable at registration pre-flight check');
+      throw new ServiceUnavailableException(
+        'Registration service is temporarily unavailable. Please try again later.',
+      );
+    }
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
@@ -51,6 +76,9 @@ export class AuthService {
     }
 
     const hashedPassword = await this.hashPassword(dto.password);
+
+    // Generate OTP code before DB write so we have everything ready
+    const verificationCode = this.generateOtpCode();
 
     const user = await this.prisma.user.create({
       data: {
@@ -70,6 +98,18 @@ export class AuthService {
       },
     });
 
+    // Store OTP in Redis — if this fails after user creation, roll back the user record
+    try {
+      await this.storeVerificationCode(normalizedEmail, verificationCode);
+    } catch (error) {
+      this.logger.error(
+        `Failed to store OTP for ${normalizedEmail}, rolling back user record`,
+        error,
+      );
+      await this.prisma.user.delete({ where: { id: user.id } });
+      throw error;
+    }
+
     // Log registration
     await this.prisma.securityLog.create({
       data: {
@@ -82,12 +122,17 @@ export class AuthService {
     });
 
     this.logger.log(`User registered: ${user.email}`);
+    this.logger.debug(`[Mock Email] Verification code for ${user.email} is: ${verificationCode}`);
 
-    // Generate email verification code
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-    this.verificationCodes.set(normalizedEmail, { code: verificationCode, expiresAt });
-    this.logger.log(`[Mock Email] Verification code for ${user.email} is: ${verificationCode}`);
+    // Log OTP sent event
+    await this.prisma.securityLog.create({
+      data: {
+        userId: user.id,
+        action: 'OTP_SENT',
+        ipAddress,
+        metadata: { method: 'register' },
+      },
+    });
 
     const tokens = await this.generateTokens(user);
 
@@ -125,22 +170,42 @@ export class AuthService {
       };
     }
 
-    const stored = this.verificationCodes.get(normalizedEmail);
-    if (!stored) {
+    const storedCode = await this.getVerificationCode(normalizedEmail);
+    if (!storedCode) {
       throw new BadRequestException('Verification code expired or not found. Please request a new one.');
     }
 
-    if (stored.expiresAt < new Date()) {
-      this.verificationCodes.delete(normalizedEmail);
-      throw new BadRequestException('Verification code has expired. Please request a new one.');
+    if (storedCode !== token) {
+      const attempts = await this.incrAttempts(normalizedEmail);
+      if (attempts >= OtpConfig.MAX_ATTEMPTS) {
+        await this.deleteVerificationCode(normalizedEmail);
+
+        await this.prisma.securityLog.create({
+          data: {
+            userId: user.id,
+            action: 'OTP_FAILED',
+            metadata: { email: normalizedEmail, attempts, reason: 'max_attempts' },
+          },
+        });
+
+        throw new BadRequestException('Too many invalid attempts. Please request a new code.');
+      }
+
+      await this.prisma.securityLog.create({
+        data: {
+          userId: user.id,
+          action: 'OTP_FAILED',
+          metadata: { email: normalizedEmail, attempts },
+        },
+      });
+
+      throw new BadRequestException(
+        `Invalid verification code. ${OtpConfig.MAX_ATTEMPTS - attempts} attempt${OtpConfig.MAX_ATTEMPTS - attempts !== 1 ? 's' : ''} remaining.`,
+      );
     }
 
-    if (stored.code !== token) {
-      throw new BadRequestException('Invalid verification code');
-    }
-
-    // Code is valid! Clean up code from memory
-    this.verificationCodes.delete(normalizedEmail);
+    // Code is valid! Clean up from Redis
+    await this.deleteVerificationCode(normalizedEmail);
 
     // Update user in DB
     const updatedUser = await this.prisma.user.update({
@@ -180,6 +245,13 @@ export class AuthService {
   async resendVerification(email: string) {
     const normalizedEmail = email.toLowerCase().trim();
 
+    // Fail fast if Redis is down — cooldown check and OTP storage both need it
+    if (!this.redisService.isAvailable()) {
+      throw new ServiceUnavailableException(
+        'Email verification service unavailable. Please try again.',
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
@@ -192,12 +264,36 @@ export class AuthService {
       throw new BadRequestException('Email is already verified');
     }
 
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    // Rate-limit: per-email cooldown to prevent abuse
+    const cooldownKey = `${OtpRedisKeys.COOLDOWN_PREFIX}${normalizedEmail}`;
+    const isCoolingDown = await this.redisService.exists(cooldownKey);
+    if (isCoolingDown) {
+      await this.prisma.securityLog.create({
+        data: {
+          userId: user.id,
+          action: 'OTP_RATE_LIMITED',
+          metadata: { email: normalizedEmail },
+        },
+      });
+      throw new HttpException('Please wait before requesting a new code.', HttpStatus.TOO_MANY_REQUESTS);
+    }
 
-    this.verificationCodes.set(normalizedEmail, { code: verificationCode, expiresAt });
+    const verificationCode = this.generateOtpCode();
+    await this.storeVerificationCode(normalizedEmail, verificationCode);
 
-    this.logger.log(`[Mock Email] Resent verification code for ${normalizedEmail} is: ${verificationCode}`);
+    // Set cooldown key with TTL (auto-expires)
+    await this.redisService.set(cooldownKey, '1', OtpConfig.COOLDOWN_SECONDS);
+
+    this.logger.debug(`[Mock Email] Resent verification code for ${normalizedEmail} is: ${verificationCode}`);
+
+    // Log OTP sent event
+    await this.prisma.securityLog.create({
+      data: {
+        userId: user.id,
+        action: 'OTP_SENT',
+        metadata: { method: 'resend' },
+      },
+    });
 
     return { message: 'Verification code sent successfully' };
   }
@@ -285,7 +381,15 @@ export class AuthService {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
 
-      // Check if token is revoked
+      // Check if token is revoked.
+      // NOTE: When Redis is down, exists() returns false — this means a revoked
+      // token could be accepted. We log a warning so this is observable but do NOT
+      // block the user, since JWT expiration still provides a time-bound safety net.
+      if (!this.redisService.isAvailable()) {
+        this.logger.warn(
+          `Token revocation check skipped (Redis unavailable) for user ${payload.sub}`,
+        );
+      }
       const isRevoked = await this.redisService.exists(`revoked:${payload.jti}`);
       if (isRevoked) {
         throw new UnauthorizedException('Refresh token has been revoked');
@@ -436,6 +540,52 @@ export class AuthService {
   private async hashPassword(password: string): Promise<string> {
     const saltRounds = 12;
     return bcrypt.hash(password, saltRounds);
+  }
+
+  private generateOtpCode(): string {
+    const min = 10 ** (OtpConfig.CODE_LENGTH - 1);
+    const max = 10 ** OtpConfig.CODE_LENGTH;
+    return randomInt(min, max).toString();
+  }
+
+  private async storeVerificationCode(email: string, code: string): Promise<void> {
+    if (!this.redisService.isAvailable()) {
+      this.logger.error('Redis unavailable, cannot store verification code');
+      throw new ServiceUnavailableException('Email verification service unavailable. Please try again.');
+    }
+    const codeKey = `${OtpRedisKeys.VERIFY_PREFIX}${email}`;
+    const attemptsKey = `${OtpRedisKeys.ATTEMPTS_PREFIX}${email}`;
+    await this.redisService.set(codeKey, code, OtpConfig.TTL_SECONDS);
+    await this.redisService.set(attemptsKey, '0', OtpConfig.TTL_SECONDS);
+  }
+
+  private async getVerificationCode(email: string): Promise<string | null> {
+    if (!this.redisService.isAvailable()) {
+      throw new ServiceUnavailableException('Email verification service unavailable. Please try again.');
+    }
+    const codeKey = `${OtpRedisKeys.VERIFY_PREFIX}${email}`;
+    const code = await this.redisService.get<any>(codeKey);
+    return code !== null ? String(code) : null;
+  }
+
+  private async deleteVerificationCode(email: string): Promise<void> {
+    if (!this.redisService.isAvailable()) return;
+    await this.redisService.del(`${OtpRedisKeys.VERIFY_PREFIX}${email}`);
+    await this.redisService.del(`${OtpRedisKeys.ATTEMPTS_PREFIX}${email}`);
+  }
+
+  /**
+   * Atomically increments the failed-attempt counter via Redis INCR.
+   * INCR is a single atomic command, so concurrent requests each receive a
+   * unique, strictly-increasing value — MAX_ATTEMPTS cannot be bypassed.
+   * INCR preserves the key's existing TTL, so expiration is never reset.
+   */
+  private async incrAttempts(email: string): Promise<number> {
+    if (!this.redisService.isAvailable()) {
+      throw new ServiceUnavailableException('Email verification service unavailable. Please try again.');
+    }
+    const attemptsKey = `${OtpRedisKeys.ATTEMPTS_PREFIX}${email}`;
+    return this.redisService.incr(attemptsKey);
   }
 
   private async generateTokens(user: any) {
