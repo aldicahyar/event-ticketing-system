@@ -28,7 +28,7 @@ const mapDbEventToFrontend = (e: any): EventListItem => {
   return {
     id: e.id,
     artist: e.title,
-    tour: e.description ? e.description.split('.')[0] : 'Live Show',
+    tour: e.subtitle || 'Live Show',
     date: e.startDateTime,
     venue: e.venue?.name || 'Venue',
     price: Number(e.basePrice),

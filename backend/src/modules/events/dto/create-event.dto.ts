@@ -18,6 +18,11 @@ export class CreateEventDto {
   @MaxLength(150)
   title: string;
 
+  @ApiPropertyOptional({ example: 'POST HUMAN: SURVIVAL HORROR' })
+  @IsString()
+  @IsOptional()
+  subtitle?: string;
+
   @ApiProperty({ example: 'Bring Me The Horizon returns with their most explosive tour yet.' })
   @IsString()
   @MinLength(10)

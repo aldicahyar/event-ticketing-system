@@ -8,6 +8,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { UsersModule } from './modules/users/users.module';
 import { VenuesModule } from './modules/venues/venues.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { DatabaseModule } from './common/database/database.module';
 import { RedisModule } from './common/redis/redis.module';
 import { WebSocketModule } from './websocket/websocket.module';
@@ -37,6 +38,7 @@ import { HealthModule } from './common/modules/health/health.module';
     UsersModule,
     VenuesModule,
     AnalyticsModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

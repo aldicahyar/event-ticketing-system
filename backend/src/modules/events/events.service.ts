@@ -3,6 +3,7 @@ import { Prisma, Venue } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { SettingsService } from '../settings/settings.service';
 
 // Issue 3 fix: typed interface instead of 'any' for seatMap
 interface SeatMap {
@@ -13,7 +14,10 @@ interface SeatMap {
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+  ) {}
 
   async create(dto: CreateEventDto, organizerId: string) {
     // Issue 1 fix: validate startDateTime must be before endDateTime
@@ -36,6 +40,7 @@ export class EventsService {
     const event = await this.prisma.event.create({
       data: {
         title: dto.title,
+        subtitle: dto.subtitle,
         description: dto.description,
         venueId: dto.venueId,
         startDateTime: start,
@@ -62,6 +67,7 @@ export class EventsService {
             name: true,
             city: true,
             address: true,
+            capacity: true,
           },
         },
       },
@@ -107,6 +113,7 @@ export class EventsService {
     // Build update data with Date conversions using Prisma's native EventUpdateInput type
     const updateData: Prisma.EventUpdateInput = {
       title: updates.title,
+      subtitle: updates.subtitle,
       description: updates.description,
       venue: updates.venueId ? { connect: { id: updates.venueId } } : undefined,
       startDateTime: updates.startDateTime ? new Date(updates.startDateTime) : undefined,
@@ -161,6 +168,9 @@ export class EventsService {
     const rowsCount = seatMapObj?.rows ? Number(seatMapObj.rows) : 5;
     const seatsPerRow = seatMapObj?.seatsPerRow ? Number(seatMapObj.seatsPerRow) : 20;
 
+    // Fetch active tiers from settings table, sorted by ratio ascending (e.g. VIP 0.2, PREMIUM 0.5, REGULAR 1.0)
+    const tiers = await this.settingsService.getActiveTiers();
+
     const seatsToCreate = [];
     for (let r = 0; r < rowsCount; r++) {
       const rowName = String.fromCodePoint(65 + r); // A, B, C, D, ...
@@ -169,12 +179,10 @@ export class EventsService {
       let multiplier = 1;
 
       const positionRatio = r / rowsCount;
-      if (positionRatio < 0.2) {
-        type = 'VIP';
-        multiplier = 2;
-      } else if (positionRatio < 0.5) {
-        type = 'PREMIUM';
-        multiplier = 1.5;
+      const matchedTier = tiers.find(t => positionRatio < t.ratio);
+      if (matchedTier) {
+        type = matchedTier.id as 'VIP' | 'PREMIUM' | 'REGULAR';
+        multiplier = matchedTier.multiplier;
       }
 
       const price = basePrice * multiplier;

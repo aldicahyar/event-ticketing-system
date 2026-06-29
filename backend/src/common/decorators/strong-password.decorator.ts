@@ -33,7 +33,7 @@ export function IsStrongPassword(
             return false;
           }
 
-          const password = value as string;
+          const password = value;
           const errors: string[] = [];
 
           if (password.length < config.minLength!) {
@@ -66,7 +66,7 @@ export function IsStrongPassword(
           return true;
         },
         defaultMessage(args: ValidationArguments) {
-          const password = args.value as string;
+          const password = typeof args.value === 'string' ? args.value : '';
           const errors: string[] = [];
 
           if (password.length < config.minLength!) {

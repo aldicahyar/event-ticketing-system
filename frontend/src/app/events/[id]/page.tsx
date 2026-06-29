@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, Calendar, MapPin, 
-  ChevronLeft, ChevronRight, Shield, Clock,
+  Shield, Clock,
   CreditCard, Smartphone, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
@@ -109,6 +109,7 @@ export default function EventDetailPage() {
   const [allSeats, setAllSeats] = useState<Seat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ppnPercent, setPpnPercent] = useState(11);
 
   // Selection state
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
@@ -117,17 +118,30 @@ export default function EventDetailPage() {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [showSeatMap, setShowSeatMap] = useState(false);
 
-  // Fetch event data
+  // Fetch event data and settings
   useEffect(() => {
-    async function fetchEvent() {
+    async function fetchEventAndSettings() {
       try {
-        const eventData = await apiClient.get<any>(`/events/${eventId}`);
+        const [eventData, settingsRes] = await Promise.all([
+          apiClient.get<any>(`/events/${eventId}`),
+          apiClient.get<any>('/settings').catch(() => null)
+        ]);
+
+        if (settingsRes && settingsRes.tax) {
+          const taxData = settingsRes.tax;
+          if (taxData.status === 'ACTIVE') {
+            setPpnPercent(Number(taxData.ppnPercent));
+          } else {
+            setPpnPercent(0);
+          }
+        }
+
         if (eventData) {
           const computedTiers = computeTiersFromSeats(eventData.seats || []);
           const frontEvent: Event = {
             id: eventData.id,
             artist: eventData.title,
-            tour: eventData.description ? eventData.description.split('.')[0] : 'Live Show',
+            tour: eventData.subtitle || 'Live Show',
             date: eventData.startDateTime,
             venue: eventData.venue?.name || 'Venue',
             price: Number(eventData.basePrice),
@@ -150,14 +164,14 @@ export default function EventDetailPage() {
           setError('Event not found');
         }
       } catch (err) {
-        setError('Failed to load event');
+        setError('Failed to load event data');
       } finally {
         setLoading(false);
       }
     }
 
     if (eventId) {
-      fetchEvent();
+      fetchEventAndSettings();
     }
   }, [eventId]);
 
@@ -174,7 +188,7 @@ export default function EventDetailPage() {
   const selectedTierData = event?.tiers.find(t => t.id === selectedTier);
 
   const uniqueRows = useMemo(() => {
-    return Array.from(new Set(seats.map(s => s.row))).sort();
+    return Array.from(new Set(seats.map(s => s.row))).sort((a, b) => a.localeCompare(b));
   }, [seats]);
 
   const handleSeatClick = (seat: Seat) => {
@@ -192,12 +206,13 @@ export default function EventDetailPage() {
   };
 
   const subtotal = selectedTierData ? selectedTierData.price * (selectedSeats.length > 0 ? selectedSeats.length : quantity) : 0;
-  const serviceFee = subtotal * 0.05;
-  const total = subtotal + serviceFee;
+  const ppn = subtotal * (ppnPercent / 100);
+  const total = subtotal + ppn;
 
   const handleCheckout = () => {
     // Navigate to checkout
-    router.push(`/checkout?event=${eventId}&seats=${selectedSeats.map(s => s.id).join(',')}&total=${total}`);
+    const seatIds = selectedSeats.map(s => s.id).join(',');
+    router.push(`/checkout?event=${eventId}&seats=${seatIds}&subtotal=${subtotal}&ppn=${ppn}&total=${total}&ppnPercent=${ppnPercent}`);
   };
 
   if (loading) {
@@ -538,8 +553,8 @@ export default function EventDetailPage() {
                     <dd className="text-white">IDR {subtotal.toLocaleString('id-ID')}</dd>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <dt className="text-[#CCCCCC]">Service Fee (5%)</dt>
-                    <dd className="text-white">IDR {serviceFee.toLocaleString('id-ID')}</dd>
+                    <dt className="text-[#CCCCCC]">PPN ({ppnPercent}%)</dt>
+                    <dd className="text-white">IDR {ppn.toLocaleString('id-ID')}</dd>
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t border-mono-dark-grey">
                     <dt className="text-white">Total</dt>

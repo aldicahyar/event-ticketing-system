@@ -15,7 +15,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api-client';
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { verifyEmail, resendVerification, isAuthenticated, user } = useAuth();
@@ -319,5 +319,17 @@ export default function VerifyEmailPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <React.Suspense fallback={
+      <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
+        <div className="text-xl uppercase animate-pulse">Loading Verification...</div>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </React.Suspense>
   );
 }

@@ -5,6 +5,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Clock, Shield, Ticket, Zap, Calendar, MapPin, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import Link from 'next/link';
 import { TechnicalMetadata, Crosshair } from './TechnicalMetadata';
+import { apiClient } from '@/lib/api-client';
+
+interface HeroEvent {
+  id: string;
+  artist: string;
+  tour: string;
+  date: string;
+  venue: string;
+  price: number;
+  image: string;
+  ticketsLeft: number;
+  totalTickets: number;
+  genre: string;
+}
+
+const mapDbEventToHeroEvent = (e: any): HeroEvent => {
+  return {
+    id: e.id,
+    artist: e.title,
+    tour: e.subtitle || 'WORLD TOUR',
+    date: e.startDateTime,
+    venue: e.venue?.name || 'VENUE',
+    price: Number(e.basePrice),
+    image: e.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2000&auto=format&fit=crop',
+    ticketsLeft: e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 2500,
+    totalTickets: e.venue?.capacity || 10000,
+    genre: 'Metalcore'
+  };
+};
 
 const FEATURED_EVENTS = [
   {
@@ -103,9 +132,32 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
 }
 
 export const BrutalistHero = () => {
+  const [events, setEvents] = useState<HeroEvent[]>(FEATURED_EVENTS);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState<string>('');
-  const selectedEvent = FEATURED_EVENTS[selectedIndex];
+  const [loading, setLoading] = useState(true);
+
+  const selectedEvent = events[selectedIndex] || FEATURED_EVENTS[0];
+
+  useEffect(() => {
+    async function loadEvents() {
+      try {
+        const list = await apiClient.get<any[]>('/events');
+        if (list && Array.isArray(list) && list.length > 0) {
+          const activeEvents = list.filter(e => e.status === 'PUBLISHED' || e.status === 'ONGOING');
+          if (activeEvents.length > 0) {
+            // Limit to a maximum of 6 featured events to keep the hero section layout clean and premium
+            setEvents(activeEvents.slice(0, 6).map(mapDbEventToHeroEvent));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load events in BrutalistHero:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadEvents();
+  }, []);
 
   useEffect(() => {
     setCurrentTime(new Date().toISOString().slice(0, 19).replace('T', ' '));
@@ -116,11 +168,11 @@ export const BrutalistHero = () => {
   }, []);
 
   const nextEvent = () => {
-    setSelectedIndex((prev) => (prev + 1) % FEATURED_EVENTS.length);
+    setSelectedIndex((prev) => (prev + 1) % events.length);
   };
 
   const prevEvent = () => {
-    setSelectedIndex((prev) => (prev - 1 + FEATURED_EVENTS.length) % FEATURED_EVENTS.length);
+    setSelectedIndex((prev) => (prev - 1 + events.length) % events.length);
   };
 
   const selectEvent = (index: number) => {
@@ -192,14 +244,14 @@ export const BrutalistHero = () => {
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-start sm:items-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-none"
+                className="flex items-start sm:items-center gap-2 mb-4 overflow-x-auto md:overflow-x-visible pb-2 scrollbar-none lg:mr-[160px]"
                 role="tablist"
                 aria-label="Select featured artist"
               >
                 <User className="w-4 h-4 text-mono-light-grey shrink-0" aria-hidden="true" />
                 <span className="text-xs text-mono-light-grey uppercase tracking-widest mr-2 shrink-0 hidden sm:inline">Select Artist:</span>
-                <div className="flex gap-2">
-                  {FEATURED_EVENTS.map((event, index) => (
+                <div className="flex flex-nowrap md:flex-wrap gap-2">
+                  {events.map((event, index) => (
                     <button
                       key={event.id}
                       onClick={() => selectEvent(index)}
@@ -302,7 +354,7 @@ export const BrutalistHero = () => {
                 <div className="w-full max-w-md h-2 bg-mono-dark-grey" role="progressbar" aria-valuenow={Math.round(soldPercent)} aria-valuemin={0} aria-valuemax={100} aria-label={`${Math.round(soldPercent)}% sold`}>
                   <motion.div
                     className="h-full bg-white"
-                    initial={{ width: 0 }}
+                    initial={{ width: '0%' }}
                     animate={{ width: `${soldPercent}%` }}
                     transition={{ duration: 0.5, delay: 0.5 }}
                   />
@@ -433,7 +485,7 @@ export const BrutalistHero = () => {
         >
           <div className="flex gap-4 sm:gap-6 text-[10px] sm:text-xs text-mono-light-grey uppercase tracking-wider overflow-x-auto whitespace-nowrap scrollbar-none">
             <span aria-hidden="true">// SYSTEM_LOG_START</span>
-            <span className="text-green-500" aria-hidden="true">● LIVE EVENTS: {FEATURED_EVENTS.length} ACTIVE</span>
+            <span className="text-green-500" aria-hidden="true">● LIVE EVENTS: {events.length} ACTIVE</span>
             <span className="text-white">SELECTED: {selectedEvent.artist}</span>
             <span className="hidden sm:inline" aria-hidden="true">// {currentTime || 'INITIALIZING...'} UTC</span>
           </div>

@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import React, { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, CheckCircle, CreditCard, Smartphone, 
+  CheckCircle, CreditCard, Smartphone, 
   Lock, Shield, User, Mail, Phone, MapPin,
   Ticket, Calendar, ChevronRight
 } from 'lucide-react';
-import { Suspense } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 
 // Checkout Steps
@@ -17,11 +16,13 @@ const STEPS = ['Review', 'Details', 'Payment', 'Confirmation'];
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const eventId = searchParams.get('event');
   const seatsParam = searchParams.get('seats');
   const totalParam = searchParams.get('total');
+  const subtotalParam = searchParams.get('subtotal');
+  const ppnParam = searchParams.get('ppn');
+  const ppnPercentParam = searchParams.get('ppnPercent');
 
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -42,7 +43,17 @@ function CheckoutContent() {
 
   // Parse seats
   const seats = seatsParam?.split(',') || [];
-  const total = parseFloat(totalParam || '0');
+  
+  // Price breakdown variables
+  const total = Number.parseFloat(totalParam || '0');
+  const subtotalVal = Number.parseFloat(subtotalParam || '0');
+  const ppnVal = Number.parseFloat(ppnParam || '0');
+  const ppnPercent = Number.parseFloat(ppnPercentParam || '11');
+
+  const hasCalculatedParams = subtotalParam && ppnParam;
+  const finalSubtotal = hasCalculatedParams ? subtotalVal : total / (1 + ppnPercent / 100);
+  const finalPpn = hasCalculatedParams ? ppnVal : total - finalSubtotal;
+  const finalTotal = total;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -514,15 +525,27 @@ function CheckoutContent() {
                 {event.seats.map((seat) => (
                   <div key={seat.id} className="flex justify-between text-xs md:text-sm mb-1">
                     <span className="text-[#CCCCCC]">{seat.label}</span>
-                    <span className="text-white">IDR {(total / event.seats.length).toLocaleString('id-ID')}</span>
+                    <span className="text-white">IDR {(finalSubtotal / event.seats.length).toLocaleString('id-ID')}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Price Breakdown */}
+              <div className="border-b border-mono-dark-grey pb-4 mb-4 space-y-2 text-xs md:text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[#CCCCCC]">Subtotal</span>
+                  <span className="text-white">IDR {finalSubtotal.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#CCCCCC]">PPN ({ppnPercent}%)</span>
+                  <span className="text-white">IDR {finalPpn.toLocaleString('id-ID')}</span>
+                </div>
               </div>
 
               {/* Total */}
               <div className="flex justify-between text-base md:text-lg font-bold">
                 <span className="text-white uppercase">Total</span>
-                <span className="text-white">IDR {total.toLocaleString('id-ID')}</span>
+                <span className="text-white">IDR {finalTotal.toLocaleString('id-ID')}</span>
               </div>
 
               {/* Trust Badges */}

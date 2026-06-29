@@ -23,6 +23,11 @@ export class UpdateEventDto {
   @IsOptional()
   title?: string;
 
+  @ApiPropertyOptional({ example: 'POST HUMAN: SURVIVAL HORROR' })
+  @IsString()
+  @IsOptional()
+  subtitle?: string;
+
   @ApiPropertyOptional({ example: 'Updated description here...' })
   @IsString()
   @MinLength(10)
