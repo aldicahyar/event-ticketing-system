@@ -40,3 +40,6 @@ yarn-error.log*
 # Database
 *.db
 *.db-journal
+
+# Documentation
+docs/
