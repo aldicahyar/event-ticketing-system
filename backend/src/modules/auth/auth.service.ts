@@ -684,6 +684,34 @@ export class AuthService {
     });
   }
 
+  // User: update own profile (currently supports name only; email requires verification flow)
+  async updateProfile(userId: string, updates: { name?: string }) {
+    const data: { name?: string } = {};
+    if (typeof updates.name === 'string' && updates.name.trim().length >= 2) {
+      data.name = updates.name.trim();
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('No updatable fields provided');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+      },
+    });
+
+    return updated;
+  }
+
   // Admin: Unlock user account
   async adminUnlockAccount(targetUserId: string, adminId: string, ipAddress: string) {
     await this.lockoutService.unlockAccount(targetUserId, adminId, ipAddress);

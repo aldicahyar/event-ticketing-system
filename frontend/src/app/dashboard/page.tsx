@@ -1,60 +1,80 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { 
+import {
   Ticket, ArrowRight, Calendar, CreditCard,
-  Shield, TrendingUp, Users
+  Shield, TrendingUp, Users, Loader2
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Default user data (fallback)
-const DEFAULT_USER = {
-  firstName: 'Guest',
-  lastName: '',
-  email: '',
-  memberSince: new Date().toISOString(),
-  totalOrders: 0,
-  totalSpent: 0,
-  loyaltyPoints: 0
-};
+interface OrderEvent {
+  id: string;
+  title: string;
+  startDateTime: string;
+  imageUrl?: string | null;
+  venue?: { id: string; name: string; city: string } | null;
+}
 
-const RECENT_ORDERS = [
-  {
-    id: 'ORD-2024-001',
-    event: 'BRING ME THE HORIZON',
-    date: '2026-03-15',
-    venue: 'Jakarta GBK Stadium',
-    tickets: 2,
-    total: 1500000,
-    status: 'upcoming'
-  },
-  {
-    id: 'ORD-2024-002',
-    event: 'BAD OMENS',
-    date: '2025-05-20',
-    venue: 'Jakarta ICE BSD',
-    tickets: 1,
-    total: 650000,
-    status: 'upcoming'
-  },
-  {
-    id: 'ORD-2024-003',
-    event: 'NORTHLANE',
-    date: '2024-11-20',
-    venue: 'Surabaya Grand City',
-    tickets: 3,
-    total: 1350000,
-    status: 'completed'
-  }
-];
+interface Order {
+  id: string;
+  bookingCode: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
+  totalPrice: string | number;
+  currency: string;
+  bookedAt: string;
+  event: OrderEvent;
+  seats: { id: string }[];
+  _count?: { tickets: number };
+}
+
+interface UserStats {
+  totalOrders: number;
+  totalTickets: number;
+  totalSpent: number;
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [greeting, setGreeting] = useState('');
-  const [currentUser, setCurrentUser] = useState(DEFAULT_USER);
+  const [currentUser, setCurrentUser] = useState({
+    firstName: 'User',
+    lastName: '',
+    email: '',
+    memberSince: new Date().toISOString(),
+  });
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [stats, setStats] = useState<UserStats>({
+    totalOrders: 0,
+    totalTickets: 0,
+    totalSpent: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [orders, userStats] = await Promise.all([
+        apiClient.get<Order[]>('/bookings/my-orders').catch(() => [] as Order[]),
+        apiClient
+          .get<UserStats>('/bookings/my-stats')
+          .catch(() => ({ totalOrders: 0, totalTickets: 0, totalSpent: 0 })),
+      ]);
+      // Slice 3 most recent for the overview card
+      setRecentOrders((orders ?? []).slice(0, 3));
+      setStats(
+        userStats ?? { totalOrders: 0, totalTickets: 0, totalSpent: 0 },
+      );
+    } catch (err) {
+      setError(apiClient.getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -62,7 +82,6 @@ export default function DashboardPage() {
     else if (hour < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
 
-    // Load real user from localStorage
     const storedUser = apiClient.getUser();
     if (storedUser) {
       const nameParts = (storedUser.name || '').split(' ');
@@ -71,16 +90,28 @@ export default function DashboardPage() {
         lastName: nameParts.slice(1).join(' ') || '',
         email: storedUser.email || '',
         memberSince: new Date().toISOString(),
-        totalOrders: 0,
-        totalSpent: 0,
-        loyaltyPoints: 0
       });
     }
-  }, [user]);
+
+    loadDashboardData();
+  }, [user, loadDashboardData]);
+
+  const formatPrice = (val: string | number, currency = 'IDR') => {
+    const num = typeof val === 'number' ? val : Number(val);
+    if (!Number.isFinite(num)) return `${currency} 0`;
+    return `${currency} ${num.toLocaleString()}`;
+  };
+
+  const isUpcoming = (o: Order) => {
+    if (!o.event?.startDateTime) return false;
+    return new Date(o.event.startDateTime).getTime() >= Date.now();
+  };
+
+  const upcomingOrders = recentOrders.filter(isUpcoming);
 
   return (
     <div className="space-y-6 md:space-y-8">
-      
+
       {/* Greeting */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -99,10 +130,10 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3 md:gap-4">
         {[
-          { label: 'Total Orders', value: currentUser.totalOrders, icon: CreditCard },
-          { label: 'Tickets Bought', value: '0', icon: Ticket },
-          { label: 'Loyalty Points', value: currentUser.loyaltyPoints.toLocaleString(), icon: Users },
-          { label: 'Total Spent', value: `IDR ${(currentUser.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp }
+          { label: 'Total Orders', value: stats.totalOrders, icon: CreditCard },
+          { label: 'Tickets Bought', value: stats.totalTickets, icon: Ticket },
+          { label: 'Loyalty Points', value: '0', icon: Users },
+          { label: 'Total Spent', value: `IDR ${(stats.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp },
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -133,42 +164,81 @@ export default function DashboardPage() {
           <h2 className="font-display font-bold text-lg md:text-xl uppercase text-white">
             Recent Orders
           </h2>
-          <Link href="/dashboard/orders" className="text-xs text-white hover:underline uppercase focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
+          <Link
+            href="/dashboard/orders"
+            className="text-xs text-white hover:underline uppercase focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+          >
             View All
           </Link>
         </div>
-        <div className="divide-y divide-mono-dark-grey">
-          {RECENT_ORDERS.slice(0, 3).map((order) => (
-            <div key={order.id} className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-white/5 transition-colors gap-3 sm:gap-4">
-              <div className="flex items-center gap-3 md:gap-4 min-w-0">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center shrink-0" aria-hidden="true">
-                  <Ticket className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-bold uppercase text-white text-sm md:text-base truncate">{order.event}</div>
-                  <div className="text-xs text-mono-light-grey">
-                    {order.id} &middot; {new Date(order.date).toLocaleDateString()}
+
+        {isLoading && (
+          <div className="p-6 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 text-white animate-spin" aria-hidden="true" />
+            <span className="ml-3 text-mono-light-grey uppercase tracking-widest text-xs">Loading…</span>
+          </div>
+        )}
+
+        {!isLoading && error && (
+          <div className="p-6 text-center">
+            <p className="text-red-400 text-xs uppercase tracking-widest mb-2">Failed to load orders</p>
+            <p className="text-mono-light-grey text-sm">{error}</p>
+          </div>
+        )}
+
+        {!isLoading && !error && recentOrders.length === 0 && (
+          <div className="p-6 text-center">
+            <p className="text-mono-light-grey text-sm">No orders yet.</p>
+            <Link
+              href="/events"
+              className="inline-block mt-3 px-4 py-2 bg-white text-black text-xs font-bold uppercase tracking-wide"
+            >
+              Browse Events
+            </Link>
+          </div>
+        )}
+
+        {!isLoading && !error && recentOrders.length > 0 && (
+          <div className="divide-y divide-mono-dark-grey">
+            {recentOrders.map((order) => (
+              <div
+                key={order.id}
+                className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-white/5 transition-colors gap-3 sm:gap-4"
+              >
+                <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center shrink-0" aria-hidden="true">
+                    <Ticket className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold uppercase text-white text-sm md:text-base truncate">
+                      {order.event?.title ?? 'Unknown event'}
+                    </div>
+                    <div className="text-xs text-mono-light-grey">
+                      {order.bookingCode} &middot; {new Date(order.bookedAt).toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
-                <div className="text-left sm:text-right">
-                  <div className="font-bold text-white text-sm">IDR {order.total.toLocaleString()}</div>
-                  <div className="text-xs text-mono-light-grey">
-                    {order.tickets} ticket{order.tickets > 1 ? 's' : ''}
+                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+                  <div className="text-left sm:text-right">
+                    <div className="font-bold text-white text-sm">
+                      {formatPrice(order.totalPrice, order.currency)}
+                    </div>
+                    <div className="text-xs text-mono-light-grey">
+                      {order.seats.length} ticket{order.seats.length > 1 ? 's' : ''}
+                    </div>
                   </div>
+                  <Link
+                    href="/dashboard/my-tickets"
+                    className="p-2 border border-mono-dark-grey hover:border-white transition-colors min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                    aria-label={`View tickets for ${order.bookingCode}`}
+                  >
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </Link>
                 </div>
-                <Link 
-                  href={`/dashboard/my-tickets/${order.id}`}
-                  className="p-2 border border-mono-dark-grey hover:border-white transition-colors min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-                  aria-label={`View order ${order.id}`}
-                >
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                </Link>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* Upcoming Events */}
@@ -184,15 +254,18 @@ export default function DashboardPage() {
           </h2>
         </div>
         <div className="p-3 md:p-4 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          {RECENT_ORDERS.filter(o => o.status === 'upcoming').map((order) => (
+          {upcomingOrders.length === 0 && !isLoading && (
+            <p className="text-mono-light-grey text-sm col-span-full">No upcoming events.</p>
+          )}
+          {upcomingOrders.map((order) => (
             <div key={order.id} className="bg-white/5 p-3 md:p-4 border border-mono-dark-grey">
               <div className="flex items-start justify-between mb-3">
                 <div className="min-w-0 mr-2">
                   <div className="font-display font-bold uppercase text-white text-sm md:text-base mb-1 truncate">
-                    {order.event}
+                    {order.event?.title ?? 'Unknown event'}
                   </div>
                   <div className="text-xs text-mono-light-grey">
-                    {order.venue}
+                    {order.event?.venue?.name ?? '—'}
                   </div>
                 </div>
                 <span className="px-2 py-1 bg-white text-black text-xs font-bold uppercase shrink-0">
@@ -201,17 +274,19 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 text-xs md:text-sm text-[#CCCCCC] mb-3">
                 <Calendar className="w-3 h-3 md:w-4 md:h-4 shrink-0" aria-hidden="true" />
-                {new Date(order.date).toLocaleDateString('en-GB', { 
-                  day: 'numeric', 
-                  month: 'long', 
-                  year: 'numeric' 
-                })}
+                {order.event?.startDateTime
+                  ? new Date(order.event.startDateTime).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })
+                  : '—'}
               </div>
-              <Link 
-                href={`/events/${order.id}`}
+              <Link
+                href="/dashboard/my-tickets"
                 className="text-xs text-white hover:underline uppercase focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               >
-                View Event Details &rarr;
+                View Tickets &rarr;
               </Link>
             </div>
           ))}
@@ -236,12 +311,14 @@ export default function DashboardPage() {
         </div>
         <div className="grid grid-cols-2 gap-3 md:gap-4">
           <div>
-            <div className="text-xs uppercase tracking-widest mb-1">Loyalty Points</div>
-            <div className="font-display font-bold text-2xl md:text-3xl">{currentUser.loyaltyPoints.toLocaleString()}</div>
+            <div className="text-xs uppercase tracking-widest mb-1">Total Spent</div>
+            <div className="font-display font-bold text-2xl md:text-3xl">
+              IDR {(stats.totalSpent / 1000000).toFixed(1)}M
+            </div>
           </div>
           <div className="text-right">
             <div className="text-xs uppercase tracking-widest mb-1">Member Status</div>
-            <div className="font-bold uppercase text-base md:text-lg">Gold Member</div>
+            <div className="font-bold uppercase text-base md:text-lg">Active Member</div>
           </div>
         </div>
       </motion.div>

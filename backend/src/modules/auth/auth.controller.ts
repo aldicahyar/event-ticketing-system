@@ -202,6 +202,30 @@ export class AuthController {
     return this.authService.changePassword(user.id, dto, ipAddress, userAgent);
   }
 
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Profile updated successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid input',
+  })
+  async updateProfile(
+    @Body() dto: { name?: string },
+    @CurrentUser() user: any,
+  ) {
+    const data = await this.authService.updateProfile(user.id, dto);
+    return {
+      data,
+      message: 'Profile updated successfully',
+    };
+  }
+
   @Get('security-logs')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

@@ -39,6 +39,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [isLoading, isAuthenticated, router]);
 
+  // Block ADMIN from attendee-only routes (orders, my-tickets, profile).
+  // They can only access /dashboard and admin-scoped routes.
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
+    const storedUser = apiClient.getUser();
+    const role = storedUser?.role;
+    if (role !== 'ADMIN') return;
+
+    const adminBlockedSegments = ['/dashboard/orders', '/dashboard/my-tickets', '/dashboard/profile'];
+    const isBlocked = adminBlockedSegments.some((seg) => pathname.startsWith(seg));
+    if (isBlocked) {
+      router.replace('/dashboard');
+    }
+  }, [isLoading, isAuthenticated, pathname, router]);
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -48,26 +63,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  const baseLinks = [
-    { href: '/dashboard', label: 'Overview', icon: TrendingUp },
-    { href: '/dashboard/orders', label: 'Orders', icon: CreditCard },
-    { href: '/dashboard/my-tickets', label: 'My Tickets', icon: Ticket },
-    { href: '/dashboard/profile', label: 'Profile', icon: User },
-  ];
+  const role = currentUser.role;
+  const isAdmin = role === 'ADMIN';
+  const isOrganizer = role === 'ORGANIZER';
+  const isAdminOrOrganizer = isAdmin || isOrganizer;
+  const isAttendee = role === 'ATTENDEE';
 
-  // Menampilkan menu kelola event dan venue hanya jika role-nya ADMIN atau ORGANIZER
-  const isAdminOrOrganizer = currentUser.role === 'ADMIN' || currentUser.role === 'ORGANIZER';
-  const isAdmin = currentUser.role === 'ADMIN';
-  
+  // ATTENDEE & ORGANIZER can place orders and own tickets; ADMIN cannot.
+  // Profile/Orders/My-Tickets are hidden from ADMIN entirely.
   const links = [
-    ...baseLinks,
+    { href: '/dashboard', label: 'Overview', icon: TrendingUp },
+    ...(isAttendee || isOrganizer ? [
+      { href: '/dashboard/orders', label: 'Orders', icon: CreditCard },
+      { href: '/dashboard/my-tickets', label: 'My Tickets', icon: Ticket },
+      { href: '/dashboard/profile', label: 'Profile', icon: User },
+    ] : []),
     ...(isAdminOrOrganizer ? [
       { href: '/dashboard/events', label: 'Manage Events', icon: Calendar },
-      { href: '/dashboard/venues', label: 'Manage Venues', icon: Shield }
+      { href: '/dashboard/venues', label: 'Manage Venues', icon: Shield },
     ] : []),
     ...(isAdmin ? [
       { href: '/dashboard/tier-settings', label: 'Tier Settings', icon: Layers },
-      { href: '/dashboard/tax-settings', label: 'Tax Settings', icon: Percent }
+      { href: '/dashboard/tax-settings', label: 'Tax Settings', icon: Percent },
     ] : []),
   ];
 
