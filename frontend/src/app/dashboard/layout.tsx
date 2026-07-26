@@ -1,25 +1,49 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  User, Ticket, LogOut, 
-  CreditCard, Bell, Calendar, Shield, TrendingUp,
-  Layers, Percent
-} from 'lucide-react';
+import { User, LogOut, Bell } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getNavForRole } from '@/config/navigation';
+import { SidebarItem } from '@/components/dashboard/SidebarItem';
+import { DynamicSidebarItem, nestSidebarItems } from '@/components/dashboard/DynamicSidebarItem';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { SidebarItem as SidebarItemType } from '@/types/rbac';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout } = useAuth();
   const [currentUser, setCurrentUser] = useState({
     firstName: 'User',
     lastName: '',
-    role: 'ATTENDEE'
+    role: 'ATTENDEE',
   });
+
+  // Dynamic sidebar state
+  const [sidebarItems, setSidebarItems] = useState<SidebarItemType[] | null>(null);
+  const [sidebarLoading, setSidebarLoading] = useState(true);
+
+  const loadSidebar = useCallback(async () => {
+    setSidebarLoading(true);
+    try {
+      const data = await apiClient.getMySidebar();
+      setSidebarItems(data ?? []);
+    } catch {
+      // Graceful fallback: caller will use hardcoded nav when sidebarItems is null
+      setSidebarItems(null);
+    } finally {
+      setSidebarLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      loadSidebar();
+    }
+  }, [isLoading, isAuthenticated, loadSidebar]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -32,27 +56,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           setCurrentUser({
             firstName: nameParts[0] || 'User',
             lastName: nameParts.slice(1).join(' ') || '',
-            role: storedUser.role
+            role: storedUser.role,
           });
         }
       }
     }
   }, [isLoading, isAuthenticated, router]);
 
-  // Block ADMIN from attendee-only routes (orders, my-tickets, profile).
-  // They can only access /dashboard and admin-scoped routes.
-  useEffect(() => {
-    if (isLoading || !isAuthenticated) return;
-    const storedUser = apiClient.getUser();
-    const role = storedUser?.role;
-    if (role !== 'ADMIN') return;
+  // Collect all allowed slugs from the sidebar (flat list from backend).
+  const allowedSlugs = useMemo(() => {
+    if (!sidebarItems) return null;
+    return sidebarItems.map((item) => item.slug).filter((s): s is string => !!s);
+  }, [sidebarItems]);
 
-    const adminBlockedSegments = ['/dashboard/orders', '/dashboard/my-tickets', '/dashboard/profile'];
-    const isBlocked = adminBlockedSegments.some((seg) => pathname.startsWith(seg));
-    if (isBlocked) {
+  // Route guard: RBAC-aware — use sidebar slugs to determine allowed routes.
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !allowedSlugs) return;
+
+    // Build the set of allowed route prefixes from sidebar slugs
+    const allowedPaths = new Set(allowedSlugs);
+    // Always allow these universal routes
+    allowedPaths.add('/dashboard');
+    allowedPaths.add('/dashboard/profile');
+
+    const isAllowed = allowedPaths.has(pathname) || [...allowedPaths].some((p) => pathname.startsWith(p + '/'));
+
+    if (!isAllowed && pathname.startsWith('/dashboard')) {
       router.replace('/dashboard');
     }
-  }, [isLoading, isAuthenticated, pathname, router]);
+  }, [isLoading, isAuthenticated, allowedSlugs, pathname, router]);
 
   const handleLogout = async () => {
     try {
@@ -63,30 +95,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  const role = currentUser.role;
-  const isAdmin = role === 'ADMIN';
-  const isOrganizer = role === 'ORGANIZER';
-  const isAdminOrOrganizer = isAdmin || isOrganizer;
-  const isAttendee = role === 'ATTENDEE';
-
-  // ATTENDEE & ORGANIZER can place orders and own tickets; ADMIN cannot.
-  // Profile/Orders/My-Tickets are hidden from ADMIN entirely.
-  const links = [
-    { href: '/dashboard', label: 'Overview', icon: TrendingUp },
-    ...(isAttendee || isOrganizer ? [
-      { href: '/dashboard/orders', label: 'Orders', icon: CreditCard },
-      { href: '/dashboard/my-tickets', label: 'My Tickets', icon: Ticket },
-      { href: '/dashboard/profile', label: 'Profile', icon: User },
-    ] : []),
-    ...(isAdminOrOrganizer ? [
-      { href: '/dashboard/events', label: 'Manage Events', icon: Calendar },
-      { href: '/dashboard/venues', label: 'Manage Venues', icon: Shield },
-    ] : []),
-    ...(isAdmin ? [
-      { href: '/dashboard/tier-settings', label: 'Tier Settings', icon: Layers },
-      { href: '/dashboard/tax-settings', label: 'Tax Settings', icon: Percent },
-    ] : []),
-  ];
+  // Build sidebar data: prefer backend, fallback to hardcoded nav
+  const fallbackNav = getNavForRole(currentUser.role);
+  const dynamicTree = sidebarItems ? nestSidebarItems(sidebarItems) : null;
 
   if (isLoading) {
     return (
@@ -96,18 +107,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
+  // Sidebar render helper — works for both dynamic and fallback modes
+  const renderSidebarContent = (mobile: boolean) => {
+    if (sidebarLoading) {
+      // Loading skeleton
+      return (
+        <div className="space-y-1" aria-busy="true" aria-live="polite">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="px-4 py-3 flex items-center gap-3">
+              <Skeleton variant="circle" className="w-5 h-5" />
+              <Skeleton className="h-3 flex-1" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (dynamicTree) {
+      // Dynamic mode (backend-driven)
+      return (
+        <div className={mobile ? 'flex gap-2' : 'space-y-1'}>
+          {dynamicTree.map((item) => (
+            <DynamicSidebarItem key={item.code} item={item} />
+          ))}
+        </div>
+      );
+    }
+
+    // Fallback mode (hardcoded navigation.ts)
+    return (
+      <div className={mobile ? 'flex gap-2' : 'space-y-1'}>
+        {fallbackNav.map((item) => (
+          <SidebarItem key={`${item.href}-${item.label}`} item={item} />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
-      
+
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey" role="navigation" aria-label="Dashboard navigation">
+      <nav
+        className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-mono-dark-grey"
+        role="navigation"
+        aria-label="Dashboard navigation"
+      >
         <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2" aria-label="EventTicket home">
             <div className="w-4 h-4 bg-white" aria-hidden="true" />
             <span className="text-xl font-display font-bold uppercase">EventTicket.</span>
           </Link>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 hover:bg-white/10 transition-colors min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" aria-label="Notifications">
+            <button
+              className="relative p-2 hover:bg-white/10 transition-colors min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+              aria-label="Notifications"
+            >
               <Bell className="w-5 h-5" aria-hidden="true" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" aria-hidden="true" />
             </button>
@@ -130,59 +185,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="container mx-auto px-4 md:px-6 py-6 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
-          
-          {/* Sidebar - scroll horizontal pada mobile, vertikal pada desktop */}
+
+          {/* Sidebar */}
           <div className="lg:col-span-1">
             {/* Mobile: horizontal tabs */}
             <div className="flex lg:hidden overflow-x-auto gap-2 mb-6 -mx-4 px-4 scrollbar-none">
-              {links.map((link) => {
-                const isActive = pathname === link.href;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`whitespace-nowrap min-h-touch px-4 py-3 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
-                      isActive 
-                        ? 'bg-white text-black' 
-                        : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white border border-mono-dark-grey lg:border-0'
-                    }`}
-                  >
-                    <link.icon className="w-5 h-5 shrink-0" aria-hidden="true" />
-                    <span className="font-bold uppercase text-sm">{link.label}</span>
-                  </Link>
-                );
-              })}
-              <button onClick={handleLogout} className="whitespace-nowrap min-h-touch px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 border border-mono-dark-grey lg:border-0">
+              {renderSidebarContent(true)}
+              <button
+                onClick={handleLogout}
+                className="whitespace-nowrap min-h-touch px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 border border-mono-dark-grey lg:border-0"
+              >
                 <LogOut className="w-5 h-5 shrink-0" aria-hidden="true" />
                 <span className="font-bold uppercase text-sm">Sign Out</span>
               </button>
             </div>
 
-            {/* Desktop: sticky sidebar (tersembunyi di mobile) */}
+            {/* Desktop: sticky sidebar */}
             <div className="hidden lg:block">
               <div className="bg-black border border-mono-dark-grey p-4 sticky top-24">
-                <nav className="space-y-1" aria-label="Dashboard sidebar">
-                  {links.map((link) => {
-                    const isActive = pathname === link.href;
-                    return (
-                      <Link
-                        key={`sidebar-${link.href}`}
-                        href={link.href}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={`flex items-center gap-3 px-4 py-3 transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
-                          isActive 
-                            ? 'bg-white text-black' 
-                            : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        <link.icon className="w-5 h-5" aria-hidden="true" />
-                        <span className="font-bold uppercase text-sm">{link.label}</span>
-                      </Link>
-                    );
-                  })}
-                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" aria-label="Sign out of your account">
-                    <LogOut className="w-5 h-5" aria-hidden="true" />
+                <nav aria-label="Dashboard sidebar">
+                  {renderSidebarContent(false)}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                    aria-label="Sign out of your account"
+                  >
+                    <LogOut className="w-5 h-5 shrink-0" aria-hidden="true" />
                     <span className="font-bold uppercase text-sm">Sign Out</span>
                   </button>
                 </nav>

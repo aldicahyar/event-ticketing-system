@@ -7,12 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  ORGANIZER
-  ATTENDEE
-}
-
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -47,12 +41,87 @@ enum PaymentStatus {
   REFUNDED
 }
 
+/// RBAC role. System roles (ADMIN, ORGANIZER, ATTENDEE) are seeded with isSystem=true
+/// and cannot be deleted. Custom roles can be created via admin UI.
+model Role {
+  id           String   @id @default(cuid())
+  code         String   @unique                          // "ADMIN", "ORGANIZER", or custom "CASHIER"
+  name         String                                    // "Administrator" (display name)
+  nameEn       String?                                   // i18n fallback
+  description  String?
+  isSystem     Boolean  @default(false)                  // system roles cannot be deleted
+  isActive     Boolean  @default(true)                   // soft delete / deactivate
+  sortOrder    Int      @default(0)
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedBy    String?
+  updatedAt    DateTime @updatedAt
+
+  users        User[]
+  permissions  RoleMenuPermission[]
+
+  @@index([isActive])
+  @@map("roles")
+}
+
+/// Sidebar menu definition. Tree structure via parentCode (self-reference).
+/// Seeded from frontend navigation config + can be added via admin UI later.
+model Menu {
+  id           String   @id @default(cuid())
+  code         String   @unique                          // "DASHBOARD", "EVENTS", "MNUF..."
+  name         String                                    // "Manage Events" (display)
+  nameEn       String?                                   // i18n fallback
+  parentCode   String?                                   // self-reference for tree builder
+  icon         String?                                   // lucide-react icon name: "Calendar"
+  slug         String?                                   // route: "/dashboard/events"
+  order        Int      @default(0)
+  isNewTab     Boolean  @default(false)
+  isActive     Boolean  @default(true)                   // soft delete
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedBy    String?
+  updatedAt    DateTime @updatedAt
+
+  parent       Menu?              @relation("MenuTree", fields: [parentCode], references: [code])
+  children     Menu[]             @relation("MenuTree")
+  permissions  RoleMenuPermission[]
+
+  @@index([parentCode])
+  @@index([isActive])
+  @@map("menus")
+}
+
+/// Permission pivot: what a role can do with a menu.
+/// canView gates visibility in sidebar. canCreate/canEdit/canDelete gate action buttons.
+model RoleMenuPermission {
+  id          String   @id @default(cuid())
+  roleCode    String
+  menuCode    String
+  canView     Boolean  @default(false)
+  canCreate   Boolean  @default(false)
+  canEdit     Boolean  @default(false)
+  canDelete   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+
+  role        Role     @relation(fields: [roleCode], references: [code])
+  menu        Menu     @relation(fields: [menuCode], references: [code])
+
+  @@unique([roleCode, menuCode])
+  @@index([roleCode])
+  @@index([menuCode])
+  @@map("role_menu_permissions")
+}
+
 model User {
   id                   String    @id @default(cuid())
   email                String    @unique
   password             String?
   name                 String
-  role                 Role      @default(ATTENDEE)
+  roleCode             String    @default("ATTENDEE")     // FK to Role.code (RBAC)
   provider             String    @default("local")
   providerId           String?
   avatar               String?
@@ -66,6 +135,7 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
+  role                 Role?     @relation(fields: [roleCode], references: [code])
   bookings             Booking[]
   oauthAccounts        OAuthAccount[]
   securityLogs         SecurityLog[]
@@ -73,6 +143,8 @@ model User {
   @@index([email])
   @@index([provider, providerId])
   @@index([lockedUntil])
+  @@index([roleCode])
+  @@map("users")
 }
 
 /// Audit log for security events
@@ -126,6 +198,7 @@ model Venue {
 model Event {
   id            String      @id @default(cuid())
   title         String
+  subtitle      String?
   description   String
   venueId       String
   startDateTime DateTime
@@ -225,4 +298,32 @@ model Ticket {
 
   @@index([qrCode])
   @@index([bookingId])
+}
+
+/// Ticket tier configuration (multiplier + ratio for seat distribution).
+/// id is the SeatType enum value (VIP/PREMIUM/REGULAR).
+model TicketTierSetting {
+  id         String   @id                     // SeatType enum value
+  ratio      Float                            // 0.0 - 1.0 row distribution
+  multiplier Float                            // price multiplier
+  status     String   @default("ACTIVE")      // ACTIVE | INACTIVE
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("ticket_tier_settings")
+}
+
+/// Tax (PPN/VAT) configuration. Single row with id='default'.
+model TaxSetting {
+  id         String   @id                     // always 'default'
+  ppnPercent Float                            // 0 - 100
+  status     String   @default("ACTIVE")
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("tax_settings")
 }

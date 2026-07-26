@@ -320,6 +320,62 @@ class ApiClient {
     }
     return 'An unexpected error occurred';
   }
+
+  // ============================================================
+  // RBAC ENDPOINTS (see docs/api/rbac-openapi.yaml)
+  // ============================================================
+
+  /** Get sidebar menus for current user (cached 5min per roleCode). */
+  async getMySidebar() {
+    return this.get<any[]>('/menus/my-sidebar');
+  }
+
+  // ----- Roles -----
+  async listRoles(filters?: { isActive?: boolean; includePermissions?: boolean }) {
+    return this.get<any[]>('/roles', filters as Record<string, unknown>);
+  }
+  async createRole(dto: any) {
+    return this.post<any>('/roles', dto);
+  }
+  async updateRole(code: string, dto: any) {
+    return this.patch<any>(`/roles/${code}`, dto);
+  }
+  async deleteRole(code: string) {
+    return this.delete<any>(`/roles/${code}`);
+  }
+
+  // ----- Menus -----
+  async listMenus(filters?: { isActive?: boolean }) {
+    return this.get<any[]>('/menus/admin', filters as Record<string, unknown>);
+  }
+  async createMenu(dto: any) {
+    return this.post<any>('/menus/admin', dto);
+  }
+  async updateMenu(code: string, dto: any) {
+    return this.patch<any>(`/menus/admin/${code}`, dto);
+  }
+  async deleteMenu(code: string) {
+    return this.delete<any>(`/menus/admin/${code}`);
+  }
+
+  // ----- Permissions -----
+  async getPermissionMatrix(filters?: { roleCode?: string; menuCode?: string }) {
+    return this.get<any[]>('/permissions', filters as Record<string, unknown>);
+  }
+  async getRolePermissions(roleCode: string) {
+    return this.get<any[]>(`/permissions/${roleCode}`);
+  }
+  async replaceRolePermissions(roleCode: string, cells: any[]) {
+    return this.put<any>(`/permissions/${roleCode}`, { permissions: cells });
+  }
+
+  // ----- User Roles -----
+  async getUserRole(userId: string) {
+    return this.get<any>(`/users/${userId}/role`);
+  }
+  async assignUserRole(userId: string, roleCode: string) {
+    return this.patch<any>(`/users/${userId}/role`, { roleCode });
+  }
 }
 
 export const apiClient = new ApiClient();
