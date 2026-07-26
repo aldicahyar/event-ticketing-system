@@ -30,13 +30,10 @@ export default function TierSettingsManagementPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Protect page: Only ADMIN can access
+  // Auth guard
   useEffect(() => {
-    if (!authLoading) {
-      const storedUser = apiClient.getUser();
-      if (!storedUser || storedUser?.role !== 'ADMIN') {
-        router.push('/dashboard');
-      }
+    if (!authLoading && !apiClient.getUser()) {
+      router.push('/auth/login');
     }
   }, [authLoading, router]);
 

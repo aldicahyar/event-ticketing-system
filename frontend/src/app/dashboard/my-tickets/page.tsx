@@ -4,9 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Ticket, Clock, Download, QrCode, MapPin, Calendar, Loader2
+  Ticket, Clock, Download, QrCode, MapPin, Calendar
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { TicketCardSkeleton } from '@/components/ui/skeleton';
 
 interface TicketSeat {
   id: string;
@@ -117,11 +118,10 @@ export default function MyTicketsPage() {
         ))}
       </div>
 
-      {/* Loading */}
+      {/* Loading - skeleton mirrors the ticket card layout */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12 border border-mono-dark-grey">
-          <Loader2 className="w-6 h-6 text-white animate-spin" aria-hidden="true" />
-          <span className="ml-3 text-mono-light-grey uppercase tracking-widest text-sm">Loading…</span>
+        <div className="space-y-6" aria-busy="true" aria-live="polite">
+          <TicketCardSkeleton />
         </div>
       )}
 

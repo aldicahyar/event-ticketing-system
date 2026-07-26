@@ -66,15 +66,12 @@ export default function EventsManagementPage() {
   const [formData, setFormData] = useState(DEFAULT_FORM);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Proteksi Halaman: Hanya ADMIN & ORGANIZER yang boleh akses
+  // Auth guard
   useEffect(() => {
-    if (!authLoading) {
-      const storedUser = apiClient.getUser();
-      if (!storedUser || (storedUser.role !== 'ADMIN' && storedUser.role !== 'ORGANIZER')) {
-        router.push('/dashboard');
-      }
+    if (!authLoading && !apiClient.getUser()) {
+      router.push('/auth/login');
     }
-  }, [authLoading, user, router]);
+  }, [authLoading, router]);
 
   const fetchEventsAndVenues = async () => {
     setIsLoading(true);

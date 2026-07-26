@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -38,6 +39,7 @@ interface UserStats {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [greeting, setGreeting] = useState('');
   const [currentUser, setCurrentUser] = useState({
     firstName: 'User',
@@ -53,6 +55,16 @@ export default function DashboardPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<string>('ATTENDEE');
+
+  // Redirect ADMIN users to the admin area on mount.
+  // ORGANIZER & ATTENDEE see the regular overview.
+  useEffect(() => {
+    const storedUser = apiClient.getUser();
+    if (storedUser?.role === 'ADMIN') {
+      router.replace('/dashboard/admin/stats');
+    }
+  }, [router]);
 
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
@@ -91,6 +103,7 @@ export default function DashboardPage() {
         email: storedUser.email || '',
         memberSince: new Date().toISOString(),
       });
+      setRole(storedUser.role || 'ATTENDEE');
     }
 
     loadDashboardData();
@@ -108,6 +121,24 @@ export default function DashboardPage() {
   };
 
   const upcomingOrders = recentOrders.filter(isUpcoming);
+
+  // ADMIN doesn't have personal orders/tickets — show admin-scoped dashboard instead.
+  const isAdmin = role === 'ADMIN';
+  const isAttendeeOrOrganizer = role === 'ATTENDEE' || role === 'ORGANIZER';
+
+  const attendeeStats = [
+    { label: 'Total Orders', value: stats.totalOrders, icon: CreditCard },
+    { label: 'Tickets Bought', value: stats.totalTickets, icon: Ticket },
+    { label: 'Loyalty Points', value: '0', icon: Users },
+    { label: 'Total Spent', value: `IDR ${(stats.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp },
+  ];
+
+  const adminQuickLinks = [
+    { href: '/dashboard/events', label: 'Manage Events', icon: Calendar },
+    { href: '/dashboard/venues', label: 'Manage Venues', icon: Shield },
+    { href: '/dashboard/tier-settings', label: 'Tier Settings', icon: Users },
+    { href: '/dashboard/tax-settings', label: 'Tax Settings', icon: TrendingUp },
+  ];
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -127,32 +158,57 @@ export default function DashboardPage() {
         </p>
       </motion.div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4">
-        {[
-          { label: 'Total Orders', value: stats.totalOrders, icon: CreditCard },
-          { label: 'Tickets Bought', value: stats.totalTickets, icon: Ticket },
-          { label: 'Loyalty Points', value: '0', icon: Users },
-          { label: 'Total Spent', value: `IDR ${(stats.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp },
-        ].map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-black border border-mono-dark-grey p-3 md:p-4 hover:border-white transition-colors"
-          >
-            <stat.icon className="w-5 h-5 md:w-6 md:h-6 text-white mb-2 md:mb-3" aria-hidden="true" />
-            <div className="text-xl md:text-2xl font-display font-bold text-white mb-1">
-              {stat.value}
-            </div>
-            <div className="text-[10px] md:text-xs text-mono-light-grey uppercase tracking-widest">
-              {stat.label}
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      {/* Stats Cards - attendee stats for ATTENDEE/ORGANIZER, quick actions for ADMIN */}
+      {isAttendeeOrOrganizer ? (
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
+          {attendeeStats.map((stat, index) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="bg-black border border-mono-dark-grey p-3 md:p-4 hover:border-white transition-colors"
+            >
+              <stat.icon className="w-5 h-5 md:w-6 md:h-6 text-white mb-2 md:mb-3" aria-hidden="true" />
+              <div className="text-xl md:text-2xl font-display font-bold text-white mb-1">
+                {stat.value}
+              </div>
+              <div className="text-[10px] md:text-xs text-mono-light-grey uppercase tracking-widest">
+                {stat.label}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
+          {adminQuickLinks.map((link, index) => (
+            <motion.div
+              key={link.href}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <Link
+                href={link.href}
+                className="block bg-black border border-mono-dark-grey p-3 md:p-4 hover:border-white transition-colors focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+              >
+                <link.icon className="w-5 h-5 md:w-6 md:h-6 text-white mb-2 md:mb-3" aria-hidden="true" />
+                <div className="font-display font-bold text-white mb-1 uppercase text-sm md:text-base">
+                  {link.label}
+                </div>
+                <div className="text-[10px] md:text-xs text-mono-light-grey uppercase tracking-widest">
+                  Open &rarr;
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
+      {/* ATTENDEE/ORGANIZER-only sections: Recent Orders, Upcoming Events, Membership Card.
+          ADMIN sees only the quick-action links above (no personal orders/membership). */}
+      {isAttendeeOrOrganizer && (
+        <>
       {/* Recent Orders */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -322,6 +378,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </motion.div>
+        </>
+      )}
 
     </div>
   );

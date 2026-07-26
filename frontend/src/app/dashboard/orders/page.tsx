@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Ticket, Calendar, CreditCard, Download,
-  Search, Eye, ArrowRight, Loader2
+  Search, Eye, ArrowRight
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { OrderRowSkeleton } from '@/components/ui/skeleton';
 
 // Shape mirrors the Prisma booking payload returned by /bookings/my-orders
 interface OrderSeat {
@@ -175,11 +176,12 @@ export default function OrdersPage() {
         </div>
       </motion.div>
 
-      {/* Loading */}
+      {/* Loading - skeleton mirrors the order card layout to prevent CLS */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12 border border-mono-dark-grey">
-          <Loader2 className="w-6 h-6 text-white animate-spin" aria-hidden="true" />
-          <span className="ml-3 text-mono-light-grey uppercase tracking-widest text-sm">Loading…</span>
+        <div className="space-y-4" aria-busy="true" aria-live="polite">
+          <OrderRowSkeleton />
+          <OrderRowSkeleton />
+          <OrderRowSkeleton />
         </div>
       )}
 

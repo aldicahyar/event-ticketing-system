@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton, ProfileFieldSkeleton } from '@/components/ui/skeleton';
 
 interface CurrentUser {
   id: string;
@@ -113,9 +114,32 @@ export default function ProfilePage() {
       </motion.div>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-12 border border-mono-dark-grey">
-          <Loader2 className="w-6 h-6 text-white animate-spin" aria-hidden="true" />
-          <span className="ml-3 text-mono-light-grey uppercase tracking-widest text-sm">Loading…</span>
+        <div className="space-y-6" aria-busy="true" aria-live="polite">
+          {/* Profile header card skeleton */}
+          <div className="bg-black border border-mono-dark-grey p-6">
+            <div className="flex items-center gap-6">
+              <Skeleton variant="circle" className="w-24 h-24" />
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+          </div>
+          {/* Form skeleton */}
+          <div className="bg-black border border-mono-dark-grey p-6">
+            <Skeleton className="h-5 w-48 mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ProfileFieldSkeleton />
+              <ProfileFieldSkeleton />
+              <ProfileFieldSkeleton />
+              <ProfileFieldSkeleton />
+              <ProfileFieldSkeleton />
+              <ProfileFieldSkeleton />
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Skeleton className="h-11 w-32" />
+            </div>
+          </div>
         </div>
       )}
 
