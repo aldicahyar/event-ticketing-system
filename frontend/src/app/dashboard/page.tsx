@@ -47,7 +47,7 @@ export default function DashboardPage() {
     email: '',
     memberSince: new Date().toISOString(),
   });
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<UserStats>({
     totalOrders: 0,
     totalTickets: 0,
@@ -76,8 +76,8 @@ export default function DashboardPage() {
           .get<UserStats>('/bookings/my-stats')
           .catch(() => ({ totalOrders: 0, totalTickets: 0, totalSpent: 0 })),
       ]);
-      // Slice 3 most recent for the overview card
-      setRecentOrders((orders ?? []).slice(0, 3));
+      // Keep the full list; the "recent" and "upcoming" views are derived below.
+      setOrders(orders ?? []);
       setStats(
         userStats ?? { totalOrders: 0, totalTickets: 0, totalSpent: 0 },
       );
@@ -120,7 +120,18 @@ export default function DashboardPage() {
     return new Date(o.event.startDateTime).getTime() >= Date.now();
   };
 
-  const upcomingOrders = recentOrders.filter(isUpcoming);
+  // Recent = the 3 latest bookings (list is sorted bookedAt desc by the API).
+  const recentOrders = orders.slice(0, 3);
+  // Upcoming = every order whose event is still in the future, soonest first —
+  // derived from the FULL list, not just the 3 most recently booked.
+  const upcomingOrders = orders
+    .filter(isUpcoming)
+    .sort(
+      (a, b) =>
+        new Date(a.event.startDateTime).getTime() -
+        new Date(b.event.startDateTime).getTime(),
+    )
+    .slice(0, 4);
 
   // ADMIN doesn't have personal orders/tickets — show admin-scoped dashboard instead.
   const isAdmin = role === 'ADMIN';

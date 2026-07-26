@@ -136,7 +136,7 @@ export class EventsService {
       data: updateData,
     });
 
-    // If venue was changed, regenerate seats
+    // If venue was changed, regenerate seats from scratch (new seat map).
     if (venue) {
       // 1. Delete existing seats
       await this.prisma.seat.deleteMany({
@@ -146,9 +146,44 @@ export class EventsService {
       // 2. Generate new seats using the new venue's seatMap configuration
       const finalBasePrice = updates.basePrice ?? existing.basePrice;
       await this.generateSeatsForEvent(id, venue, finalBasePrice);
+    } else if (
+      updates.basePrice !== undefined &&
+      Number(updates.basePrice) !== Number(existing.basePrice)
+    ) {
+      // Base price changed but the venue (and thus the seat map) did not.
+      // Reprice existing seats in place rather than regenerating them —
+      // regeneration deletes SOLD/RESERVED seats and would break their bookings.
+      await this.repriceAvailableSeats(id, updates.basePrice);
     }
 
     return updatedEvent;
+  }
+
+  /**
+   * Recompute prices for an event's still-AVAILABLE seats after a base-price
+   * change, preserving each seat's tier via its stored `type` and the tier
+   * multiplier from settings. SOLD/RESERVED seats keep the price the buyer
+   * already agreed to.
+   */
+  private async repriceAvailableSeats(eventId: string, basePrice: any) {
+    const tiers = await this.settingsService.getActiveTiers();
+    const multiplierByType = new Map<string, number>();
+    for (const tier of tiers) {
+      multiplierByType.set(tier.id, tier.multiplier);
+    }
+
+    const base = Number(basePrice);
+    const types = ['VIP', 'PREMIUM', 'REGULAR'] as const;
+    // One updateMany per distinct seat type — a handful of queries regardless
+    // of seat count.
+    await this.prisma.$transaction(
+      types.map((type) =>
+        this.prisma.seat.updateMany({
+          where: { eventId, type, status: 'AVAILABLE' },
+          data: { price: base * (multiplierByType.get(type) ?? 1) },
+        }),
+      ),
+    );
   }
 
   async remove(id: string) {

@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, BarChart3, Activity, ClipboardList,
   Calendar, MapPin, Layers, Percent,
+  ShieldCheck, Users, Menu as MenuIcon, Lock,
   CreditCard, Ticket, User, TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
@@ -44,6 +45,20 @@ export const ADMIN_NAV: NavItem[] = [
   { label: 'Manage Venues', href: '/dashboard/venues', icon: MapPin, requiredRole: 'ADMIN' },
   { label: 'Tier Settings', href: '/dashboard/tier-settings', icon: Layers, requiredRole: 'ADMIN' },
   { label: 'Tax Settings', href: '/dashboard/tax-settings', icon: Percent, requiredRole: 'ADMIN' },
+  {
+    // Mirrors the RBAC menu group seeded in prisma/seed.ts.
+    // Parent is a container only — /dashboard/admin/rbac has no page of its own.
+    label: 'Access Control',
+    href: '/dashboard/admin/rbac',
+    icon: ShieldCheck,
+    requiredRole: 'ADMIN',
+    children: [
+      { label: 'Users', href: '/dashboard/admin/users', icon: Users, requiredRole: 'ADMIN' },
+      { label: 'Roles', href: '/dashboard/admin/rbac/roles', icon: ShieldCheck, requiredRole: 'ADMIN' },
+      { label: 'Menus', href: '/dashboard/admin/rbac/menus', icon: MenuIcon, requiredRole: 'ADMIN' },
+      { label: 'Permissions', href: '/dashboard/admin/rbac/permissions', icon: Lock, requiredRole: 'ADMIN' },
+    ],
+  },
 ];
 
 export const ORGANIZER_NAV: NavItem[] = [

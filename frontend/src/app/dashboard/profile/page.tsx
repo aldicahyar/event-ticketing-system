@@ -21,7 +21,7 @@ interface CurrentUser {
 }
 
 export default function ProfilePage() {
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
   const [formData, setFormData] = useState({
     firstName: '',
@@ -75,9 +75,13 @@ export default function ProfilePage() {
     }
   }, []);
 
+  // loadProfile reads /auth/me directly and does not depend on the context
+  // `user`. Keeping `user` here re-ran the load after every save (refreshUser
+  // updates the context), which reset the form and wiped anything the user had
+  // just typed. Run once on mount instead.
   useEffect(() => {
     loadProfile();
-  }, [loadProfile, user]);
+  }, [loadProfile]);
 
   const handleSave = async () => {
     setSaving(true);

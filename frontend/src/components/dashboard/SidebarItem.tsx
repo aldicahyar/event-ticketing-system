@@ -98,7 +98,10 @@ export function SidebarItem({ item, onNavigate }: SidebarItemProps) {
           gridTemplateRows: isOpen ? '1fr' : '0fr',
         }}
       >
-        <div>
+        {/* The grid item needs min-height:0 (+overflow-hidden). Without it the
+            default min-height:auto keeps the row at its content height, so the
+            0fr track never collapses and the menu stays visible when closed. */}
+        <div className="overflow-hidden min-h-0">
           <div
             id={groupId}
             role="group"

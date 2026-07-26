@@ -4,6 +4,15 @@ import axios, {
   AxiosInstance,
 } from 'axios';
 
+import type {
+  AdminUser,
+  UserListResult,
+  UserStats,
+  ListUsersQuery,
+  CreateUserDto,
+  UpdateUserDto,
+} from '@/types/user';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Types
@@ -375,6 +384,56 @@ class ApiClient {
   }
   async assignUserRole(userId: string, roleCode: string) {
     return this.patch<any>(`/users/${userId}/role`, { roleCode });
+  }
+
+  // ============================================================
+  // USER MANAGEMENT (admin) — backend: /users/manage
+  // ============================================================
+
+  /** Paginated user list. Undefined filters are stripped before sending. */
+  async listUsers(query?: ListUsersQuery) {
+    const params: Record<string, unknown> = {};
+    if (query) {
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined && value !== null && value !== '') {
+          params[key] = value;
+        }
+      }
+    }
+    return this.get<UserListResult>('/users/manage', params);
+  }
+
+  async getUserStats() {
+    return this.get<UserStats>('/users/manage/stats');
+  }
+
+  async getUserDetail(id: string) {
+    return this.get<AdminUser>(`/users/manage/${id}`);
+  }
+
+  async createUser(dto: CreateUserDto) {
+    return this.post<AdminUser>('/users/manage', dto);
+  }
+
+  async updateUser(id: string, dto: UpdateUserDto) {
+    return this.patch<AdminUser>(`/users/manage/${id}`, dto);
+  }
+
+  async deleteUser(id: string) {
+    return this.delete<{ id: string; email: string; deleted: boolean }>(
+      `/users/manage/${id}`,
+    );
+  }
+
+  async unlockUser(id: string) {
+    return this.post<AdminUser>(`/users/manage/${id}/unlock`);
+  }
+
+  async resetUserPassword(id: string, newPassword: string) {
+    return this.post<{ id: string; passwordReset: boolean; sessionsRevoked: boolean }>(
+      `/users/manage/${id}/reset-password`,
+      { newPassword },
+    );
   }
 }
 

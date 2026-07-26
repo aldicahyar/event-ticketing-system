@@ -51,13 +51,16 @@ export default function AdminPermissionsPage() {
       setMenus(m);
       setMatrix(next);
       setOriginalMatrix(JSON.parse(JSON.stringify(next)));
-      if (r.length > 0 && !activeRole) setActiveRole(r[0].code);
+      // Default to the first role only if none is selected yet. The functional
+      // updater keeps `activeRole` OUT of this callback's deps, so switching
+      // role tabs no longer re-runs load() and discards unsaved edits.
+      setActiveRole((cur) => cur ?? (r.length > 0 ? r[0].code : null));
     } catch (err) {
       showToast('error', apiClient.getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRole]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -86,10 +89,23 @@ export default function AdminPermissionsPage() {
   const handleSave = async (roleCode: string) => {
     setSaving(roleCode);
     try {
-      const cells: PermissionCell[] = menus.map((m) => ({
-        menuCode: m.code,
-        ...matrix[roleCode][m.code],
-      }));
+      const cells: PermissionCell[] = menus.map((m) => {
+        const flagsForMenu = matrix[roleCode][m.code];
+        // A child menu's action grants are disabled in the UI when View is off,
+        // but their stale `true` values stay in state. Normalize before saving
+        // so we never persist a "can act but can't view" cell that the admin
+        // can no longer see or clear through the grid.
+        if (m.parentCode && !flagsForMenu.canView) {
+          return {
+            menuCode: m.code,
+            canView: false,
+            canCreate: false,
+            canEdit: false,
+            canDelete: false,
+          };
+        }
+        return { menuCode: m.code, ...flagsForMenu };
+      });
       await apiClient.replaceRolePermissions(roleCode, cells);
       setOriginalMatrix((prev) => ({
         ...prev,

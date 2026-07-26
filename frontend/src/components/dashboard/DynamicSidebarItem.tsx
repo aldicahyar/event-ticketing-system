@@ -28,10 +28,23 @@ export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps
   const groupId = `group-${reactId.replace(/[:]/g, '')}`;
   const hasChildren = !!item.children?.length;
   const href = item.slug ?? '#';
-  const isExternal = item.isNewTab || (href.startsWith('http') && !href.startsWith(window.location.origin));
+  // Guard window for SSR: this may render on the server if a menu ever has an
+  // absolute http(s) slug.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isExternal =
+    item.isNewTab || (href.startsWith('http') && !!origin && !href.startsWith(origin));
 
   const isExactActive = pathname === href;
-  const isPrefixActive = hasChildren && href !== '#' && pathname.startsWith(href + '/');
+  // A container menu (e.g. the RBAC group) has slug=null → href '#', so its own
+  // href can never prefix-match. Fall back to the children's slugs so the group
+  // still auto-expands and highlights when a child route is active.
+  const childActive =
+    hasChildren &&
+    (item.children ?? []).some(
+      (c) => c.slug && (pathname === c.slug || pathname.startsWith(c.slug + '/')),
+    );
+  const isPrefixActive =
+    (hasChildren && href !== '#' && pathname.startsWith(href + '/')) || childActive;
   const isGroupActive = isExactActive || isPrefixActive;
 
   const [isOpen, setIsOpen] = useState(isPrefixActive);
@@ -97,7 +110,10 @@ export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps
         className="overflow-hidden transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
         style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr' }}
       >
-        <div>
+        {/* The grid item needs min-height:0 (+overflow-hidden). Without it the
+            default min-height:auto keeps the row at its content height, so the
+            0fr track never collapses and the menu stays visible when closed. */}
+        <div className="overflow-hidden min-h-0">
           <div
             id={groupId}
             role="group"

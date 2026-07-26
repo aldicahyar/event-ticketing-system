@@ -233,7 +233,9 @@ export default function EventsManagementPage() {
                   <div className="mt-1 text-[#888]">End: {new Date(event.endDateTime).toLocaleString()}</div>
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey font-bold text-sm">
-                  IDR {event.basePrice.toLocaleString()}
+                  {/* basePrice arrives as a Prisma Decimal serialized to a string;
+                      coerce to Number so toLocaleString adds thousands separators. */}
+                  IDR {Number(event.basePrice).toLocaleString()}
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey">
                   <span className={`px-2 py-0.5 text-[10px] font-bold uppercase ${getStatusBadgeClass(event.status)}`}>

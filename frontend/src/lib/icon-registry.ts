@@ -3,6 +3,8 @@ import {
   LayoutDashboard, BarChart3, Activity, ClipboardList,
   Calendar, MapPin, Layers, Percent, ShieldCheck, Menu as MenuIcon, Lock,
   CreditCard, Ticket, User, TrendingUp,
+  // User management
+  Users, UserCog, UserPlus, KeyRound, Unlock,
   // Fallback & admin icons
   ChevronRight, CircleDot, FolderTree, Settings, HelpCircle,
 } from 'lucide-react';
@@ -37,6 +39,13 @@ export const ICON_REGISTRY: Record<string, LucideIcon> = {
   Lock,
   FolderTree,
   Settings,
+
+  // User management
+  Users,
+  UserCog,
+  UserPlus,
+  KeyRound,
+  Unlock,
 
   // Attendee/Organizer
   CreditCard,

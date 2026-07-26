@@ -73,13 +73,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isLoading || !isAuthenticated || !allowedSlugs) return;
 
-    // Build the set of allowed route prefixes from sidebar slugs
-    const allowedPaths = new Set(allowedSlugs);
-    // Always allow these universal routes
-    allowedPaths.add('/dashboard');
-    allowedPaths.add('/dashboard/profile');
+    // Exact routes everyone may reach: the dashboard root (redirect target)
+    // and the profile page.
+    const exactAllowed = new Set<string>(allowedSlugs);
+    exactAllowed.add('/dashboard');
+    exactAllowed.add('/dashboard/profile');
 
-    const isAllowed = allowedPaths.has(pathname) || [...allowedPaths].some((p) => pathname.startsWith(p + '/'));
+    // Prefix matching must EXCLUDE the bare '/dashboard' slug — otherwise
+    // startsWith('/dashboard/') matches every dashboard sub-route and the guard
+    // authorizes everything. Only slugs deeper than the root act as prefixes.
+    const prefixAllowed = [...exactAllowed].filter((p) => p !== '/dashboard');
+
+    const isAllowed =
+      exactAllowed.has(pathname) ||
+      prefixAllowed.some((p) => pathname.startsWith(p + '/'));
 
     if (!isAllowed && pathname.startsWith('/dashboard')) {
       router.replace('/dashboard');

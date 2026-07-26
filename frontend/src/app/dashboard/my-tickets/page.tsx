@@ -18,6 +18,7 @@ interface TicketSeat {
 
 interface TicketItem {
   id: string;
+  seatId: string;
   qrCode: string;
   isCheckedIn: boolean;
 }
@@ -209,7 +210,7 @@ export default function MyTicketsPage() {
                         </div>
                       </div>
                     </div>
-                    {ticket.event?.endDateTime && (
+                    {ticket.event?.startDateTime && (
                       <div className="flex items-center gap-3">
                         <Clock className="w-5 h-5 text-white" />
                         <div>
@@ -251,7 +252,12 @@ export default function MyTicketsPage() {
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       {ticket.seats.map((seat, idx) => {
-                        const tick = ticket.tickets[idx];
+                        // Match the ticket to its seat by seatId — the seats and
+                        // tickets arrays are ordered independently by the API, so
+                        // pairing by array index shows the wrong QR under a seat.
+                        const tick =
+                          ticket.tickets.find((t) => t.seatId === seat.id) ??
+                          ticket.tickets[idx];
                         return (
                           <div
                             key={seat.id}

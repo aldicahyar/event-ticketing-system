@@ -45,6 +45,12 @@ export class VenuesService {
     // Check if venue exists
     await this.findOne(id);
 
+    // Match create(): normalize city to uppercase so casing stays consistent
+    // across create and edit.
+    if (updates.city !== undefined) {
+      updates.city = updates.city.toUpperCase();
+    }
+
     return this.prisma.venue.update({
       where: { id },
       data: updates,
