@@ -11,9 +11,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { SettingsService } from './settings.service';
 import { UpdateTierSettingDto, UpdateTaxSettingDto } from './dto/update-settings.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../auth/dto/auth.dto';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('settings')
@@ -36,11 +35,11 @@ export class SettingsController {
   }
 
   @Patch('tier')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN)
+  @RequirePermission('TIER_SETTINGS')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Update ticket tier configuration (Admin only)' })
+  @ApiOperation({ summary: 'Update ticket tier configuration' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Tier configuration successfully updated' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden resource' })
@@ -59,12 +58,12 @@ export class SettingsController {
   }
 
   @Patch('tax')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN)
+  @RequirePermission('TAX_SETTINGS')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Update tax configuration (Admin only)' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Tax configuration successfully updated' })
+  @ApiOperation({ summary: 'Update tax configuration' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Tax configuration updated successfully' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden resource' })
   async updateTaxSetting(
@@ -77,7 +76,7 @@ export class SettingsController {
       success: true,
       statusCode: HttpStatus.OK,
       data: item,
-      message: 'Tax configuration updated successfully',
+      message: `Tax configuration updated successfully`,
     };
   }
 }

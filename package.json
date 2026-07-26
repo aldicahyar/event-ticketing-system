@@ -23,13 +23,21 @@
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "setup:env": "cp backend/.env.example backend/.env && cp frontend/.env.example frontend/.env",
-    "db:migrate": "cd backend && npx prisma migrate dev",
-    "db:generate": "cd backend && npx prisma generate",
-    "db:seed": "cd backend && npx prisma db seed",
-    "status": "echo '✅ Project Setup Complete!' && echo '' && echo 'Backend: cd backend && npm run start:dev' && echo 'Frontend: cd frontend && npm run dev' && echo '' && echo 'API Docs: http://localhost:3000/api/docs' && echo 'Frontend: http://localhost:3000'"
+    "db:migrate": "npx prisma migrate dev --schema prisma/schema.prisma",
+    "db:push": "npx prisma db push --schema prisma/schema.prisma",
+    "db:generate": "npx prisma generate --schema prisma/schema.prisma",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:reset": "npx prisma migrate reset --schema prisma/schema.prisma --force",
+    "status": "echo '✅ Project Setup Complete!' && echo '' && echo 'Backend: cd backend && npm run start:dev' && echo 'Frontend: cd frontend && npm run dev' && echo '' && echo 'API Docs: http://localhost:3000/api/docs' && echo 'RBAC Docs: http://localhost:3000/swagger' && echo 'Frontend: http://localhost:3001'"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "concurrently": "^8.2.2",
+    "prisma": "^5.22.0",
+    "tsx": "^4.23.1",
     "typescript": "^5.3.3"
   },
   "engines": {
@@ -37,6 +45,7 @@
     "npm": ">=9.0.0"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.34.0",
     "tailwind-merge": "^3.4.0"

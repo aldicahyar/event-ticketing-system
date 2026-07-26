@@ -12,7 +12,7 @@ export class VenuesService {
       data: {
         name: dto.name,
         address: dto.address,
-        city: dto.city,
+        city: dto.city.toUpperCase(),
         country: dto.country,
         capacity: dto.capacity,
         seatMap: dto.seatMap,

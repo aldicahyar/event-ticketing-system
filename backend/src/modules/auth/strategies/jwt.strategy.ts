@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id: true,
         email: true,
         name: true,
-        role: true,
+        roleCode: true,
         isActive: true,
         emailVerified: true,
       },
@@ -34,6 +34,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    return user;
+    return { ...user, role: user.roleCode };
   }
 }

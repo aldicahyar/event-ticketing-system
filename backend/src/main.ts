@@ -7,6 +7,9 @@ import helmet from '@fastify/helmet';
 import compress from '@fastify/compress';
 import rateLimit from '@fastify/rate-limit';
 import cors from '@fastify/cors';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -55,10 +58,10 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // Configure Swagger with NestJS Swagger Module (works with Fastify)
-  const config = new DocumentBuilder()
+  // ===== Primary API docs (auto-generated from NestJS decorators) =====
+  const autoConfig = new DocumentBuilder()
     .setTitle('Event Ticketing System API')
-    .setDescription('API documentation for Event Ticketing System')
+    .setDescription('API documentation for Event Ticketing System (auto-generated)')
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -69,8 +72,20 @@ async function bootstrap() {
       'bearer',
     )
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  const autoDocument = SwaggerModule.createDocument(app, autoConfig);
+  SwaggerModule.setup('api/docs', app, autoDocument);
+
+  // ===== RBAC API docs (served from static YAML file) =====
+  // Open http://localhost:3000/swagger to view the RBAC spec.
+  try {
+    const yamlPath = join(process.cwd(), 'docs', 'rbac-openapi.yaml');
+    const yamlContent = readFileSync(yamlPath, 'utf8');
+    const rbacDocument = parseYaml(yamlContent);
+    SwaggerModule.setup('swagger', app, rbacDocument);
+    logger.log('📖 RBAC Swagger UI: http://localhost:3000/swagger');
+  } catch (err: any) {
+    logger.warn(`Could not load RBAC swagger YAML: ${err.message}`);
+  }
 
   await app.listen(port, '0.0.0.0');
   logger.log(`🚀 Application is running on: http://localhost:${port}`);
