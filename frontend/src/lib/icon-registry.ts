@@ -5,6 +5,8 @@ import {
   CreditCard, Ticket, User, TrendingUp,
   // User management
   Users, UserCog, UserPlus, KeyRound, Unlock,
+  // Content (CMS)
+  Image as ImageIcon, FileText, LayoutTemplate,
   // Fallback & admin icons
   ChevronRight, CircleDot, FolderTree, Settings, HelpCircle,
 } from 'lucide-react';
@@ -46,6 +48,11 @@ export const ICON_REGISTRY: Record<string, LucideIcon> = {
   UserPlus,
   KeyRound,
   Unlock,
+
+  // Content (CMS)
+  Image: ImageIcon,
+  FileText,
+  LayoutTemplate,
 
   // Attendee/Organizer
   CreditCard,

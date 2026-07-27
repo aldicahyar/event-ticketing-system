@@ -13,6 +13,21 @@ import type {
   UpdateUserDto,
 } from '@/types/user';
 
+import type {
+  AdminMedia,
+  MediaListResult,
+  ListMediaQuery,
+} from '@/types/media';
+
+import type {
+  CmsPage,
+  PageListResult,
+  PageSummary,
+  CreatePageDto,
+  UpdatePageDto,
+  ListPagesQuery,
+} from '@/types/page';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Types
@@ -151,7 +166,7 @@ class ApiClient {
           this.failedQueue.forEach(({ reject }) => reject(refreshError as Error));
           this.failedQueue = [];
           this.clearTokens();
-          
+
           if (typeof window !== 'undefined') {
             window.location.href = '/auth/login';
           }
@@ -317,7 +332,11 @@ class ApiClient {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<AuthError>;
       if (axiosError.response?.data?.message) {
-        return axiosError.response.data.message;
+        const msg = axiosError.response.data.message;
+        if (typeof msg === 'string') return msg;
+        if (Array.isArray(msg)) return msg.join(', ');
+        if (typeof msg === 'object') return JSON.stringify(msg);
+        return String(msg);
       }
       if (axiosError.message === 'Network Error') {
         return 'Unable to connect to server. Please check your connection.';
@@ -328,6 +347,19 @@ class ApiClient {
       return error.message;
     }
     return 'An unexpected error occurred';
+  }
+
+  /** Strip undefined/null/'' filters so query strings stay clean. */
+  private cleanParams(query?: Record<string, unknown>): Record<string, unknown> {
+    const params: Record<string, unknown> = {};
+    if (query) {
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined && value !== null && value !== '') {
+          params[key] = value;
+        }
+      }
+    }
+    return params;
   }
 
   // ============================================================
@@ -392,15 +424,7 @@ class ApiClient {
 
   /** Paginated user list. Undefined filters are stripped before sending. */
   async listUsers(query?: ListUsersQuery) {
-    const params: Record<string, unknown> = {};
-    if (query) {
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined && value !== null && value !== '') {
-          params[key] = value;
-        }
-      }
-    }
-    return this.get<UserListResult>('/users/manage', params);
+    return this.get<UserListResult>('/users/manage', this.cleanParams(query as Record<string, unknown>));
   }
 
   async getUserStats() {
@@ -434,6 +458,72 @@ class ApiClient {
       `/users/manage/${id}/reset-password`,
       { newPassword },
     );
+  }
+
+  // ============================================================
+  // CMS — MEDIA (admin: /media)
+  // ============================================================
+
+  async listMedia(query?: ListMediaQuery) {
+    return this.get<MediaListResult>('/media', this.cleanParams(query as Record<string, unknown>));
+  }
+
+  /**
+   * Upload a file via multipart. Sets Content-Type to undefined so the browser
+   * generates the correct multipart boundary (the instance defaults to JSON).
+   */
+  async uploadMedia(file: File, folder?: string): Promise<AdminMedia> {
+    const form = new FormData();
+    form.append('file', file);
+    const url = folder ? `/media/upload?folder=${encodeURIComponent(folder)}` : '/media/upload';
+    const res = await this.client.post<ApiResponse<AdminMedia>>(url, form, {
+      // Cast: axios types disallow an undefined header value, but setting it to
+      // undefined is exactly how we get axios to compute the multipart boundary.
+      headers: { 'Content-Type': undefined } as any,
+    });
+    return res.data.data as AdminMedia;
+  }
+
+  async updateMedia(id: string, dto: { alt?: string; folder?: string }) {
+    return this.patch<AdminMedia>(`/media/${id}`, dto);
+  }
+
+  async deleteMedia(id: string) {
+    return this.delete<{ id: string; deleted: boolean }>(`/media/${id}`);
+  }
+
+  // ============================================================
+  // CMS — PAGES (admin: /pages, public: /public/pages)
+  // ============================================================
+
+  async listPages(query?: ListPagesQuery) {
+    return this.get<PageListResult>('/pages', this.cleanParams(query as Record<string, unknown>));
+  }
+
+  async getPage(id: string) {
+    return this.get<CmsPage>(`/pages/${id}`);
+  }
+
+  async createPage(dto: CreatePageDto) {
+    return this.post<CmsPage>('/pages', dto);
+  }
+
+  async updatePage(id: string, dto: UpdatePageDto) {
+    return this.patch<CmsPage>(`/pages/${id}`, dto);
+  }
+
+  async deletePage(id: string) {
+    return this.delete<{ id: string; deleted: boolean }>(`/pages/${id}`);
+  }
+
+  /** Public — published pages only (no auth). */
+  async listPublishedPages() {
+    return this.get<PageSummary[]>('/public/pages');
+  }
+
+  /** Public — a single published page by slug (no auth). */
+  async getPublishedPage(slug: string) {
+    return this.get<CmsPage>(`/public/pages/${slug}`);
   }
 }
 

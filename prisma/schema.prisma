@@ -41,6 +41,65 @@ enum PaymentStatus {
   REFUNDED
 }
 
+/// Publish state for CMS content (pages).
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// ============================================================
+// CMS (Phase 1)
+// ============================================================
+
+/// Uploaded asset (image/file) managed via the admin Media library.
+/// The binary lives on disk (see StorageService); this row is metadata only.
+model Media {
+  id           String   @id @default(cuid())
+  filename     String   @unique                 // stored name on disk, e.g. "a1b2.webp"
+  originalName String                           // name as uploaded by the user
+  url          String                           // public path, e.g. "/uploads/a1b2.webp"
+  mimeType     String
+  size         Int                              // bytes
+  width        Int?
+  height       Int?
+  alt          String?                          // accessibility / SEO alt text
+  folder       String?  @default("general")     // logical grouping in the library
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ogPages      Page[]   @relation("PageOgImage")
+
+  @@index([folder])
+  @@index([mimeType])
+  @@map("media")
+}
+
+/// CMS page — editable static content (About, FAQ, Terms, ...) served publicly
+/// by slug. `content` holds SANITIZED HTML produced by the rich-text editor.
+model Page {
+  id             String     @id @default(cuid())
+  slug           String     @unique             // URL key, e.g. "about"
+  title          String
+  excerpt        String?                         // short summary for listings
+  content        String     @db.Text             // sanitized HTML body
+  status         PageStatus @default(DRAFT)
+  seoTitle       String?
+  seoDescription String?
+  ogImageId      String?
+  publishedAt    DateTime?
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  ogImage        Media?     @relation("PageOgImage", fields: [ogImageId], references: [id])
+
+  @@index([status])
+  @@index([slug])
+  @@map("pages")
+}
+
 /// RBAC role. System roles (ADMIN, ORGANIZER, ATTENDEE) are seeded with isSystem=true
 /// and cannot be deleted. Custom roles can be created via admin UI.
 model Role {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu as MenuIcon, Plus, Edit2, Trash2, Loader2, CheckCircle, AlertCircle, X, ChevronRight,
 } from 'lucide-react';
@@ -248,12 +248,17 @@ export default function AdminMenusPage() {
         </div>
       )}
 
-      {modalMode && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={closeModal}>
-          <div
-            className="bg-black border border-white max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <AnimatePresence>
+        {modalMode && (
+          <div className="fixed inset-0 bg-black/60 flex justify-end z-50" onClick={closeModal}>
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="bg-black border-l border-white w-full max-w-md h-full p-6 overflow-y-auto flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-display font-bold text-xl uppercase text-white">
                 {modalMode === 'create' ? 'New Menu' : `Edit ${editingMenu?.code}`}
@@ -293,7 +298,17 @@ export default function AdminMenusPage() {
                 <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Parent</label>
                 <select
                   value={form.parentCode || ''}
-                  onChange={(e) => setForm({ ...form, parentCode: e.target.value })}
+                  onChange={(e) => {
+                    const newParent = e.target.value;
+                    let newSlug = form.slug;
+                    if (newParent && modalMode === 'create') {
+                      const pMenu = menus.find(m => m.code === newParent);
+                      if (pMenu && pMenu.slug && (!newSlug || newSlug === '/')) {
+                        newSlug = pMenu.slug + '/';
+                      }
+                    }
+                    setForm({ ...form, parentCode: newParent, slug: newSlug });
+                  }}
                   className="w-full bg-black border border-white text-white px-3 py-2"
                 >
                   <option value="">(root)</option>
@@ -334,6 +349,9 @@ export default function AdminMenusPage() {
                     onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
                     className="w-full bg-black border border-white text-white px-3 py-2"
                   />
+                  <p className="text-[10px] text-mono-light-grey mt-1 normal-case tracking-normal">
+                    0 appears first, then 1, 2...
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Open In</label>
@@ -377,9 +395,10 @@ export default function AdminMenusPage() {
                 </button>
               </div>
             </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {toast && (
         <div

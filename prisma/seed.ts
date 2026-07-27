@@ -13,6 +13,7 @@
  *   2. Menus (mirrors frontend/src/config/navigation.ts)
  *   3. Permission matrix (role x menu x canView/canCreate/canEdit/canDelete)
  *   4. Re-link existing users to roleCode (defaults to ATTENDEE if old enum missing)
+ *   5. Starter CMS pages (created only if missing)
  */
 import { PrismaClient } from '@prisma/client';
 
@@ -174,6 +175,36 @@ const MENUS = [
     order: 4,
   },
 
+  // ----- Admin: Content (CMS) group -----
+  // Parent has no slug: collapsible container only.
+  {
+    code: 'CONTENT',
+    name: 'Content',
+    nameEn: 'Content',
+    parentCode: null,
+    icon: 'LayoutTemplate',
+    slug: null,
+    order: 7,
+  },
+  {
+    code: 'MEDIA',
+    name: 'Media',
+    nameEn: 'Media',
+    parentCode: 'CONTENT',
+    icon: 'Image',
+    slug: '/dashboard/admin/media',
+    order: 1,
+  },
+  {
+    code: 'PAGES',
+    name: 'Pages',
+    nameEn: 'Pages',
+    parentCode: 'CONTENT',
+    icon: 'FileText',
+    slug: '/dashboard/admin/pages',
+    order: 2,
+  },
+
   // ----- Attendee/Organizer: Personal -----
   {
     code: 'OVERVIEW',
@@ -234,6 +265,10 @@ const PERMISSION_MATRIX: Array<
   ['ADMIN', 'RBAC_ROLES', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
   ['ADMIN', 'RBAC_MENUS', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
   ['ADMIN', 'RBAC_PERMISSIONS', { canView: true, canEdit: true }],
+  // CMS
+  ['ADMIN', 'CONTENT', { canView: true }],
+  ['ADMIN', 'MEDIA', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
+  ['ADMIN', 'PAGES', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
 
   // ----- ORGANIZER: personal area + manage events/venues -----
   ['ORGANIZER', 'OVERVIEW', { canView: true }],
@@ -249,6 +284,25 @@ const PERMISSION_MATRIX: Array<
   ['ATTENDEE', 'MY_TICKETS', { canView: true }],
   ['ATTENDEE', 'PROFILE', { canView: true, canEdit: true }],
 ];
+
+// ============================================================
+// 4. STARTER CMS PAGES (created only if missing — never overwrites edits)
+// ============================================================
+const STARTER_PAGES = [
+  {
+    slug: 'about',
+    title: 'About Us',
+    excerpt: 'Learn more about our event ticketing platform.',
+    content:
+      '<h2>About Us</h2><p>Welcome to our platform. Edit this page from the admin <strong>Content &rarr; Pages</strong> menu.</p>',
+  },
+  {
+    slug: 'faq',
+    title: 'Frequently Asked Questions',
+    excerpt: 'Answers to common questions.',
+    content: '<h2>FAQ</h2><p>Add your frequently asked questions here.</p>',
+  },
+] as const;
 
 // ============================================================
 // SEED EXECUTION
@@ -378,14 +432,37 @@ async function main() {
     await prisma.$executeRaw`UPDATE "users" SET "roleCode" = 'ATTENDEE' WHERE "roleCode" IS NULL OR "roleCode" = ''`;
   }
 
+  // --- Starter CMS pages ---
+  console.log('→ Ensuring starter CMS pages...');
+  for (const p of STARTER_PAGES) {
+    const exists = await prisma.page.findUnique({ where: { slug: p.slug } });
+    if (!exists) {
+      await prisma.page.create({
+        data: {
+          slug: p.slug,
+          title: p.title,
+          excerpt: p.excerpt,
+          content: p.content,
+          status: 'PUBLISHED',
+          publishedAt: new Date(),
+          createdBy: 'system-seed',
+          updatedBy: 'system-seed',
+        },
+      });
+      console.log(`   + created page '${p.slug}'`);
+    }
+  }
+
   // Summary
   const roleCount = await prisma.role.count();
   const menuCount = await prisma.menu.count();
   const permCount = await prisma.roleMenuPermission.count();
+  const pageCount = await prisma.page.count();
   console.log('\n✅ Seed complete!');
   console.log(`   Roles:       ${roleCount}`);
   console.log(`   Menus:       ${menuCount}`);
   console.log(`   Permissions: ${permCount}`);
+  console.log(`   Pages:       ${pageCount}`);
 }
 
 main()

@@ -2,6 +2,7 @@ import {
   LayoutDashboard, BarChart3, Activity, ClipboardList,
   Calendar, MapPin, Layers, Percent,
   ShieldCheck, Users, Menu as MenuIcon, Lock,
+  Image as ImageIcon, FileText, LayoutTemplate,
   CreditCard, Ticket, User, TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
@@ -57,6 +58,18 @@ export const ADMIN_NAV: NavItem[] = [
       { label: 'Roles', href: '/dashboard/admin/rbac/roles', icon: ShieldCheck, requiredRole: 'ADMIN' },
       { label: 'Menus', href: '/dashboard/admin/rbac/menus', icon: MenuIcon, requiredRole: 'ADMIN' },
       { label: 'Permissions', href: '/dashboard/admin/rbac/permissions', icon: Lock, requiredRole: 'ADMIN' },
+    ],
+  },
+  {
+    // CMS content group. Mirrors the CONTENT menu group seeded in prisma/seed.ts.
+    // Container only — no page at /dashboard/admin/content.
+    label: 'Content',
+    href: '/dashboard/admin/content',
+    icon: LayoutTemplate,
+    requiredRole: 'ADMIN',
+    children: [
+      { label: 'Media', href: '/dashboard/content/media', icon: ImageIcon, requiredRole: 'ADMIN' },
+      { label: 'Pages', href: '/dashboard/content/page', icon: FileText, requiredRole: 'ADMIN' },
     ],
   },
 ];

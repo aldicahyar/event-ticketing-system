@@ -29,13 +29,36 @@ export default function AdminPermissionsPage() {
         apiClient.getPermissionMatrix(),
       ]);
       const r = roleData ?? [];
-      const m = menuData ?? [];
+      const rawM = menuData ?? [];
       const p: RoleMenuPermission[] = permData ?? [];
+
+      // Build hierarchical menu list for the table
+      const sortedM = [...rawM].sort((a, b) => a.order - b.order);
+      const byCode = new Map<string, Menu & { children: any[] }>();
+      for (const m of sortedM) byCode.set(m.code, { ...m, children: [] });
+      const roots: any[] = [];
+      for (const node of byCode.values()) {
+        if (node.parentCode && byCode.has(node.parentCode)) {
+          byCode.get(node.parentCode)!.children.push(node);
+        } else {
+          roots.push(node);
+        }
+      }
+      
+      const flatM: (Menu & { _depth: number })[] = [];
+      const traverse = (nodes: any[], depth: number) => {
+        for (const node of nodes) {
+          const { children, ...rest } = node;
+          flatM.push({ ...rest, _depth: depth });
+          traverse(children, depth + 1);
+        }
+      };
+      traverse(roots, 0);
 
       const next: Matrix = {};
       for (const role of r) {
         next[role.code] = {};
-        for (const menu of m) {
+        for (const menu of flatM) {
           const existing = p.find(
             (x) => x.roleCode === role.code && x.menuCode === menu.code && x.isActive,
           );
@@ -48,7 +71,7 @@ export default function AdminPermissionsPage() {
         }
       }
       setRoles(r);
-      setMenus(m);
+      setMenus(flatM as Menu[]);
       setMatrix(next);
       setOriginalMatrix(JSON.parse(JSON.stringify(next)));
       // Default to the first role only if none is selected yet. The functional
@@ -190,6 +213,8 @@ export default function AdminPermissionsPage() {
             {menus.map((menu, idx) => {
               const cell = matrix[activeRole][menu.code];
               if (!cell) return null;
+              // Cast menu to access the _depth we added
+              const depth = (menu as any)._depth || 0;
               return (
                 <div
                   key={menu.code}
@@ -198,7 +223,7 @@ export default function AdminPermissionsPage() {
                   }`}
                 >
                   <div className="p-3 flex items-center min-w-0">
-                    <div className={menu.parentCode ? 'ml-4' : ''}>
+                    <div style={{ marginLeft: `${depth * 16}px` }}>
                       <code className="text-xs text-mono-light-grey mr-2">{menu.code}</code>
                       <span className={`text-sm ${menu.parentCode ? 'text-[#999]' : 'text-white font-bold'}`}>
                         {menu.name}
