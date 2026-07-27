@@ -28,24 +28,24 @@ export class AccountLockoutService {
   }
 
   async checkLockout(
-    userId: string,
-  ): Promise<{ isLocked: boolean; lockedUntil?: Date; remainingTime?: number }> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { lockedUntil: true, isActive: true },
+    user_id: string,
+  ): Promise<{ isLocked: boolean; locked_until?: Date; remainingTime?: number }> {
+    const user = await this.prisma.t_mtr_users.findUnique({
+      where: { id: user_id },
+      select: { locked_until: true, is_active: true },
     });
 
     if (!user) {
       return { isLocked: true };
     }
 
-    if (!user.isActive) {
+    if (!user.is_active) {
       return { isLocked: true };
     }
 
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      const remainingTime = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000 / 60);
-      return { isLocked: true, lockedUntil: user.lockedUntil, remainingTime };
+    if (user.locked_until && user.locked_until > new Date()) {
+      const remainingTime = Math.ceil((user.locked_until.getTime() - Date.now()) / 1000 / 60);
+      return { isLocked: true, locked_until: user.locked_until, remainingTime };
     }
 
     return { isLocked: false };
@@ -53,10 +53,10 @@ export class AccountLockoutService {
 
   async checkLockoutByEmail(
     email: string,
-  ): Promise<{ isLocked: boolean; lockedUntil?: Date; remainingTime?: number }> {
-    const user = await this.prisma.user.findUnique({
+  ): Promise<{ isLocked: boolean; locked_until?: Date; remainingTime?: number }> {
+    const user = await this.prisma.t_mtr_users.findUnique({
       where: { email: email.toLowerCase() },
-      select: { id: true, lockedUntil: true, isActive: true },
+      select: { id: true, locked_until: true, is_active: true },
     });
 
     if (!user) {
@@ -67,41 +67,41 @@ export class AccountLockoutService {
   }
 
   async recordFailedAttempt(
-    userId: string,
-    ipAddress: string,
-    userAgent: string,
-  ): Promise<{ attempts: number; isLocked: boolean; lockedUntil?: Date }> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { failedLoginAttempts: true, lockedUntil: true },
+    user_id: string,
+    ip_address: string,
+    user_agent: string,
+  ): Promise<{ attempts: number; isLocked: boolean; locked_until?: Date }> {
+    const user = await this.prisma.t_mtr_users.findUnique({
+      where: { id: user_id },
+      select: { failed_login_attempts: true, locked_until: true },
     });
 
     if (!user) {
       return { attempts: 0, isLocked: false };
     }
 
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      return { attempts: user.failedLoginAttempts, isLocked: true, lockedUntil: user.lockedUntil };
+    if (user.locked_until && user.locked_until > new Date()) {
+      return { attempts: user.failed_login_attempts, isLocked: true, locked_until: user.locked_until };
     }
 
-    const newAttempts = user.failedLoginAttempts + 1;
+    const newAttempts = user.failed_login_attempts + 1;
     const isLocked = newAttempts >= this.config.maxAttempts;
 
     const updateData: any = {
-      failedLoginAttempts: newAttempts,
-      lastFailedLoginAt: new Date(),
+      failed_login_attempts: newAttempts,
+      last_failed_login_at: new Date(),
     };
 
     if (isLocked) {
-      const lockedUntil = new Date(Date.now() + this.config.lockoutDurationMinutes * 60 * 1000);
-      updateData.lockedUntil = lockedUntil;
+      const locked_until = new Date(Date.now() + this.config.lockoutDurationMinutes * 60 * 1000);
+      updateData.locked_until = locked_until;
 
-      await this.prisma.securityLog.create({
+      await this.prisma.t_trx_security_logs.create({
         data: {
-          userId,
+          user_id,
           action: 'ACCOUNT_LOCKED',
-          ipAddress,
-          userAgent,
+          ip_address,
+          user_agent,
           metadata: {
             reason: 'Too many failed login attempts',
             attempts: newAttempts,
@@ -110,22 +110,22 @@ export class AccountLockoutService {
         },
       });
 
-      this.logger.warn(`Account locked for user ${userId} after ${newAttempts} failed attempts`);
+      this.logger.warn(`Account locked for user ${user_id} after ${newAttempts} failed attempts`);
 
-      return { attempts: newAttempts, isLocked: true, lockedUntil };
+      return { attempts: newAttempts, isLocked: true, locked_until };
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
+    await this.prisma.t_mtr_users.update({
+      where: { id: user_id },
       data: updateData,
     });
 
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId,
+        user_id,
         action: 'LOGIN_FAILED',
-        ipAddress,
-        userAgent,
+        ip_address,
+        user_agent,
         metadata: {
           attempts: newAttempts,
           remainingAttempts: this.config.maxAttempts - newAttempts,
@@ -136,52 +136,52 @@ export class AccountLockoutService {
     return { attempts: newAttempts, isLocked: false };
   }
 
-  async resetFailedAttempts(userId: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
+  async resetFailedAttempts(user_id: string): Promise<void> {
+    await this.prisma.t_mtr_users.update({
+      where: { id: user_id },
       data: {
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        lastLoginAt: new Date(),
+        failed_login_attempts: 0,
+        locked_until: null,
+        last_login_at: new Date(),
       },
     });
   }
 
-  async unlockAccount(userId: string, unlockedBy: string, ipAddress: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
+  async unlockAccount(user_id: string, unlockedBy: string, ip_address: string): Promise<void> {
+    await this.prisma.t_mtr_users.update({
+      where: { id: user_id },
       data: {
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        isActive: true,
+        failed_login_attempts: 0,
+        locked_until: null,
+        is_active: true,
       },
     });
 
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId,
+        user_id,
         action: 'ACCOUNT_UNLOCKED',
-        ipAddress,
+        ip_address,
         metadata: {
           unlockedBy,
         },
       },
     });
 
-    this.logger.log(`Account ${userId} unlocked by ${unlockedBy}`);
+    this.logger.log(`Account ${user_id} unlocked by ${unlockedBy}`);
   }
 
-  async getRemainingAttempts(userId: string): Promise<number> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { failedLoginAttempts: true },
+  async getRemainingAttempts(user_id: string): Promise<number> {
+    const user = await this.prisma.t_mtr_users.findUnique({
+      where: { id: user_id },
+      select: { failed_login_attempts: true },
     });
 
     if (!user) {
       return this.config.maxAttempts;
     }
 
-    return Math.max(0, this.config.maxAttempts - user.failedLoginAttempts);
+    return Math.max(0, this.config.maxAttempts - user.failed_login_attempts);
   }
 
   getConfig(): LockoutConfig {

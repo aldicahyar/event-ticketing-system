@@ -2,10 +2,10 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 /**
- * Generic role-based guard. Compares user.roleCode against required roles.
+ * Generic role-based guard. Compares user.role_code against required roles.
  * Required roles are set via @Roles('ADMIN', 'ORGANIZER') decorator.
  *
- * Supports both old Role enum (legacy) and new roleCode string (RBAC).
+ * Supports both old t_mtr_roles enum (legacy) and new role_code string (RBAC).
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -27,8 +27,8 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // New RBAC: use roleCode (string). Fallback to legacy role (enum/string).
-    const userRole = user.roleCode ?? user.role;
+    // New RBAC: use role_code (string). Fallback to legacy role (enum/string).
+    const userRole = user.role_code ?? user.role;
     if (!userRole) return false;
 
     return requiredRoles.includes(userRole);

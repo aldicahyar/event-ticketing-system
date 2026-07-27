@@ -30,7 +30,7 @@ export class LocalStorageService extends StorageService {
   async save(input: StorageInput): Promise<StoredFile> {
     await mkdir(this.uploadDir, { recursive: true });
 
-    const ext = extname(input.originalName).toLowerCase().replace(/[^.a-z0-9]/g, '');
+    const ext = extname(input.original_name).toLowerCase().replace(/[^.a-z0-9]/g, '');
     const filename = `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`;
     const destPath = join(this.uploadDir, filename);
 

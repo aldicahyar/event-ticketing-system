@@ -21,7 +21,7 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const perm = this.reflector.getAllAndOverride<{ menuCode: string; action?: string }>(
+    const perm = this.reflector.getAllAndOverride<{ menu_code: string; action?: string }>(
       PERMISSION_KEY,
       [context.getHandler(), context.getClass()],
     );
@@ -31,16 +31,16 @@ export class PermissionsGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest();
     if (!user) return false;
 
-    const roleCode = user.roleCode ?? user.role;
-    if (!roleCode) return false;
+    const role_code = user.role_code ?? user.role;
+    if (!role_code) return false;
 
     const action = (perm.action ?? METHOD_ACTION_MAP[context.switchToHttp().getRequest().method] ?? 'view') as Action;
 
-    const allowed = await this.rbacService.hasPermission(roleCode, perm.menuCode, action);
+    const allowed = await this.rbacService.hasPermission(role_code, perm.menu_code, action);
 
     if (!allowed) {
       throw new ForbiddenException(
-        `Role '${roleCode}' does not have '${action}' permission on '${perm.menuCode}'`,
+        `Role '${role_code}' does not have '${action}' permission on '${perm.menu_code}'`,
       );
     }
 

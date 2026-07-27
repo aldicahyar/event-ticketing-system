@@ -5,7 +5,7 @@ export const PERMISSION_KEY = 'permission';
 /**
  * Decorator to require a specific RBAC permission for an endpoint.
  *
- * @param menuCode - The menu code from the permissions matrix (e.g. 'TIER_SETTINGS')
+ * @param menu_code - The menu code from the permissions matrix (e.g. 'TIER_SETTINGS')
  * @param action - The required action. Defaults to 'view'.
  *   If omitted, the guard auto-maps HTTP method:
  *     GET -> view, POST -> create, PUT/PATCH -> edit, DELETE -> delete
@@ -15,5 +15,5 @@ export const PERMISSION_KEY = 'permission';
  *   @RequirePermission('TIER_SETTINGS', 'edit')     // explicit action
  *   @RequirePermission('RBAC_ROLES', 'view')       // read access
  */
-export const RequirePermission = (menuCode: string, action?: string) =>
-  SetMetadata(PERMISSION_KEY, { menuCode, action });
+export const RequirePermission = (menu_code: string, action?: string) =>
+  SetMetadata(PERMISSION_KEY, { menu_code, action });

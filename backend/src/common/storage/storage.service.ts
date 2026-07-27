@@ -5,8 +5,8 @@ import { Readable } from 'node:stream';
  * `content` is either a readable stream (from a multipart upload) or a Buffer.
  */
 export interface StorageInput {
-  originalName: string;
-  mimeType: string;
+  original_name: string;
+  mime_type: string;
   content: Readable | Buffer;
 }
 
