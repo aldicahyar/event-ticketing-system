@@ -216,6 +216,28 @@ export class RbacService {
       await this.assertNoCycle(dto.code, dto.parentCode);
     }
 
+    const existing = await this.prisma.menu.findUnique({ where: { code: dto.code } });
+    if (existing) {
+      if (existing.isActive) {
+        throw new ConflictException(`Menu code '${dto.code}' already exists.`);
+      }
+      // Resurrect inactive menu
+      return this.prisma.menu.update({
+        where: { code: dto.code },
+        data: {
+          name: dto.name,
+          nameEn: dto.nameEn,
+          parentCode: dto.parentCode ?? null,
+          icon: dto.icon,
+          slug: dto.slug,
+          order: dto.order ?? 0,
+          isNewTab: dto.isNewTab ?? false,
+          isActive: true,
+          updatedBy: actorId,
+        },
+      });
+    }
+
     return this.prisma.menu.create({
       data: {
         code: dto.code,
