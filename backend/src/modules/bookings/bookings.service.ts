@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException, 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
+import Stripe from 'stripe';
 
 @Injectable()
 export class BookingsService implements OnModuleInit, OnModuleDestroy {
@@ -63,7 +64,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async checkout(userId: string, eventId: string, seatIds: string[]) {
+  async checkout(userId: string, eventId: string, seatIds: string[], guestInfo?: { guestName?: string, guestEmail?: string, guestPhone?: string }) {
     // 1. Verify Event
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -144,6 +145,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
             currency: event.currency,
             status: 'PENDING',
             expiresAt,
+            guestName: guestInfo?.guestName,
+            guestEmail: guestInfo?.guestEmail,
+            guestPhone: guestInfo?.guestPhone,
           },
         });
 
@@ -155,12 +159,42 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         return b;
       });
 
+      // 6. Create Stripe Checkout Session
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+        apiVersion: '2023-10-16',
+      });
+
+      // Fetch user to get email for Stripe
+      const customer = await this.prisma.user.findUnique({ where: { id: userId } });
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        customer_email: customer?.email || undefined,
+        line_items: [
+          {
+            price_data: {
+              currency: event.currency.toLowerCase(),
+              product_data: {
+                name: `${event.title} - Ticketing`,
+                description: `Booking Code: ${booking.bookingCode}`,
+              },
+              unit_amount: Math.round(totalPrice * 100), // Stripe expects cents
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `http://localhost:3000/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `http://localhost:3000/checkout/cancel`,
+        client_reference_id: booking.id,
+      });
+
       return {
         bookingId: booking.id,
         bookingCode: booking.bookingCode,
-        checkoutUrl: `https://mock.checkout.url/pay/${booking.id}`, // Placeholder
+        checkoutUrl: session.url,
         expiresAt,
-        message: 'Seats locked and booking created successfully',
+        message: 'Seats locked and checkout session created successfully',
       };
     } catch (error) {
       // Rollback Redis locks if DB transaction fails

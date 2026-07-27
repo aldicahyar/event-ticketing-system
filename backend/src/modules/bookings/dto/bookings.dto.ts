@@ -1,4 +1,4 @@
-import { IsString, IsArray, ArrayNotEmpty } from 'class-validator';
+import { IsString, IsArray, ArrayNotEmpty, IsOptional } from 'class-validator';
 
 export class CheckoutDto {
   @IsString()
@@ -8,4 +8,16 @@ export class CheckoutDto {
   @ArrayNotEmpty()
   @IsString({ each: true })
   seatIds: string[];
+
+  @IsOptional()
+  @IsString()
+  guestName?: string;
+
+  @IsOptional()
+  @IsString()
+  guestEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  guestPhone?: string;
 }

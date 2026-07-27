@@ -686,20 +686,38 @@ export class AuthService {
     });
   }
 
-  // User: update own profile (currently supports name only; email requires verification flow)
-  async updateProfile(userId: string, updates: { name?: string }) {
+  // User: update own profile (currently supports name, phone, dateOfBirth, gender)
+  async updateProfile(userId: string, updates: { name?: string, phone?: string, dateOfBirth?: string, gender?: string }) {
     const data: { name?: string } = {};
     if (typeof updates.name === 'string' && updates.name.trim().length >= 2) {
       data.name = updates.name.trim();
     }
 
-    if (Object.keys(data).length === 0) {
-      throw new BadRequestException('No updatable fields provided');
+    if (Object.keys(data).length > 0) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data,
+      });
     }
 
-    const updated = await this.prisma.user.update({
+    const profileData: any = {};
+    if (updates.phone !== undefined) profileData.phone = updates.phone;
+    if (updates.gender !== undefined) profileData.gender = updates.gender;
+    if (updates.dateOfBirth !== undefined) profileData.dateOfBirth = updates.dateOfBirth ? new Date(updates.dateOfBirth) : null;
+
+    if (Object.keys(profileData).length > 0) {
+      await this.prisma.userProfile.upsert({
+        where: { userId },
+        update: profileData,
+        create: {
+          userId,
+          ...profileData,
+        },
+      });
+    }
+
+    const updated = await this.prisma.user.findUnique({
       where: { id: userId },
-      data,
       select: {
         id: true,
         email: true,
@@ -708,6 +726,7 @@ export class AuthService {
         isActive: true,
         emailVerified: true,
         createdAt: true,
+        profile: true,
       },
     });
 

@@ -28,14 +28,15 @@ export class CreateEventDto {
   @MinLength(10)
   description: string;
 
-  @ApiProperty({
-    example: 'cmqotgog30005advvy6o3hauf',
-    description: 'ID of the venue hosting the event',
-  })
+  @ApiProperty({ example: 'cmqotgog30005advvy6o3hauf', description: 'ID of the venue hosting the event' })
   @IsString()
   venueId: string;
 
   @ApiProperty({ example: '2026-08-15T19:00:00.000Z' })
+  @IsDateString()
+  eventDate: string;
+
+  @ApiProperty({ example: '2026-07-15T10:00:00.000Z' })
   @IsDateString()
   startDateTime: string;
 

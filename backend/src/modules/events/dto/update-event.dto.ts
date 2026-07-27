@@ -42,6 +42,11 @@ export class UpdateEventDto {
   @ApiPropertyOptional({ example: '2026-08-15T19:00:00.000Z' })
   @IsDateString()
   @IsOptional()
+  eventDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-07-15T10:00:00.000Z' })
+  @IsDateString()
+  @IsOptional()
   startDateTime?: string;
 
   @ApiPropertyOptional({ example: '2026-08-15T22:00:00.000Z' })

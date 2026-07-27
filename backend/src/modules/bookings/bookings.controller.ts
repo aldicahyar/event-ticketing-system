@@ -28,7 +28,16 @@ export class BookingsController {
     @Body() dto: CheckoutDto,
     @CurrentUser() user: any,
   ) {
-    const data = await this.bookingsService.checkout(user.id, dto.eventId, dto.seatIds);
+    const data = await this.bookingsService.checkout(
+      user.id, 
+      dto.eventId, 
+      dto.seatIds,
+      {
+        guestName: dto.guestName,
+        guestEmail: dto.guestEmail,
+        guestPhone: dto.guestPhone,
+      }
+    );
     return {
       success: true,
       statusCode: HttpStatus.OK,
