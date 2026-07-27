@@ -9,10 +9,10 @@
  * Idempotent: safe to run multiple times. Updates existing rows in place.
  *
  * Seeds:
- *   1. System roles (ADMIN, ORGANIZER, ATTENDEE) with isSystem=true
+ *   1. System roles (ADMIN, ORGANIZER, ATTENDEE) with is_system=true
  *   2. Menus (mirrors frontend/src/config/navigation.ts)
- *   3. Permission matrix (role x menu x canView/canCreate/canEdit/canDelete)
- *   4. Re-link existing users to roleCode (defaults to ATTENDEE if old enum missing)
+ *   3. Permission matrix (role x menu x can_view/can_create/can_edit/can_delete)
+ *   4. Re-link existing users to role_code (defaults to ATTENDEE if old enum missing)
  *   5. Starter CMS pages (created only if missing)
  */
 import { PrismaClient } from '@prisma/client';
@@ -26,23 +26,23 @@ const SYSTEM_ROLES = [
   {
     code: 'ADMIN',
     name: 'Administrator',
-    nameEn: 'Administrator',
+    name_en: 'Administrator',
     description: 'Full system access. Can manage roles, menus, and permissions.',
-    sortOrder: 1,
+    sort_order: 1,
   },
   {
     code: 'ORGANIZER',
     name: 'Organizer',
-    nameEn: 'Organizer',
+    name_en: 'Organizer',
     description: 'Can create events and venues. Has personal orders and tickets.',
-    sortOrder: 2,
+    sort_order: 2,
   },
   {
     code: 'ATTENDEE',
     name: 'Attendee',
-    nameEn: 'Attendee',
+    name_en: 'Attendee',
     description: 'Default role. Can browse events, place orders, and view tickets.',
-    sortOrder: 3,
+    sort_order: 3,
   },
 ] as const;
 
@@ -56,8 +56,8 @@ const MENUS = [
   {
     code: 'DASHBOARD',
     name: 'Dashboard',
-    nameEn: 'Dashboard',
-    parentCode: null,
+    name_en: 'Dashboard',
+    parent_code: null,
     icon: 'LayoutDashboard',
     slug: '/dashboard/admin',
     order: 1,
@@ -65,8 +65,8 @@ const MENUS = [
   {
     code: 'DASHBOARD_STATS',
     name: 'Stats',
-    nameEn: 'Stats',
-    parentCode: 'DASHBOARD',
+    name_en: 'Stats',
+    parent_code: 'DASHBOARD',
     icon: 'BarChart3',
     slug: '/dashboard/admin/stats',
     order: 1,
@@ -74,8 +74,8 @@ const MENUS = [
   {
     code: 'DASHBOARD_ACTIVITY',
     name: 'Activity',
-    nameEn: 'Activity',
-    parentCode: 'DASHBOARD',
+    name_en: 'Activity',
+    parent_code: 'DASHBOARD',
     icon: 'Activity',
     slug: '/dashboard/admin/activity',
     order: 2,
@@ -83,8 +83,8 @@ const MENUS = [
   {
     code: 'DASHBOARD_OPS',
     name: 'Operations',
-    nameEn: 'Operations',
-    parentCode: 'DASHBOARD',
+    name_en: 'Operations',
+    parent_code: 'DASHBOARD',
     icon: 'ClipboardList',
     slug: '/dashboard/admin/ops',
     order: 3,
@@ -94,8 +94,8 @@ const MENUS = [
   {
     code: 'EVENTS',
     name: 'Manage Events',
-    nameEn: 'Manage Events',
-    parentCode: null,
+    name_en: 'Manage Events',
+    parent_code: null,
     icon: 'Calendar',
     slug: '/dashboard/events',
     order: 2,
@@ -103,8 +103,8 @@ const MENUS = [
   {
     code: 'VENUES',
     name: 'Manage Venues',
-    nameEn: 'Manage Venues',
-    parentCode: null,
+    name_en: 'Manage Venues',
+    parent_code: null,
     icon: 'MapPin',
     slug: '/dashboard/venues',
     order: 3,
@@ -112,8 +112,8 @@ const MENUS = [
   {
     code: 'TIER_SETTINGS',
     name: 'Tier Settings',
-    nameEn: 'Tier Settings',
-    parentCode: null,
+    name_en: 'Tier Settings',
+    parent_code: null,
     icon: 'Layers',
     slug: '/dashboard/tier-settings',
     order: 4,
@@ -121,8 +121,8 @@ const MENUS = [
   {
     code: 'TAX_SETTINGS',
     name: 'Tax Settings',
-    nameEn: 'Tax Settings',
-    parentCode: null,
+    name_en: 'Tax Settings',
+    parent_code: null,
     icon: 'Percent',
     slug: '/dashboard/tax-settings',
     order: 5,
@@ -132,8 +132,8 @@ const MENUS = [
   {
     code: 'RBAC',
     name: 'Access Control',
-    nameEn: 'Access Control',
-    parentCode: null,
+    name_en: 'Access Control',
+    parent_code: null,
     icon: 'ShieldCheck',
     slug: null,
     order: 6,
@@ -141,8 +141,8 @@ const MENUS = [
   {
     code: 'USERS',
     name: 'Users',
-    nameEn: 'Users',
-    parentCode: 'RBAC',
+    name_en: 'Users',
+    parent_code: 'RBAC',
     icon: 'Users',
     slug: '/dashboard/admin/users',
     order: 1,
@@ -150,8 +150,8 @@ const MENUS = [
   {
     code: 'RBAC_ROLES',
     name: 'Roles',
-    nameEn: 'Roles',
-    parentCode: 'RBAC',
+    name_en: 'Roles',
+    parent_code: 'RBAC',
     icon: 'ShieldCheck',
     slug: '/dashboard/admin/rbac/roles',
     order: 2,
@@ -159,8 +159,8 @@ const MENUS = [
   {
     code: 'RBAC_MENUS',
     name: 'Menus',
-    nameEn: 'Menus',
-    parentCode: 'RBAC',
+    name_en: 'Menus',
+    parent_code: 'RBAC',
     icon: 'Menu',
     slug: '/dashboard/admin/rbac/menus',
     order: 3,
@@ -168,8 +168,8 @@ const MENUS = [
   {
     code: 'RBAC_PERMISSIONS',
     name: 'Permissions',
-    nameEn: 'Permissions',
-    parentCode: 'RBAC',
+    name_en: 'Permissions',
+    parent_code: 'RBAC',
     icon: 'Lock',
     slug: '/dashboard/admin/rbac/permissions',
     order: 4,
@@ -180,8 +180,8 @@ const MENUS = [
   {
     code: 'CONTENT',
     name: 'Content',
-    nameEn: 'Content',
-    parentCode: null,
+    name_en: 'Content',
+    parent_code: null,
     icon: 'LayoutTemplate',
     slug: null,
     order: 7,
@@ -189,8 +189,8 @@ const MENUS = [
   {
     code: 'MEDIA',
     name: 'Media',
-    nameEn: 'Media',
-    parentCode: 'CONTENT',
+    name_en: 'Media',
+    parent_code: 'CONTENT',
     icon: 'Image',
     slug: '/dashboard/admin/media',
     order: 1,
@@ -198,8 +198,8 @@ const MENUS = [
   {
     code: 'PAGES',
     name: 'Pages',
-    nameEn: 'Pages',
-    parentCode: 'CONTENT',
+    name_en: 'Pages',
+    parent_code: 'CONTENT',
     icon: 'FileText',
     slug: '/dashboard/admin/pages',
     order: 2,
@@ -209,8 +209,8 @@ const MENUS = [
   {
     code: 'OVERVIEW',
     name: 'Overview',
-    nameEn: 'Overview',
-    parentCode: null,
+    name_en: 'Overview',
+    parent_code: null,
     icon: 'TrendingUp',
     slug: '/dashboard',
     order: 1,
@@ -218,8 +218,8 @@ const MENUS = [
   {
     code: 'ORDERS',
     name: 'Orders',
-    nameEn: 'Orders',
-    parentCode: null,
+    name_en: 'Orders',
+    parent_code: null,
     icon: 'CreditCard',
     slug: '/dashboard/orders',
     order: 2,
@@ -227,8 +227,8 @@ const MENUS = [
   {
     code: 'MY_TICKETS',
     name: 'My Tickets',
-    nameEn: 'My Tickets',
-    parentCode: null,
+    name_en: 'My Tickets',
+    parent_code: null,
     icon: 'Ticket',
     slug: '/dashboard/my-tickets',
     order: 3,
@@ -236,8 +236,8 @@ const MENUS = [
   {
     code: 'PROFILE',
     name: 'Profile',
-    nameEn: 'Profile',
-    parentCode: null,
+    name_en: 'Profile',
+    parent_code: null,
     icon: 'User',
     slug: '/dashboard/profile',
     order: 4,
@@ -247,42 +247,42 @@ const MENUS = [
 // ============================================================
 // 3. PERMISSION MATRIX
 // ============================================================
-// Each entry: [roleCode, menuCode, { canView, canCreate, canEdit, canDelete }]
+// Each entry: [role_code, menu_code, { can_view, can_create, can_edit, can_delete }]
 const PERMISSION_MATRIX: Array<
-  [string, string, { canView?: boolean; canCreate?: boolean; canEdit?: boolean; canDelete?: boolean }]
+  [string, string, { can_view?: boolean; can_create?: boolean; can_edit?: boolean; can_delete?: boolean }]
 > = [
   // ----- ADMIN: full access to admin area + RBAC -----
-  ['ADMIN', 'DASHBOARD', { canView: true }],
-  ['ADMIN', 'DASHBOARD_STATS', { canView: true }],
-  ['ADMIN', 'DASHBOARD_ACTIVITY', { canView: true }],
-  ['ADMIN', 'DASHBOARD_OPS', { canView: true }],
-  ['ADMIN', 'EVENTS', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
-  ['ADMIN', 'VENUES', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
-  ['ADMIN', 'TIER_SETTINGS', { canView: true, canEdit: true }],
-  ['ADMIN', 'TAX_SETTINGS', { canView: true, canEdit: true }],
-  ['ADMIN', 'RBAC', { canView: true }],
-  ['ADMIN', 'USERS', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
-  ['ADMIN', 'RBAC_ROLES', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
-  ['ADMIN', 'RBAC_MENUS', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
-  ['ADMIN', 'RBAC_PERMISSIONS', { canView: true, canEdit: true }],
+  ['ADMIN', 'DASHBOARD', { can_view: true }],
+  ['ADMIN', 'DASHBOARD_STATS', { can_view: true }],
+  ['ADMIN', 'DASHBOARD_ACTIVITY', { can_view: true }],
+  ['ADMIN', 'DASHBOARD_OPS', { can_view: true }],
+  ['ADMIN', 'EVENTS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'VENUES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'TIER_SETTINGS', { can_view: true, can_edit: true }],
+  ['ADMIN', 'TAX_SETTINGS', { can_view: true, can_edit: true }],
+  ['ADMIN', 'RBAC', { can_view: true }],
+  ['ADMIN', 'USERS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'RBAC_ROLES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'RBAC_MENUS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'RBAC_PERMISSIONS', { can_view: true, can_edit: true }],
   // CMS
-  ['ADMIN', 'CONTENT', { canView: true }],
-  ['ADMIN', 'MEDIA', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
-  ['ADMIN', 'PAGES', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
+  ['ADMIN', 'CONTENT', { can_view: true }],
+  ['ADMIN', 'MEDIA', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'PAGES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
 
   // ----- ORGANIZER: personal area + manage events/venues -----
-  ['ORGANIZER', 'OVERVIEW', { canView: true }],
-  ['ORGANIZER', 'ORDERS', { canView: true }],
-  ['ORGANIZER', 'MY_TICKETS', { canView: true }],
-  ['ORGANIZER', 'PROFILE', { canView: true, canEdit: true }],
-  ['ORGANIZER', 'EVENTS', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
-  ['ORGANIZER', 'VENUES', { canView: true, canCreate: true, canEdit: true, canDelete: true }],
+  ['ORGANIZER', 'OVERVIEW', { can_view: true }],
+  ['ORGANIZER', 'ORDERS', { can_view: true }],
+  ['ORGANIZER', 'MY_TICKETS', { can_view: true }],
+  ['ORGANIZER', 'PROFILE', { can_view: true, can_edit: true }],
+  ['ORGANIZER', 'EVENTS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ORGANIZER', 'VENUES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
 
   // ----- ATTENDEE: personal area only -----
-  ['ATTENDEE', 'OVERVIEW', { canView: true }],
-  ['ATTENDEE', 'ORDERS', { canView: true }],
-  ['ATTENDEE', 'MY_TICKETS', { canView: true }],
-  ['ATTENDEE', 'PROFILE', { canView: true, canEdit: true }],
+  ['ATTENDEE', 'OVERVIEW', { can_view: true }],
+  ['ATTENDEE', 'ORDERS', { can_view: true }],
+  ['ATTENDEE', 'MY_TICKETS', { can_view: true }],
+  ['ATTENDEE', 'PROFILE', { can_view: true, can_edit: true }],
 ];
 
 // ============================================================
@@ -313,140 +313,140 @@ async function main() {
   // --- Roles ---
   console.log('→ Upserting system roles...');
   for (const role of SYSTEM_ROLES) {
-    await prisma.role.upsert({
+    await prisma.t_mtr_roles.upsert({
       where: { code: role.code },
       update: {
         name: role.name,
-        nameEn: role.nameEn,
+        name_en: role.name_en,
         description: role.description,
-        sortOrder: role.sortOrder,
-        isSystem: true,
-        isActive: true,
+        sort_order: role.sort_order,
+        is_system: true,
+        is_active: true,
       },
       create: {
         code: role.code,
         name: role.name,
-        nameEn: role.nameEn,
+        name_en: role.name_en,
         description: role.description,
-        sortOrder: role.sortOrder,
-        isSystem: true,
-        isActive: true,
-        createdBy: 'system-seed',
+        sort_order: role.sort_order,
+        is_system: true,
+        is_active: true,
+        created_by: 'system-seed',
       },
     });
   }
 
   // --- Menus ---
   console.log(`→ Upserting ${MENUS.length} menus...`);
-  // First pass: upsert root menus (parentCode = null)
-  const rootMenus = MENUS.filter((m) => m.parentCode === null);
-  const childMenus = MENUS.filter((m) => m.parentCode !== null);
+  // First pass: upsert root menus (parent_code = null)
+  const rootMenus = MENUS.filter((m) => m.parent_code === null);
+  const childMenus = MENUS.filter((m) => m.parent_code !== null);
 
   for (const menu of rootMenus) {
-    await prisma.menu.upsert({
+    await prisma.t_mtr_menus.upsert({
       where: { code: menu.code },
       update: {
         name: menu.name,
-        nameEn: menu.nameEn,
+        name_en: menu.name_en,
         icon: menu.icon,
         slug: menu.slug,
         order: menu.order,
-        isActive: true,
+        is_active: true,
       },
       create: {
         code: menu.code,
         name: menu.name,
-        nameEn: menu.nameEn,
-        parentCode: null,
+        name_en: menu.name_en,
+        parent_code: null,
         icon: menu.icon,
         slug: menu.slug,
         order: menu.order,
-        isActive: true,
-        createdBy: 'system-seed',
+        is_active: true,
+        created_by: 'system-seed',
       },
     });
   }
   // Second pass: child menus
   for (const menu of childMenus) {
-    await prisma.menu.upsert({
+    await prisma.t_mtr_menus.upsert({
       where: { code: menu.code },
       update: {
         name: menu.name,
-        nameEn: menu.nameEn,
-        parentCode: menu.parentCode,
+        name_en: menu.name_en,
+        parent_code: menu.parent_code,
         icon: menu.icon,
         slug: menu.slug,
         order: menu.order,
-        isActive: true,
+        is_active: true,
       },
       create: {
         code: menu.code,
         name: menu.name,
-        nameEn: menu.nameEn,
-        parentCode: menu.parentCode,
+        name_en: menu.name_en,
+        parent_code: menu.parent_code,
         icon: menu.icon,
         slug: menu.slug,
         order: menu.order,
-        isActive: true,
-        createdBy: 'system-seed',
+        is_active: true,
+        created_by: 'system-seed',
       },
     });
   }
 
   // --- Permissions ---
   console.log(`→ Upserting ${PERMISSION_MATRIX.length} permission cells...`);
-  for (const [roleCode, menuCode, perms] of PERMISSION_MATRIX) {
-    await prisma.roleMenuPermission.upsert({
-      where: { roleCode_menuCode: { roleCode, menuCode } },
+  for (const [role_code, menu_code, perms] of PERMISSION_MATRIX) {
+    await prisma.t_mtr_role_menu_permissions.upsert({
+      where: { role_code_menu_code: { role_code, menu_code } },
       update: {
-        canView: perms.canView ?? false,
-        canCreate: perms.canCreate ?? false,
-        canEdit: perms.canEdit ?? false,
-        canDelete: perms.canDelete ?? false,
-        isActive: true,
+        can_view: perms.can_view ?? false,
+        can_create: perms.can_create ?? false,
+        can_edit: perms.can_edit ?? false,
+        can_delete: perms.can_delete ?? false,
+        is_active: true,
       },
       create: {
-        roleCode,
-        menuCode,
-        canView: perms.canView ?? false,
-        canCreate: perms.canCreate ?? false,
-        canEdit: perms.canEdit ?? false,
-        canDelete: perms.canDelete ?? false,
-        isActive: true,
-        createdBy: 'system-seed',
+        role_code,
+        menu_code,
+        can_view: perms.can_view ?? false,
+        can_create: perms.can_create ?? false,
+        can_edit: perms.can_edit ?? false,
+        can_delete: perms.can_delete ?? false,
+        is_active: true,
+        created_by: 'system-seed',
       },
     });
   }
 
-  // --- Users: migrate old enum role to roleCode ---
+  // --- Users: migrate old enum role to role_code ---
   // Skip updateMany with where clause because Prisma Client runtime cache
-  // may not yet know about roleCode (regenerate cycle issue).
-  // Instead, count users with empty roleCode and warn.
-  console.log('→ Checking users without roleCode...');
-  const orphanUsers = await prisma.user.count({
-    where: { roleCode: { equals: '' } },
+  // may not yet know about role_code (regenerate cycle issue).
+  // Instead, count users with empty role_code and warn.
+  console.log('→ Checking users without role_code...');
+  const orphanUsers = await prisma.t_mtr_users.count({
+    where: { role_code: { equals: '' } },
   });
   if (orphanUsers > 0) {
-    console.log(`   ⚠️  Found ${orphanUsers} users with empty roleCode. Fixing...`);
+    console.log(`   ⚠️  Found ${orphanUsers} users with empty role_code. Fixing...`);
     // Use raw SQL to avoid Prisma type cache issue
-    await prisma.$executeRaw`UPDATE "users" SET "roleCode" = 'ATTENDEE' WHERE "roleCode" IS NULL OR "roleCode" = ''`;
+    await prisma.$executeRaw`UPDATE "users" SET "role_code" = 'ATTENDEE' WHERE "role_code" IS NULL OR "role_code" = ''`;
   }
 
   // --- Starter CMS pages ---
   console.log('→ Ensuring starter CMS pages...');
   for (const p of STARTER_PAGES) {
-    const exists = await prisma.page.findUnique({ where: { slug: p.slug } });
+    const exists = await prisma.t_mtr_pages.findUnique({ where: { slug: p.slug } });
     if (!exists) {
-      await prisma.page.create({
+      await prisma.t_mtr_pages.create({
         data: {
           slug: p.slug,
           title: p.title,
           excerpt: p.excerpt,
           content: p.content,
           status: 'PUBLISHED',
-          publishedAt: new Date(),
-          createdBy: 'system-seed',
-          updatedBy: 'system-seed',
+          published_at: new Date(),
+          created_by: 'system-seed',
+          updated_by: 'system-seed',
         },
       });
       console.log(`   + created page '${p.slug}'`);
@@ -454,10 +454,10 @@ async function main() {
   }
 
   // Summary
-  const roleCount = await prisma.role.count();
-  const menuCount = await prisma.menu.count();
-  const permCount = await prisma.roleMenuPermission.count();
-  const pageCount = await prisma.page.count();
+  const roleCount = await prisma.t_mtr_roles.count();
+  const menuCount = await prisma.t_mtr_menus.count();
+  const permCount = await prisma.t_mtr_role_menu_permissions.count();
+  const pageCount = await prisma.t_mtr_pages.count();
   console.log('\n✅ Seed complete!');
   console.log(`   Roles:       ${roleCount}`);
   console.log(`   Menus:       ${menuCount}`);

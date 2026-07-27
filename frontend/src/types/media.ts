@@ -5,17 +5,17 @@
 export interface AdminMedia {
   id: string;
   filename: string;
-  originalName: string;
+  original_name: string;
   url: string;
-  mimeType: string;
+  mime_type: string;
   size: number;
   width?: number | null;
   height?: number | null;
   alt?: string | null;
   folder?: string | null;
-  uploadedBy?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  uploaded_by?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MediaListMeta {

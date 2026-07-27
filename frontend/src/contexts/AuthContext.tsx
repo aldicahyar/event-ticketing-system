@@ -20,9 +20,9 @@ interface User {
   email: string;
   name: string;
   role: string;
-  isActive: boolean;
-  emailVerified: boolean;
-  createdAt: string;
+  is_active: boolean;
+  email_verified: boolean;
+  created_at: string;
 }
 
 interface AuthContextType {

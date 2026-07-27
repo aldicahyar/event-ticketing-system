@@ -12,7 +12,7 @@
  *   john@example.com     — ATTENDEE role
  *
  * All use password: Admin123!
- * All are auto emailVerified (skip OTP flow) for testing convenience.
+ * All are auto email_verified (skip OTP flow) for testing convenience.
  */
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -23,17 +23,17 @@ const TEST_USERS = [
   {
     email: 'admin@example.com',
     name: 'Admin User',
-    roleCode: 'ADMIN',
+    role_code: 'ADMIN',
   },
   {
     email: 'organizer@example.com',
     name: 'Organizer User',
-    roleCode: 'ORGANIZER',
+    role_code: 'ORGANIZER',
   },
   {
     email: 'john@example.com',
     name: 'John Doe',
-    roleCode: 'ATTENDEE',
+    role_code: 'ATTENDEE',
   },
 ] as const;
 
@@ -47,29 +47,29 @@ async function main() {
   const hashedPassword = await bcrypt.hash(PASSWORD, BCRYPT_ROUNDS);
 
   for (const u of TEST_USERS) {
-    const existing = await prisma.user.findUnique({ where: { email: u.email } });
+    const existing = await prisma.t_mtr_users.findUnique({ where: { email: u.email } });
     if (existing) {
-      console.log(`   ✓ ${u.email} already exists (roleCode=${existing.roleCode}), skipping`);
+      console.log(`   ✓ ${u.email} already exists (role_code=${existing.role_code}), skipping`);
       continue;
     }
 
-    const user = await prisma.user.create({
+    const user = await prisma.t_mtr_users.create({
       data: {
         email: u.email,
         password: hashedPassword,
         name: u.name,
-        roleCode: u.roleCode,
-        isActive: true,
-        emailVerified: true, // skip OTP for test users
-        lastLoginAt: null,
+        role_code: u.role_code,
+        is_active: true,
+        email_verified: true, // skip OTP for test users
+        last_login_at: null,
       },
-      select: { id: true, email: true, name: true, roleCode: true },
+      select: { id: true, email: true, name: true, role_code: true },
     });
 
-    console.log(`   ✓ Created ${user.email}  (${user.roleCode})  id=${user.id}`);
+    console.log(`   ✓ Created ${user.email}  (${user.role_code})  id=${user.id}`);
   }
 
-  const count = await prisma.user.count();
+  const count = await prisma.t_mtr_users.count();
   console.log(`\n✅ Done. Total users in DB: ${count}`);
 }
 

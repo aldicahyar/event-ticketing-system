@@ -74,7 +74,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const insertImage = useCallback(
     (media: AdminMedia) => {
       if (!editor) return;
-      editor.chain().focus().setImage({ src: media.url, alt: media.alt || media.originalName }).run();
+      editor.chain().focus().setImage({ src: media.url, alt: media.alt || media.original_name }).run();
       setPickerOpen(false);
     },
     [editor],

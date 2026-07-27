@@ -25,10 +25,10 @@ const mapDbEventToHeroEvent = (e: any): HeroEvent => {
     id: e.id,
     artist: e.title,
     tour: e.subtitle || 'WORLD TOUR',
-    date: e.startDateTime,
+    date: e.start_date_time,
     venue: e.venue?.name || 'VENUE',
-    price: Number(e.basePrice),
-    image: e.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2000&auto=format&fit=crop',
+    price: Number(e.base_price),
+    image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2000&auto=format&fit=crop',
     ticketsLeft: e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 2500,
     totalTickets: e.venue?.capacity || 10000,
     genre: 'Metalcore'

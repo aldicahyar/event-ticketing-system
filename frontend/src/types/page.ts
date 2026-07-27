@@ -17,15 +17,15 @@ export interface CmsPage {
   excerpt?: string | null;
   content: string; // sanitized HTML
   status: PageStatus;
-  seoTitle?: string | null;
-  seoDescription?: string | null;
-  ogImageId?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  og_image_id?: string | null;
   ogImage?: PageOgImage | null;
-  publishedAt?: string | null;
-  createdBy?: string | null;
-  updatedBy?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  published_at?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Lightweight shape returned by the public list endpoint. */
@@ -33,7 +33,7 @@ export interface PageSummary {
   slug: string;
   title: string;
   excerpt?: string | null;
-  updatedAt: string;
+  updated_at: string;
 }
 
 export interface PageListMeta {
@@ -64,9 +64,9 @@ export interface CreatePageDto {
   excerpt?: string;
   content: string;
   status?: PageStatus;
-  seoTitle?: string;
-  seoDescription?: string;
-  ogImageId?: string;
+  seo_title?: string;
+  seo_description?: string;
+  og_image_id?: string;
 }
 
 export interface UpdatePageDto {
@@ -75,7 +75,7 @@ export interface UpdatePageDto {
   excerpt?: string;
   content?: string;
   status?: PageStatus;
-  seoTitle?: string;
-  seoDescription?: string;
-  ogImageId?: string | null;
+  seo_title?: string;
+  seo_description?: string;
+  og_image_id?: string | null;
 }

@@ -44,9 +44,9 @@ export interface LoginResponse {
     email: string;
     name: string;
     role: string;
-    isActive: boolean;
-    emailVerified: boolean;
-    createdAt: string;
+    is_active: boolean;
+    email_verified: boolean;
+    created_at: string;
   };
   accessToken: string;
   refreshToken: string;
@@ -68,7 +68,7 @@ export interface LoginData {
 }
 
 export interface AuthError {
-  message: string;
+  message: string | string[];
   statusCode: number;
   error: string;
 }
@@ -366,13 +366,13 @@ class ApiClient {
   // RBAC ENDPOINTS (see docs/api/rbac-openapi.yaml)
   // ============================================================
 
-  /** Get sidebar menus for current user (cached 5min per roleCode). */
+  /** Get sidebar menus for current user (cached 5min per role_code). */
   async getMySidebar() {
     return this.get<any[]>('/menus/my-sidebar');
   }
 
   // ----- Roles -----
-  async listRoles(filters?: { isActive?: boolean; includePermissions?: boolean }) {
+  async listRoles(filters?: { is_active?: boolean; includePermissions?: boolean }) {
     return this.get<any[]>('/roles', filters as Record<string, unknown>);
   }
   async createRole(dto: any) {
@@ -386,7 +386,7 @@ class ApiClient {
   }
 
   // ----- Menus -----
-  async listMenus(filters?: { isActive?: boolean }) {
+  async listMenus(filters?: { is_active?: boolean }) {
     return this.get<any[]>('/menus/admin', filters as Record<string, unknown>);
   }
   async createMenu(dto: any) {
@@ -400,22 +400,22 @@ class ApiClient {
   }
 
   // ----- Permissions -----
-  async getPermissionMatrix(filters?: { roleCode?: string; menuCode?: string }) {
+  async getPermissionMatrix(filters?: { role_code?: string; menu_code?: string }) {
     return this.get<any[]>('/permissions', filters as Record<string, unknown>);
   }
-  async getRolePermissions(roleCode: string) {
-    return this.get<any[]>(`/permissions/${roleCode}`);
+  async getRolePermissions(role_code: string) {
+    return this.get<any[]>(`/permissions/${role_code}`);
   }
-  async replaceRolePermissions(roleCode: string, cells: any[]) {
-    return this.put<any>(`/permissions/${roleCode}`, { permissions: cells });
+  async replaceRolePermissions(role_code: string, cells: any[]) {
+    return this.put<any>(`/permissions/${role_code}`, { permissions: cells });
   }
 
   // ----- User Roles -----
-  async getUserRole(userId: string) {
-    return this.get<any>(`/users/${userId}/role`);
+  async getUserRole(user_id: string) {
+    return this.get<any>(`/users/${user_id}/role`);
   }
-  async assignUserRole(userId: string, roleCode: string) {
-    return this.patch<any>(`/users/${userId}/role`, { roleCode });
+  async assignUserRole(user_id: string, role_code: string) {
+    return this.patch<any>(`/users/${user_id}/role`, { role_code });
   }
 
   // ============================================================

@@ -20,7 +20,7 @@ export interface Venue {
   description: string;
   city: string;
   address: string;
-  province: string;
+  country: string;
   postalCode: string;
   capacity: {
     seated: number;

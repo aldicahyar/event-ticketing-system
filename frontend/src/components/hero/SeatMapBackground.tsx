@@ -40,12 +40,12 @@
        <div className="absolute right-[-10%] top-[10%] w-[120%] h-[120%] transform -rotate-12 scale-110">
          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
            {seats.map((seat) => {
-             const isActive = activeSeats.includes(seat.id);
+             const is_active = activeSeats.includes(seat.id);
              return (
                <div
                  key={seat.id}
                  className={`w-3 h-3 rounded-sm transition-all duration-1000 ${
-                   isActive
+                   is_active
                      ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)] scale-110'
                      : 'bg-slate-800/50'
                  }`}

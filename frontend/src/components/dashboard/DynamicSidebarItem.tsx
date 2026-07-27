@@ -17,10 +17,10 @@ interface DynamicSidebarItemProps {
  * Resolves icon string via ICON_REGISTRY (unlike SidebarItem which uses NavItem).
  *
  * Behaviour:
- *   - Flat link (no children) when parentCode indicates leaf
+ *   - Flat link (no children) when parent_code indicates leaf
  *   - Collapsible group when item has children (detected by caller)
  *   - Auto-expand when current path is under the parent's slug
- *   - External links (isNewTab) open in new tab
+ *   - External links (is_new_tab) open in new tab
  */
 export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps) {
   const pathname = usePathname();
@@ -32,7 +32,7 @@ export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps
   // absolute http(s) slug.
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const isExternal =
-    item.isNewTab || (href.startsWith('http') && !!origin && !href.startsWith(origin));
+    item.is_new_tab || (href.startsWith('http') && !!origin && !href.startsWith(origin));
 
   const isExactActive = pathname === href;
   // A container menu (e.g. the RBAC group) has slug=null → href '#', so its own
@@ -131,7 +131,7 @@ export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps
 }
 
 /**
- * Attach children to parents based on parentCode.
+ * Attach children to parents based on parent_code.
  * Input: flat array from /menus/my-sidebar.
  * Output: nested array with `children` filled in.
  */
@@ -142,8 +142,8 @@ export function nestSidebarItems(flat: SidebarItem[]): SidebarItem[] {
 
   const roots: SidebarItem[] = [];
   for (const item of byCode.values()) {
-    if (item.parentCode && byCode.has(item.parentCode)) {
-      byCode.get(item.parentCode)!.children!.push(item);
+    if (item.parent_code && byCode.has(item.parent_code)) {
+      byCode.get(item.parent_code)!.children!.push(item);
     } else {
       roots.push(item);
     }

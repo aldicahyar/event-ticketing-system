@@ -4,25 +4,25 @@
  */
 
 export interface PermissionFlags {
-  canView?: boolean;
-  canCreate?: boolean;
-  canEdit?: boolean;
-  canDelete?: boolean;
+  can_view?: boolean;
+  can_create?: boolean;
+  can_edit?: boolean;
+  can_delete?: boolean;
 }
 
 export interface Role {
   id: string;
   code: string;
   name: string;
-  nameEn?: string | null;
+  name_en?: string | null;
   description?: string | null;
-  isSystem: boolean;
-  isActive: boolean;
-  sortOrder: number;
-  createdBy?: string | null;
-  createdAt: string;
-  updatedBy?: string | null;
-  updatedAt: string;
+  is_system: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_by?: string | null;
+  created_at: string;
+  updated_by?: string | null;
+  updated_at: string;
   _count?: { users?: number; permissions?: number };
 }
 
@@ -30,93 +30,93 @@ export interface Menu {
   id: string;
   code: string;
   name: string;
-  nameEn?: string | null;
-  parentCode?: string | null;
+  name_en?: string | null;
+  parent_code?: string | null;
   icon?: string | null;
   slug?: string | null;
   order: number;
-  isNewTab: boolean;
-  isActive: boolean;
-  createdBy?: string | null;
-  createdAt: string;
-  updatedBy?: string | null;
-  updatedAt: string;
+  is_new_tab: boolean;
+  is_active: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_by?: string | null;
+  updated_at: string;
 }
 
 export interface RoleMenuPermission extends PermissionFlags {
   id: string;
-  roleCode: string;
-  menuCode: string;
-  isActive: boolean;
+  role_code: string;
+  menu_code: string;
+  is_active: boolean;
   menu?: { code: string; name: string };
 }
 
 export interface SidebarItem {
   code: string;
   name: string;
-  nameEn?: string | null;
-  parentCode?: string | null;
+  name_en?: string | null;
+  parent_code?: string | null;
   icon?: string | null;
   slug?: string | null;
   order: number;
-  isNewTab: boolean;
+  is_new_tab: boolean;
   permissions: {
-    canView: boolean;
-    canCreate: boolean;
-    canEdit: boolean;
-    canDelete: boolean;
+    can_view: boolean;
+    can_create: boolean;
+    can_edit: boolean;
+    can_delete: boolean;
   };
   /** Filled in by nestSidebarItems() when building tree */
   children?: SidebarItem[];
 }
 
 export interface PermissionCell {
-  menuCode: string;
-  canView?: boolean;
-  canCreate?: boolean;
-  canEdit?: boolean;
-  canDelete?: boolean;
+  menu_code: string;
+  can_view?: boolean;
+  can_create?: boolean;
+  can_edit?: boolean;
+  can_delete?: boolean;
 }
 
 // ===== DTOs (request bodies) =====
 export interface CreateRoleDto {
   code: string;
   name: string;
-  nameEn?: string;
+  name_en?: string;
   description?: string;
-  sortOrder?: number;
+  sort_order?: number;
 }
 
 export interface UpdateRoleDto {
   name?: string;
-  nameEn?: string;
+  name_en?: string;
   description?: string;
-  isActive?: boolean;
-  sortOrder?: number;
+  is_active?: boolean;
+  sort_order?: number;
 }
 
 export interface CreateMenuDto {
   code: string;
   name: string;
-  nameEn?: string;
-  parentCode?: string | null;
+  name_en?: string;
+  parent_code?: string | null;
   icon?: string;
   slug?: string;
   order?: number;
-  isNewTab?: boolean;
+  is_new_tab?: boolean;
 }
 
 export interface UpdateMenuDto {
   name?: string;
-  nameEn?: string;
-  parentCode?: string | null;
+  name_en?: string;
+  parent_code?: string | null;
   icon?: string;
   slug?: string;
   order?: number;
-  isNewTab?: boolean;
-  isActive?: boolean;
+  is_new_tab?: boolean;
+  is_active?: boolean;
 }
 
 export interface AssignRoleDto {
-  roleCode: string;
+  role_code: string;
 }

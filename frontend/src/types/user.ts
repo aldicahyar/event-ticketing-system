@@ -6,7 +6,7 @@
 export interface UserProfile {
   id: string;
   phone?: string | null;
-  dateOfBirth?: string | null;
+  date_of_birth?: string | null;
   gender?: string | null;
 }
 
@@ -14,26 +14,26 @@ export interface AdminUser {
   id: string;
   email: string;
   name: string;
-  roleCode: string;
+  role_code: string;
   provider: string;
   avatar?: string | null;
-  isActive: boolean;
-  emailVerified: boolean;
-  failedLoginAttempts: number;
-  lockedUntil?: string | null;
-  lastLoginAt?: string | null;
-  lastFailedLoginAt?: string | null;
-  passwordChangedAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  is_active: boolean;
+  email_verified: boolean;
+  failed_login_attempts: number;
+  locked_until?: string | null;
+  last_login_at?: string | null;
+  last_failed_login_at?: string | null;
+  password_changed_at?: string | null;
+  created_at: string;
+  updated_at: string;
   profile?: UserProfile | null;
-  /** Computed server-side: lockedUntil is in the future. */
+  /** Computed server-side: locked_until is in the future. */
   isLocked: boolean;
   role?: {
     code: string;
     name: string;
-    isActive: boolean;
-    isSystem: boolean;
+    is_active: boolean;
+    is_system: boolean;
   } | null;
   _count?: { bookings: number };
 }
@@ -58,27 +58,27 @@ export interface UserStats {
   inactive: number;
   unverified: number;
   locked: number;
-  byRole: Array<{ roleCode: string; count: number }>;
+  byRole: Array<{ role_code: string; count: number }>;
 }
 
 export type UserSortField =
-  | 'createdAt'
+  | 'created_at'
   | 'name'
   | 'email'
-  | 'roleCode'
-  | 'lastLoginAt';
+  | 'role_code'
+  | 'last_login_at';
 
 export interface ListUsersQuery {
   search?: string;
-  roleCode?: string;
-  isActive?: boolean;
-  emailVerified?: boolean;
+  role_code?: string;
+  is_active?: boolean;
+  email_verified?: boolean;
   provider?: string;
   locked?: boolean;
   page?: number;
   limit?: number;
   sortBy?: UserSortField;
-  sortOrder?: 'asc' | 'desc';
+  sort_order?: 'asc' | 'desc';
 }
 
 // ===== DTOs (request bodies) =====
@@ -86,15 +86,15 @@ export interface CreateUserDto {
   email: string;
   name: string;
   password: string;
-  roleCode: string;
-  emailVerified?: boolean;
-  isActive?: boolean;
+  role_code: string;
+  email_verified?: boolean;
+  is_active?: boolean;
 }
 
 export interface UpdateUserDto {
   email?: string;
   name?: string;
-  roleCode?: string;
-  isActive?: boolean;
-  emailVerified?: boolean;
+  role_code?: string;
+  is_active?: boolean;
+  email_verified?: boolean;
 }

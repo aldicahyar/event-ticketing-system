@@ -149,7 +149,7 @@ export function MediaPicker({ open, onClose, onSelect, selectedId }: MediaPicker
                     key={m.id}
                     type="button"
                     onClick={() => onSelect(m)}
-                    title={m.originalName}
+                    title={m.original_name}
                     className={`group relative aspect-square border overflow-hidden transition-colors ${
                       isSelected ? 'border-white' : 'border-mono-dark-grey hover:border-white'
                     }`}
@@ -157,7 +157,7 @@ export function MediaPicker({ open, onClose, onSelect, selectedId }: MediaPicker
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={m.url}
-                      alt={m.alt || m.originalName}
+                      alt={m.alt || m.original_name}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
@@ -167,7 +167,7 @@ export function MediaPicker({ open, onClose, onSelect, selectedId }: MediaPicker
                       </span>
                     )}
                     <span className="absolute inset-x-0 bottom-0 bg-black/70 text-[9px] text-white px-1 py-0.5 truncate">
-                      {m.originalName}
+                      {m.original_name}
                     </span>
                   </button>
                 );
