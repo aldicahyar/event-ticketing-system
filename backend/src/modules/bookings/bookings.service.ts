@@ -184,8 +184,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           },
         ],
         mode: 'payment',
-        success_url: `http://localhost:3000/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `http://localhost:3000/checkout/cancel`,
+        success_url: `http://localhost:3001/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `http://localhost:3001/events/${event_id}`,
         client_reference_id: booking.id,
       });
 

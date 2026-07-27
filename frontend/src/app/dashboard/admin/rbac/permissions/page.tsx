@@ -7,8 +7,8 @@ import { apiClient } from '@/lib/api-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Role, Menu, RoleMenuPermission, PermissionCell } from '@/types/rbac';
 
-type Matrix = Record<string, Record<string, { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean }>>;
-// matrix[roleCode][menuCode] = flags
+type Matrix = Record<string, Record<string, { can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean }>>;
+// matrix[role_code][menu_code] = flags
 
 export default function AdminPermissionsPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -16,7 +16,7 @@ export default function AdminPermissionsPage() {
   const [matrix, setMatrix] = useState<Matrix>({});
   const [originalMatrix, setOriginalMatrix] = useState<Matrix>({}); // for dirty check
   const [isLoading, setIsLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null); // roleCode being saved
+  const [saving, setSaving] = useState<string | null>(null); // role_code being saved
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [activeRole, setActiveRole] = useState<string | null>(null);
 
@@ -24,8 +24,8 @@ export default function AdminPermissionsPage() {
     setIsLoading(true);
     try {
       const [roleData, menuData, permData] = await Promise.all([
-        apiClient.listRoles({ isActive: true }),
-        apiClient.listMenus({ isActive: true }),
+        apiClient.listRoles({ is_active: true }),
+        apiClient.listMenus({ is_active: true }),
         apiClient.getPermissionMatrix(),
       ]);
       const r = roleData ?? [];
@@ -38,8 +38,8 @@ export default function AdminPermissionsPage() {
       for (const m of sortedM) byCode.set(m.code, { ...m, children: [] });
       const roots: any[] = [];
       for (const node of byCode.values()) {
-        if (node.parentCode && byCode.has(node.parentCode)) {
-          byCode.get(node.parentCode)!.children.push(node);
+        if (node.parent_code && byCode.has(node.parent_code)) {
+          byCode.get(node.parent_code)!.children.push(node);
         } else {
           roots.push(node);
         }
@@ -60,13 +60,13 @@ export default function AdminPermissionsPage() {
         next[role.code] = {};
         for (const menu of flatM) {
           const existing = p.find(
-            (x) => x.roleCode === role.code && x.menuCode === menu.code && x.isActive,
+            (x) => x.role_code === role.code && x.menu_code === menu.code && x.is_active,
           );
           next[role.code][menu.code] = {
-            canView: existing?.canView ?? false,
-            canCreate: existing?.canCreate ?? false,
-            canEdit: existing?.canEdit ?? false,
-            canDelete: existing?.canDelete ?? false,
+            can_view: existing?.can_view ?? false,
+            can_create: existing?.can_create ?? false,
+            can_edit: existing?.can_edit ?? false,
+            can_delete: existing?.can_delete ?? false,
           };
         }
       }
@@ -92,49 +92,49 @@ export default function AdminPermissionsPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const toggle = (roleCode: string, menuCode: string, flag: 'canView' | 'canCreate' | 'canEdit' | 'canDelete') => {
+  const toggle = (role_code: string, menu_code: string, flag: 'can_view' | 'can_create' | 'can_edit' | 'can_delete') => {
     setMatrix((prev) => ({
       ...prev,
-      [roleCode]: {
-        ...prev[roleCode],
-        [menuCode]: {
-          ...prev[roleCode][menuCode],
-          [flag]: !prev[roleCode][menuCode][flag],
+      [role_code]: {
+        ...prev[role_code],
+        [menu_code]: {
+          ...prev[role_code][menu_code],
+          [flag]: !prev[role_code][menu_code][flag],
         },
       },
     }));
   };
 
-  const isDirty = (roleCode: string) => {
-    return JSON.stringify(matrix[roleCode]) !== JSON.stringify(originalMatrix[roleCode]);
+  const isDirty = (role_code: string) => {
+    return JSON.stringify(matrix[role_code]) !== JSON.stringify(originalMatrix[role_code]);
   };
 
-  const handleSave = async (roleCode: string) => {
-    setSaving(roleCode);
+  const handleSave = async (role_code: string) => {
+    setSaving(role_code);
     try {
       const cells: PermissionCell[] = menus.map((m) => {
-        const flagsForMenu = matrix[roleCode][m.code];
+        const flagsForMenu = matrix[role_code][m.code];
         // A child menu's action grants are disabled in the UI when View is off,
         // but their stale `true` values stay in state. Normalize before saving
         // so we never persist a "can act but can't view" cell that the admin
         // can no longer see or clear through the grid.
-        if (m.parentCode && !flagsForMenu.canView) {
+        if (m.parent_code && !flagsForMenu.can_view) {
           return {
-            menuCode: m.code,
-            canView: false,
-            canCreate: false,
-            canEdit: false,
-            canDelete: false,
+            menu_code: m.code,
+            can_view: false,
+            can_create: false,
+            can_edit: false,
+            can_delete: false,
           };
         }
-        return { menuCode: m.code, ...flagsForMenu };
+        return { menu_code: m.code, ...flagsForMenu };
       });
-      await apiClient.replaceRolePermissions(roleCode, cells);
+      await apiClient.replaceRolePermissions(role_code, cells);
       setOriginalMatrix((prev) => ({
         ...prev,
-        [roleCode]: JSON.parse(JSON.stringify(matrix[roleCode])),
+        [role_code]: JSON.parse(JSON.stringify(matrix[role_code])),
       }));
-      showToast('success', `Permissions saved for ${roleCode}`);
+      showToast('success', `Permissions saved for ${role_code}`);
     } catch (err) {
       showToast('error', apiClient.getErrorMessage(err));
     } finally {
@@ -142,11 +142,11 @@ export default function AdminPermissionsPage() {
     }
   };
 
-  const flags: Array<{ key: 'canView' | 'canCreate' | 'canEdit' | 'canDelete'; label: string }> = [
-    { key: 'canView', label: 'View' },
-    { key: 'canCreate', label: 'Create' },
-    { key: 'canEdit', label: 'Edit' },
-    { key: 'canDelete', label: 'Delete' },
+  const flags: Array<{ key: 'can_view' | 'can_create' | 'can_edit' | 'can_delete'; label: string }> = [
+    { key: 'can_view', label: 'View' },
+    { key: 'can_create', label: 'Create' },
+    { key: 'can_edit', label: 'Edit' },
+    { key: 'can_delete', label: 'Delete' },
   ];
 
   return (
@@ -225,14 +225,14 @@ export default function AdminPermissionsPage() {
                   <div className="p-3 flex items-center min-w-0">
                     <div style={{ marginLeft: `${depth * 16}px` }}>
                       <code className="text-xs text-mono-light-grey mr-2">{menu.code}</code>
-                      <span className={`text-sm ${menu.parentCode ? 'text-[#999]' : 'text-white font-bold'}`}>
+                      <span className={`text-sm ${menu.parent_code ? 'text-[#999]' : 'text-white font-bold'}`}>
                         {menu.name}
                       </span>
                     </div>
                   </div>
                   {flags.map((f) => {
                     const checked = cell[f.key] as boolean;
-                    const isDisabled = !!menu.parentCode && f.key !== 'canView' && !cell.canView;
+                    const isDisabled = !!menu.parent_code && f.key !== 'can_view' && !cell.can_view;
                     return (
                       <div key={f.key} className="p-3 flex items-center justify-center">
                         <input

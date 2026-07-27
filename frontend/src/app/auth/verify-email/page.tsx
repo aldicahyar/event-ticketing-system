@@ -41,7 +41,7 @@ function VerifyEmailContent() {
 
   // If already authenticated and email is verified, go to dashboard
   useEffect(() => {
-    if (isAuthenticated && user && user.emailVerified) {
+    if (isAuthenticated && user && user.email_verified) {
       router.push('/dashboard');
     }
   }, [isAuthenticated, user, router]);

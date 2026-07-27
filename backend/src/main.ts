@@ -100,16 +100,15 @@ async function bootstrap() {
   const autoDocument = SwaggerModule.createDocument(app, autoConfig);
   SwaggerModule.setup('api/docs', app, autoDocument);
 
-  // ===== RBAC API docs (served from static YAML file) =====
-  // Open http://localhost:3000/swagger to view the RBAC spec.
+  // Auto-generate the swagger.yaml file to disk so it is always up-to-date
   try {
-    const yamlPath = join(process.cwd(), 'docs', 'rbac-openapi.yaml');
-    const yamlContent = readFileSync(yamlPath, 'utf8');
-    const rbacDocument = parseYaml(yamlContent);
-    SwaggerModule.setup('swagger', app, rbacDocument);
-    logger.log('📖 RBAC Swagger UI: http://localhost:3000/swagger');
+    const docsDir = join(process.cwd(), 'docs');
+    mkdirSync(docsDir, { recursive: true });
+    const yamlContent = require('yaml').stringify(autoDocument);
+    require('node:fs').writeFileSync(join(docsDir, 'swagger.yaml'), yamlContent, 'utf8');
+    logger.log('📄 Auto-generated swagger.yaml successfully written to /docs/swagger.yaml');
   } catch (err: any) {
-    logger.warn(`Could not load RBAC swagger YAML: ${err.message}`);
+    logger.warn(`Could not save swagger.yaml to disk: ${err.message}`);
   }
 
   await app.listen(port, '0.0.0.0');

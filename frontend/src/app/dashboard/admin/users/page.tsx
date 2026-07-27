@@ -24,9 +24,9 @@ const EMPTY_FORM = {
   email: '',
   name: '',
   password: '',
-  roleCode: 'ATTENDEE',
-  isActive: true,
-  emailVerified: true,
+  role_code: 'ATTENDEE',
+  is_active: true,
+  email_verified: true,
 };
 
 /** Short, locale-stable date rendering. Returns an em dash for null. */
@@ -91,14 +91,14 @@ export default function AdminUsersPage() {
 
   const query = useMemo<ListUsersQuery>(() => ({
     search: search || undefined,
-    roleCode: roleFilter || undefined,
-    isActive: statusFilter === '' ? undefined : statusFilter === 'active',
-    emailVerified: verifiedFilter === '' ? undefined : verifiedFilter === 'yes',
+    role_code: roleFilter || undefined,
+    is_active: statusFilter === '' ? undefined : statusFilter === 'active',
+    email_verified: verifiedFilter === '' ? undefined : verifiedFilter === 'yes',
     locked: lockedFilter === '' ? undefined : lockedFilter === 'yes',
     page,
     limit: PAGE_SIZE,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
+    sortBy: 'created_at',
+    sort_order: 'desc',
   }), [search, roleFilter, statusFilter, verifiedFilter, lockedFilter, page]);
 
   const load = useCallback(async () => {
@@ -126,7 +126,7 @@ export default function AdminUsersPage() {
   // Role list feeds the filter dropdown and the create/edit form.
   useEffect(() => {
     apiClient
-      .listRoles({ isActive: true })
+      .listRoles({ is_active: true })
       .then((data) => setRoles(data ?? []))
       .catch(() => setRoles([]));
   }, []);
@@ -149,7 +149,7 @@ export default function AdminUsersPage() {
   // ============================================================
 
   const openCreate = () => {
-    setForm({ ...EMPTY_FORM, roleCode: roles[0]?.code ?? 'ATTENDEE' });
+    setForm({ ...EMPTY_FORM, role_code: roles[0]?.code ?? 'ATTENDEE' });
     setSelected(null);
     setModalMode('create');
   };
@@ -159,9 +159,9 @@ export default function AdminUsersPage() {
       email: user.email,
       name: user.name,
       password: '',
-      roleCode: user.roleCode,
-      isActive: user.isActive,
-      emailVerified: user.emailVerified,
+      role_code: user.role_code,
+      is_active: user.is_active,
+      email_verified: user.email_verified,
     });
     setSelected(user);
     setModalMode('edit');
@@ -193,9 +193,9 @@ export default function AdminUsersPage() {
           email: form.email.trim(),
           name: form.name.trim(),
           password: form.password,
-          roleCode: form.roleCode,
-          isActive: form.isActive,
-          emailVerified: form.emailVerified,
+          role_code: form.role_code,
+          is_active: form.is_active,
+          email_verified: form.email_verified,
         };
         await apiClient.createUser(dto);
         showToast('success', `User '${dto.email}' created`);
@@ -203,9 +203,9 @@ export default function AdminUsersPage() {
         const dto: UpdateUserDto = {};
         if (form.email.trim() !== selected.email) dto.email = form.email.trim();
         if (form.name.trim() !== selected.name) dto.name = form.name.trim();
-        if (form.roleCode !== selected.roleCode) dto.roleCode = form.roleCode;
-        if (form.isActive !== selected.isActive) dto.isActive = form.isActive;
-        if (form.emailVerified !== selected.emailVerified) dto.emailVerified = form.emailVerified;
+        if (form.role_code !== selected.role_code) dto.role_code = form.role_code;
+        if (form.is_active !== selected.is_active) dto.is_active = form.is_active;
+        if (form.email_verified !== selected.email_verified) dto.email_verified = form.email_verified;
 
         if (Object.keys(dto).length === 0) {
           showToast('error', 'No changes to save');
@@ -263,12 +263,12 @@ export default function AdminUsersPage() {
   };
 
   const handleToggleActive = async (user: AdminUser) => {
-    const next = !user.isActive;
+    const next = !user.is_active;
     if (!next && !confirm(`Deactivate '${user.email}'? They will be signed out immediately.`)) return;
 
     setBusyId(user.id);
     try {
-      await apiClient.updateUser(user.id, { isActive: next });
+      await apiClient.updateUser(user.id, { is_active: next });
       showToast('success', `User '${user.email}' ${next ? 'activated' : 'deactivated'}`);
       await load();
     } catch (err) {
@@ -326,15 +326,15 @@ export default function AdminUsersPage() {
         <div className="flex flex-wrap gap-2">
           {stats.byRole.map((r) => (
             <button
-              key={r.roleCode}
-              onClick={() => { setRoleFilter(r.roleCode === roleFilter ? '' : r.roleCode); setPage(1); }}
+              key={r.role_code}
+              onClick={() => { setRoleFilter(r.role_code === roleFilter ? '' : r.role_code); setPage(1); }}
               className={`text-[10px] px-2 py-1 uppercase font-bold border transition-colors ${
-                roleFilter === r.roleCode
+                roleFilter === r.role_code
                   ? 'bg-white text-black border-white'
                   : 'border-mono-dark-grey text-mono-light-grey hover:border-white hover:text-white'
               }`}
             >
-              {r.roleCode} · {r.count}
+              {r.role_code} · {r.count}
             </button>
           ))}
         </div>
@@ -496,17 +496,17 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-3 py-3">
                     <span className="text-[10px] bg-white/10 px-1.5 py-0.5 uppercase font-bold text-white">
-                      {u.roleCode}
+                      {u.role_code}
                     </span>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-1">
                       <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase ${
-                        u.isActive ? 'bg-white text-black' : 'bg-red-500/20 text-red-400'
+                        u.is_active ? 'bg-white text-black' : 'bg-red-500/20 text-red-400'
                       }`}>
-                        {u.isActive ? 'Active' : 'Inactive'}
+                        {u.is_active ? 'Active' : 'Inactive'}
                       </span>
-                      {!u.emailVerified && (
+                      {!u.email_verified && (
                         <span className="text-[10px] px-1.5 py-0.5 font-bold uppercase bg-yellow-500/20 text-yellow-400">
                           Unverified
                         </span>
@@ -519,17 +519,17 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-3 py-3 text-xs text-mono-light-grey uppercase">{u.provider}</td>
-                  <td className="px-3 py-3 text-xs text-mono-light-grey">{fmtDate(u.lastLoginAt)}</td>
+                  <td className="px-3 py-3 text-xs text-mono-light-grey">{fmtDate(u.last_login_at)}</td>
                   <td className="px-3 py-3 text-xs text-mono-light-grey text-right">{u._count?.bookings ?? 0}</td>
-                  <td className="px-3 py-3 text-xs text-mono-light-grey">{fmtDate(u.createdAt)}</td>
+                  <td className="px-3 py-3 text-xs text-mono-light-grey">{fmtDate(u.created_at)}</td>
                   <td className="px-3 py-3">
                     <div className="flex gap-1 justify-end">
                       <RowAction label={`View ${u.email}`} onClick={() => openDetail(u)} icon={Eye} />
                       <RowAction label={`Edit ${u.email}`} onClick={() => openEdit(u)} icon={Edit2} />
                       <RowAction
-                        label={`${u.isActive ? 'Deactivate' : 'Activate'} ${u.email}`}
+                        label={`${u.is_active ? 'Deactivate' : 'Activate'} ${u.email}`}
                         onClick={() => handleToggleActive(u)}
-                        icon={u.isActive ? Lock : Unlock}
+                        icon={u.is_active ? Lock : Unlock}
                         busy={busyId === u.id}
                       />
                       {u.isLocked && (
@@ -575,20 +575,20 @@ export default function AdminUsersPage() {
                   <p className="text-xs text-mono-light-grey truncate">{u.email}</p>
                 </div>
                 <span className="text-[10px] bg-white/10 px-1.5 py-0.5 uppercase font-bold text-white shrink-0">
-                  {u.roleCode}
+                  {u.role_code}
                 </span>
               </div>
 
               <div className="flex flex-wrap gap-1">
                 <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase ${
-                  u.isActive ? 'bg-white text-black' : 'bg-red-500/20 text-red-400'
+                  u.is_active ? 'bg-white text-black' : 'bg-red-500/20 text-red-400'
                 }`}>
-                  {u.isActive ? 'Active' : 'Inactive'}
+                  {u.is_active ? 'Active' : 'Inactive'}
                 </span>
                 <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase ${
-                  u.emailVerified ? 'bg-white/10 text-white' : 'bg-yellow-500/20 text-yellow-400'
+                  u.email_verified ? 'bg-white/10 text-white' : 'bg-yellow-500/20 text-yellow-400'
                 }`}>
-                  {u.emailVerified ? 'Verified' : 'Unverified'}
+                  {u.email_verified ? 'Verified' : 'Unverified'}
                 </span>
                 {u.isLocked && (
                   <span className="text-[10px] px-1.5 py-0.5 font-bold uppercase bg-red-500/20 text-red-400">
@@ -603,7 +603,7 @@ export default function AdminUsersPage() {
               <dl className="grid grid-cols-3 gap-2 text-[10px] uppercase">
                 <div>
                   <dt className="text-[#666]">Last login</dt>
-                  <dd className="text-mono-light-grey mt-0.5">{fmtDate(u.lastLoginAt)}</dd>
+                  <dd className="text-mono-light-grey mt-0.5">{fmtDate(u.last_login_at)}</dd>
                 </div>
                 <div>
                   <dt className="text-[#666]">Bookings</dt>
@@ -611,7 +611,7 @@ export default function AdminUsersPage() {
                 </div>
                 <div>
                   <dt className="text-[#666]">Joined</dt>
-                  <dd className="text-mono-light-grey mt-0.5">{fmtDate(u.createdAt)}</dd>
+                  <dd className="text-mono-light-grey mt-0.5">{fmtDate(u.created_at)}</dd>
                 </div>
               </dl>
 
@@ -619,9 +619,9 @@ export default function AdminUsersPage() {
                 <RowAction label={`View ${u.email}`} onClick={() => openDetail(u)} icon={Eye} />
                 <RowAction label={`Edit ${u.email}`} onClick={() => openEdit(u)} icon={Edit2} />
                 <RowAction
-                  label={`${u.isActive ? 'Deactivate' : 'Activate'} ${u.email}`}
+                  label={`${u.is_active ? 'Deactivate' : 'Activate'} ${u.email}`}
                   onClick={() => handleToggleActive(u)}
-                  icon={u.isActive ? Lock : Unlock}
+                  icon={u.is_active ? Lock : Unlock}
                   busy={busyId === u.id}
                 />
                 {u.isLocked && (
@@ -704,18 +704,18 @@ export default function AdminUsersPage() {
 
                 <dl className="space-y-2 text-xs">
                   <DetailRow label="User ID" value={selected.id} mono />
-                  <DetailRow label="Role" value={`${selected.role?.name ?? selected.roleCode} (${selected.roleCode})`} />
-                  <DetailRow label="Status" value={selected.isActive ? 'Active' : 'Inactive'} />
-                  <DetailRow label="Email verified" value={selected.emailVerified ? 'Yes' : 'No'} />
+                  <DetailRow label="Role" value={`${selected.role?.name ?? selected.role_code} (${selected.role_code})`} />
+                  <DetailRow label="Status" value={selected.is_active ? 'Active' : 'Inactive'} />
+                  <DetailRow label="Email verified" value={selected.email_verified ? 'Yes' : 'No'} />
                   <DetailRow label="Provider" value={selected.provider} />
-                  <DetailRow label="Locked" value={selected.isLocked ? `Until ${fmtDateTime(selected.lockedUntil)}` : 'No'} />
-                  <DetailRow label="Failed logins" value={String(selected.failedLoginAttempts)} />
-                  <DetailRow label="Last login" value={fmtDateTime(selected.lastLoginAt)} />
-                  <DetailRow label="Last failed login" value={fmtDateTime(selected.lastFailedLoginAt)} />
-                  <DetailRow label="Password changed" value={fmtDateTime(selected.passwordChangedAt)} />
+                  <DetailRow label="Locked" value={selected.isLocked ? `Until ${fmtDateTime(selected.locked_until)}` : 'No'} />
+                  <DetailRow label="Failed logins" value={String(selected.failed_login_attempts)} />
+                  <DetailRow label="Last login" value={fmtDateTime(selected.last_login_at)} />
+                  <DetailRow label="Last failed login" value={fmtDateTime(selected.last_failed_login_at)} />
+                  <DetailRow label="Password changed" value={fmtDateTime(selected.password_changed_at)} />
                   <DetailRow label="Bookings" value={String(selected._count?.bookings ?? 0)} />
-                  <DetailRow label="Registered" value={fmtDateTime(selected.createdAt)} />
-                  <DetailRow label="Last updated" value={fmtDateTime(selected.updatedAt)} />
+                  <DetailRow label="Registered" value={fmtDateTime(selected.created_at)} />
+                  <DetailRow label="Last updated" value={fmtDateTime(selected.updated_at)} />
                 </dl>
 
                 <div className="flex gap-2 pt-2">
@@ -782,12 +782,12 @@ export default function AdminUsersPage() {
 
                 <Field label="Role">
                   <select
-                    value={form.roleCode}
-                    onChange={(e) => setForm({ ...form, roleCode: e.target.value })}
+                    value={form.role_code}
+                    onChange={(e) => setForm({ ...form, role_code: e.target.value })}
                     required
                     className="w-full bg-black border border-white text-white px-3 py-2"
                   >
-                    {roles.length === 0 && <option value={form.roleCode}>{form.roleCode}</option>}
+                    {roles.length === 0 && <option value={form.role_code}>{form.role_code}</option>}
                     {roles.map((r) => (
                       <option key={r.code} value={r.code}>
                         {r.name} ({r.code})
@@ -798,8 +798,8 @@ export default function AdminUsersPage() {
 
                 <Field label="Account status">
                   <select
-                    value={form.isActive ? 'true' : 'false'}
-                    onChange={(e) => setForm({ ...form, isActive: e.target.value === 'true' })}
+                    value={form.is_active ? 'true' : 'false'}
+                    onChange={(e) => setForm({ ...form, is_active: e.target.value === 'true' })}
                     className="w-full bg-black border border-white text-white px-3 py-2"
                   >
                     <option value="true">Active</option>
@@ -809,8 +809,8 @@ export default function AdminUsersPage() {
 
                 <Field label="Email verified">
                   <select
-                    value={form.emailVerified ? 'true' : 'false'}
-                    onChange={(e) => setForm({ ...form, emailVerified: e.target.value === 'true' })}
+                    value={form.email_verified ? 'true' : 'false'}
+                    onChange={(e) => setForm({ ...form, email_verified: e.target.value === 'true' })}
                     className="w-full bg-black border border-white text-white px-3 py-2"
                   >
                     <option value="true">Verified</option>

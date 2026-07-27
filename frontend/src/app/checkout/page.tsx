@@ -19,12 +19,12 @@ const STEPS = ['Review', 'Details', 'Payment', 'Confirmation'];
 function CheckoutContent() {
   const searchParams = useSearchParams();
 
-  const eventId = searchParams.get('event');
+  const event_id = searchParams.get('event');
   const seatsParam = searchParams.get('seats');
   const totalParam = searchParams.get('total');
   const subtotalParam = searchParams.get('subtotal');
   const ppnParam = searchParams.get('ppn');
-  const ppnPercentParam = searchParams.get('ppnPercent');
+  const ppnPercentParam = searchParams.get('ppn_percent');
 
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -32,6 +32,7 @@ function CheckoutContent() {
   const [orderNumber, setOrderNumber] = useState('');
 
   // Form data
+  const [errorMsg, setErrorMsg] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -50,18 +51,18 @@ function CheckoutContent() {
   const total = Number.parseFloat(totalParam || '0');
   const subtotalVal = Number.parseFloat(subtotalParam || '0');
   const ppnVal = Number.parseFloat(ppnParam || '0');
-  const ppnPercent = Number.parseFloat(ppnPercentParam || '11');
+  const ppn_percent = Number.parseFloat(ppnPercentParam || '11');
 
   const hasCalculatedParams = subtotalParam && ppnParam;
-  const finalSubtotal = hasCalculatedParams ? subtotalVal : total / (1 + ppnPercent / 100);
+  const finalSubtotal = hasCalculatedParams ? subtotalVal : total / (1 + ppn_percent / 100);
   const finalPpn = hasCalculatedParams ? ppnVal : total - finalSubtotal;
   const finalTotal = total;
 
   const [eventData, setEventData] = useState<any>(null);
 
   React.useEffect(() => {
-    if (eventId) {
-      fetch(`http://localhost:3000/events/${eventId}`)
+    if (event_id) {
+      fetch(`http://localhost:3000/events/${event_id}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -70,7 +71,7 @@ function CheckoutContent() {
         })
         .catch(err => console.error("Failed to fetch event", err));
     }
-  }, [eventId]);
+  }, [event_id]);
 
   React.useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -104,12 +105,29 @@ function CheckoutContent() {
   };
 
   const nextStep = () => {
+    setErrorMsg('');
+    if (currentStep === 1) {
+      // Validate Details
+      if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim() || !formData.phone.trim()) {
+        setErrorMsg("Please fill in all your details before continuing.");
+        return;
+      }
+      
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setErrorMsg("Please enter a valid email address.");
+        return;
+      }
+    }
+
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const prevStep = () => {
+    setErrorMsg('');
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
@@ -117,12 +135,13 @@ function CheckoutContent() {
 
   const handlePayment = async () => {
     setLoading(true);
+    setErrorMsg('');
     
     try {
       // 1. Get Token from local storage (assuming auth is stored here)
       const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
       if (!token) {
-        alert('You must be logged in to checkout. Please login first.');
+        setErrorMsg('You must be logged in to checkout. Please login first.');
         setLoading(false);
         return;
       }
@@ -135,11 +154,11 @@ function CheckoutContent() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          eventId: eventId,
+          event_id: event_id,
           seatIds: seats,
-          guestName: `${formData.firstName} ${formData.lastName}`.trim(),
-          guestEmail: formData.email,
-          guestPhone: formData.phone
+          guest_name: `${formData.firstName} ${formData.lastName}`.trim(),
+          guest_email: formData.email,
+          guest_phone: formData.phone
         })
       });
 
@@ -157,12 +176,12 @@ function CheckoutContent() {
       }
       
     } catch (error: any) {
-      alert(`Error: ${error.message}`);
+      setErrorMsg(error.message || "An error occurred during checkout.");
       setLoading(false);
     }
   };
 
-  if (!eventId || !seatsParam || !totalParam) {
+  if (!event_id || !seatsParam || !totalParam) {
     return (
       <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
         <div className="text-center">
@@ -255,7 +274,7 @@ function CheckoutContent() {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs md:text-sm text-[#CCCCCC]">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 md:w-4 md:h-4" aria-hidden="true" />
-                            {eventData ? new Date(eventData.eventDate || eventData.startDateTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '...'}
+                            {eventData ? new Date(eventData.event_date || eventData.start_date_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '...'}
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3 md:w-4 md:h-4" aria-hidden="true" />
@@ -399,7 +418,7 @@ function CheckoutContent() {
                       </div>
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Date</div>
-                        <div className="font-bold text-xs md:text-sm">{eventData ? new Date(eventData.startDateTime).toLocaleDateString() : '...'}</div>
+                        <div className="font-bold text-xs md:text-sm">{eventData ? new Date(eventData.start_date_time).toLocaleDateString() : '...'}</div>
                       </div>
                       <div className="col-span-2">
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Tickets</div>
@@ -429,11 +448,26 @@ function CheckoutContent() {
 
             </AnimatePresence>
 
+            {/* Error Message */}
+            <AnimatePresence>
+              {errorMsg && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mt-6 p-4 border-l-4 border-red-500 bg-red-500/10 text-red-200 text-sm font-bold tracking-wide"
+                  role="alert"
+                >
+                  {errorMsg}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Navigation Buttons */}
             {!orderComplete && (
               <div className="flex justify-between mt-6">
                 <button
-                  onClick={prevStep}
+                  onClick={() => { prevStep(); setErrorMsg(''); }}
                   disabled={currentStep === 0}
                   className="px-6 py-3 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold uppercase tracking-wide hover:border-white hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                   aria-label="Go back to previous step"
@@ -484,18 +518,18 @@ function CheckoutContent() {
                 <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
                 <div className="font-bold uppercase text-white text-sm md:text-base">{eventData?.title || 'Loading...'}</div>
                 <div className="text-xs md:text-sm text-[#CCCCCC]">
-                  {eventData ? new Date(eventData.eventDate || eventData.startDateTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '...'}
+                  {eventData ? new Date(eventData.event_date || eventData.start_date_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '...'}
                 </div>
               </div>
 
               {/* Tickets */}
               <div className="pb-4 border-b border-mono-dark-grey mb-4">
                 <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-2">Tickets ({seats.length})</div>
-                {seats.map((seatId) => {
-                  const seatDetails = eventData?.seats?.find((s: any) => s.id === seatId);
-                  const seatLabel = seatDetails ? `${seatDetails.type} - Row ${seatDetails.row} / ${seatDetails.number}` : `${seatId.substring(0, 8)}...`;
+                {seats.map((seat_id) => {
+                  const seatDetails = eventData?.seats?.find((s: any) => s.id === seat_id);
+                  const seatLabel = seatDetails ? `${seatDetails.type} - Row ${seatDetails.row} / ${seatDetails.number}` : `${seat_id.substring(0, 8)}...`;
                   return (
-                    <div key={seatId} className="flex justify-between text-xs md:text-sm mb-1">
+                    <div key={seat_id} className="flex justify-between text-xs md:text-sm mb-1">
                       <span className="text-[#CCCCCC]">{seatLabel}</span>
                       <span className="text-white">IDR {(finalSubtotal / seats.length).toLocaleString('id-ID')}</span>
                     </div>
@@ -510,7 +544,7 @@ function CheckoutContent() {
                   <span className="text-white">IDR {finalSubtotal.toLocaleString('id-ID')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#CCCCCC]">PPN ({ppnPercent}%)</span>
+                  <span className="text-[#CCCCCC]">PPN ({ppn_percent}%)</span>
                   <span className="text-white">IDR {finalPpn.toLocaleString('id-ID')}</span>
                 </div>
               </div>

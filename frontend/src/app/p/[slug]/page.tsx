@@ -33,8 +33,8 @@ export async function generateMetadata({
   const page = await fetchPage(slug);
   if (!page) return { title: 'Page not found' };
 
-  const title = page.seoTitle || page.title;
-  const description = page.seoDescription || page.excerpt || undefined;
+  const title = page.seo_title || page.title;
+  const description = page.seo_description || page.excerpt || undefined;
   const ogImage = page.ogImage?.url ? `${API_URL}${page.ogImage.url}` : undefined;
 
   return {

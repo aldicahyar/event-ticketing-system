@@ -1,6 +1,8 @@
 {
   "extends": "next/core-web-vitals",
   "rules": {
-    "react/jsx-no-comment-textnodes": "off"
+    "react/jsx-no-comment-textnodes": "off",
+    "camelcase": "off",
+    "@typescript-eslint/naming-convention": "off"
   }
 }

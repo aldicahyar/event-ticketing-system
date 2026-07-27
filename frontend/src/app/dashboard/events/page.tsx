@@ -20,13 +20,13 @@ interface Event {
   title: string;
   subtitle?: string;
   description: string;
-  eventDate: string;
-  startDateTime: string;
-  endDateTime: string;
-  basePrice: number;
+  event_date: string;
+  start_date_time: string;
+  end_date_time: string;
+  base_price: number;
   status: string;
-  imageUrl?: string;
-  venueId?: string;
+  image_url?: string;
+  venue_id?: string;
   venue?: {
     name: string;
   };
@@ -37,13 +37,13 @@ const DEFAULT_FORM = {
   title: '',
   subtitle: '',
   description: '',
-  venueId: '',
-  eventDate: '',
-  startDateTime: '',
-  endDateTime: '',
-  basePrice: 150000,
+  venue_id: '',
+  event_date: '',
+  start_date_time: '',
+  end_date_time: '',
+  base_price: 150000,
   status: 'DRAFT',
-  imageUrl: ''
+  image_url: ''
 };
 
 // Helper untuk format waktu local ISO YYYY-MM-DDTHH:MM
@@ -99,7 +99,7 @@ export default function EventsManagementPage() {
   const handleOpenCreate = () => {
     setFormData({
       ...DEFAULT_FORM,
-      venueId: venues[0]?.id || ''
+      venue_id: venues[0]?.id || ''
     });
     setError('');
     setSuccessMessage('');
@@ -114,13 +114,13 @@ export default function EventsManagementPage() {
       title: event.title,
       subtitle: event.subtitle || '',
       description: event.description,
-      venueId: event.venueId || '',
-      eventDate: toDatetimeLocal(event.eventDate),
-      startDateTime: toDatetimeLocal(event.startDateTime),
-      endDateTime: toDatetimeLocal(event.endDateTime),
-      basePrice: event.basePrice,
+      venue_id: event.venue_id || '',
+      event_date: toDatetimeLocal(event.event_date),
+      start_date_time: toDatetimeLocal(event.start_date_time),
+      end_date_time: toDatetimeLocal(event.end_date_time),
+      base_price: event.base_price,
       status: event.status,
-      imageUrl: event.imageUrl || ''
+      image_url: event.image_url || ''
     });
     setActiveView('edit');
   };
@@ -130,7 +130,7 @@ export default function EventsManagementPage() {
     setError('');
     setSuccessMessage('');
 
-    if (!formData.title || !formData.description || !formData.venueId || !formData.eventDate || !formData.startDateTime || !formData.endDateTime) {
+    if (!formData.title || !formData.description || !formData.venue_id || !formData.event_date || !formData.start_date_time || !formData.end_date_time) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -139,13 +139,13 @@ export default function EventsManagementPage() {
       title: formData.title,
       subtitle: formData.subtitle || undefined,
       description: formData.description,
-      venueId: formData.venueId,
-      eventDate: new Date(formData.eventDate).toISOString(),
-      startDateTime: new Date(formData.startDateTime).toISOString(),
-      endDateTime: new Date(formData.endDateTime).toISOString(),
-      basePrice: Number(formData.basePrice),
+      venue_id: formData.venue_id,
+      event_date: new Date(formData.event_date).toISOString(),
+      start_date_time: new Date(formData.start_date_time).toISOString(),
+      end_date_time: new Date(formData.end_date_time).toISOString(),
+      base_price: Number(formData.base_price),
       status: formData.status,
-      imageUrl: formData.imageUrl || undefined
+      image_url: formData.image_url || undefined
     };
 
     try {
@@ -233,13 +233,13 @@ export default function EventsManagementPage() {
                   {event.venue?.name || 'Unassigned Venue'}
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey text-xs text-[#CCCCCC]">
-                  <div className="font-bold text-white mb-1">{new Date(event.eventDate).toLocaleString()}</div>
-                  <div className="text-[#888]">Sales: {new Date(event.startDateTime).toLocaleDateString()} - {new Date(event.endDateTime).toLocaleDateString()}</div>
+                  <div className="font-bold text-white mb-1">{new Date(event.event_date).toLocaleString()}</div>
+                  <div className="text-[#888]">Sales: {new Date(event.start_date_time).toLocaleDateString()} - {new Date(event.end_date_time).toLocaleDateString()}</div>
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey font-bold text-sm">
-                  {/* basePrice arrives as a Prisma Decimal serialized to a string;
+                  {/* base_price arrives as a Prisma Decimal serialized to a string;
                       coerce to Number so toLocaleString adds thousands separators. */}
-                  IDR {Number(event.basePrice).toLocaleString()}
+                  IDR {Number(event.base_price).toLocaleString()}
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey">
                   <span className={`px-2 py-0.5 text-[10px] font-bold uppercase ${getStatusBadgeClass(event.status)}`}>
@@ -378,7 +378,7 @@ export default function EventsManagementPage() {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g. BMTH CONCERT LIVE IN JAKARTA"
-                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white uppercase min-h-touch"
+                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />
               </div>
 
@@ -393,20 +393,20 @@ export default function EventsManagementPage() {
                   value={formData.subtitle}
                   onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
                   placeholder="e.g. THE DEATH OF PEACE OF MIND"
-                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white uppercase min-h-touch"
+                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />
               </div>
 
               {/* Venue Selection */}
               <div>
-                <label htmlFor="event-venueId" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                <label htmlFor="event-venue_id" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                   Select Venue *
                 </label>
                 <select
-                  id="event-venueId"
+                  id="event-venue_id"
                   required
-                  value={formData.venueId}
-                  onChange={(e) => setFormData({ ...formData, venueId: e.target.value })}
+                  value={formData.venue_id}
+                  onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
                   className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 min-h-touch uppercase"
                 >
                   {venues.map((venue) => (
@@ -419,18 +419,18 @@ export default function EventsManagementPage() {
 
               {/* Base Price */}
               <div>
-                <label htmlFor="event-basePrice" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                <label htmlFor="event-base_price" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                   Base Ticket Price (IDR) *
                 </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey font-bold">IDR</div>
                   <input
-                    id="event-basePrice"
+                    id="event-base_price"
                     type="number"
                     required
                     min="0"
-                    value={formData.basePrice}
-                    onChange={(e) => setFormData({ ...formData, basePrice: Number(e.target.value) })}
+                    value={formData.base_price}
+                    onChange={(e) => setFormData({ ...formData, base_price: Number(e.target.value) })}
                     className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                   />
                 </div>
@@ -438,45 +438,45 @@ export default function EventsManagementPage() {
 
               {/* Event Date Time */}
               <div>
-                <label htmlFor="event-eventDate" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                <label htmlFor="event-event_date" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                   Event Date & Time *
                 </label>
                 <input
-                  id="event-eventDate"
+                  id="event-event_date"
                   type="datetime-local"
                   required
-                  value={formData.eventDate}
-                  onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
+                  value={formData.event_date}
+                  onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                 />
               </div>
 
               {/* Start Date Time */}
               <div>
-                <label htmlFor="event-startDateTime" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                <label htmlFor="event-start_date_time" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                   Ticket Sales Start *
                 </label>
                 <input
-                  id="event-startDateTime"
+                  id="event-start_date_time"
                   type="datetime-local"
                   required
-                  value={formData.startDateTime}
-                  onChange={(e) => setFormData({ ...formData, startDateTime: e.target.value })}
+                  value={formData.start_date_time}
+                  onChange={(e) => setFormData({ ...formData, start_date_time: e.target.value })}
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                 />
               </div>
 
               {/* End Date Time */}
               <div>
-                <label htmlFor="event-endDateTime" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                <label htmlFor="event-end_date_time" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                   Ticket Sales End *
                 </label>
                 <input
-                  id="event-endDateTime"
+                  id="event-end_date_time"
                   type="datetime-local"
                   required
-                  value={formData.endDateTime}
-                  onChange={(e) => setFormData({ ...formData, endDateTime: e.target.value })}
+                  value={formData.end_date_time}
+                  onChange={(e) => setFormData({ ...formData, end_date_time: e.target.value })}
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                 />
               </div>
@@ -503,14 +503,14 @@ export default function EventsManagementPage() {
 
               {/* Image URL */}
               <div>
-                <label htmlFor="event-imageUrl" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                <label htmlFor="event-image_url" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
                   Poster Image URL (Optional)
                 </label>
                 <input
-                  id="event-imageUrl"
+                  id="event-image_url"
                   type="text"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                  value={formData.image_url}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                   placeholder="https://images.unsplash.com/..."
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                 />

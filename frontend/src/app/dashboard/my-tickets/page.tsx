@@ -18,18 +18,18 @@ interface TicketSeat {
 
 interface TicketItem {
   id: string;
-  seatId: string;
-  qrCode: string;
-  isCheckedIn: boolean;
+  seat_id: string;
+  qr_code: string;
+  is_checked_in: boolean;
 }
 
 interface TicketEvent {
   id: string;
   title: string;
   description?: string;
-  startDateTime: string;
-  endDateTime?: string;
-  imageUrl?: string | null;
+  start_date_time: string;
+  end_date_time?: string;
+  image_url?: string | null;
   venue?: {
     id: string;
     name: string;
@@ -40,8 +40,8 @@ interface TicketEvent {
 
 interface TicketBooking {
   id: string;
-  bookingCode: string;
-  totalPrice: string | number;
+  booking_code: string;
+  total_price: string | number;
   currency: string;
   event: TicketEvent;
   seats: TicketSeat[];
@@ -72,7 +72,7 @@ export default function MyTicketsPage() {
   }, [loadTickets]);
 
   const isUpcoming = (b: TicketBooking) => {
-    const start = b.event?.startDateTime ? new Date(b.event.startDateTime) : null;
+    const start = b.event?.start_date_time ? new Date(b.event.start_date_time) : null;
     return start ? start.getTime() >= Date.now() : false;
   };
 
@@ -144,7 +144,7 @@ export default function MyTicketsPage() {
       {!isLoading && !error && (
         <div className="space-y-6">
           {filteredTickets.map((ticket, index) => {
-            const startDate = ticket.event?.startDateTime ? new Date(ticket.event.startDateTime) : null;
+            const startDate = ticket.event?.start_date_time ? new Date(ticket.event.start_date_time) : null;
             return (
               <motion.div
                 key={ticket.id}
@@ -155,10 +155,10 @@ export default function MyTicketsPage() {
               >
                 {/* Event Header */}
                 <div className="relative">
-                  {ticket.event?.imageUrl ? (
+                  {ticket.event?.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={ticket.event.imageUrl}
+                      src={ticket.event.image_url}
                       alt={ticket.event.title}
                       className="w-full h-48 object-cover opacity-40 grayscale"
                     />
@@ -210,13 +210,13 @@ export default function MyTicketsPage() {
                         </div>
                       </div>
                     </div>
-                    {ticket.event?.startDateTime && (
+                    {ticket.event?.start_date_time && (
                       <div className="flex items-center gap-3">
                         <Clock className="w-5 h-5 text-white" />
                         <div>
                           <div className="text-xs text-mono-light-grey uppercase">Time</div>
                           <div className="font-bold">
-                            {new Date(ticket.event.startDateTime).toLocaleTimeString('en-GB', {
+                            {new Date(ticket.event.start_date_time).toLocaleTimeString('en-GB', {
                               hour: '2-digit',
                               minute: '2-digit',
                             })}
@@ -239,7 +239,7 @@ export default function MyTicketsPage() {
                       <QrCode className="w-5 h-5 text-white" />
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase">Order Code</div>
-                        <div className="font-bold">{ticket.bookingCode}</div>
+                        <div className="font-bold">{ticket.booking_code}</div>
                       </div>
                     </div>
                   </div>
@@ -252,11 +252,11 @@ export default function MyTicketsPage() {
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       {ticket.seats.map((seat, idx) => {
-                        // Match the ticket to its seat by seatId — the seats and
+                        // Match the ticket to its seat by seat_id — the seats and
                         // tickets arrays are ordered independently by the API, so
                         // pairing by array index shows the wrong QR under a seat.
                         const tick =
-                          ticket.tickets.find((t) => t.seatId === seat.id) ??
+                          ticket.tickets.find((t) => t.seat_id === seat.id) ??
                           ticket.tickets[idx];
                         return (
                           <div
@@ -273,7 +273,7 @@ export default function MyTicketsPage() {
                               <QrCode className="w-16 h-16 text-white" />
                             </div>
                             <div className="text-center mt-2 text-[10px] text-mono-light-grey font-mono break-all">
-                              {tick?.qrCode ?? '—'}
+                              {tick?.qr_code ?? '—'}
                             </div>
                           </div>
                         );
@@ -285,7 +285,7 @@ export default function MyTicketsPage() {
                 {/* Actions */}
                 <div className="p-4 border-t border-mono-dark-grey flex flex-col sm:flex-row gap-3 justify-between">
                   <div className="flex items-center gap-2 text-sm text-mono-light-grey">
-                    <span>Total: {formatPrice(ticket.totalPrice, ticket.currency)}</span>
+                    <span>Total: {formatPrice(ticket.total_price, ticket.currency)}</span>
                   </div>
                   <div className="flex gap-3">
                     <button

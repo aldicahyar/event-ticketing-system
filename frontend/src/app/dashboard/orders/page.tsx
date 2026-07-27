@@ -30,8 +30,8 @@ interface OrderEvent {
   id: string;
   title: string;
   description?: string;
-  startDateTime: string;
-  imageUrl?: string | null;
+  start_date_time: string;
+  image_url?: string | null;
   venue?: {
     id: string;
     name: string;
@@ -42,14 +42,14 @@ interface OrderEvent {
 
 interface Order {
   id: string;
-  bookingCode: string;
-  userId: string;
+  booking_code: string;
+  user_id: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
-  totalPrice: string | number;
+  total_price: string | number;
   currency: string;
-  bookedAt: string;
-  confirmedAt: string | null;
-  cancelledAt: string | null;
+  booked_at: string;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
   event: OrderEvent;
   seats: OrderSeat[];
   payment: OrderPayment | null;
@@ -84,9 +84,9 @@ export default function OrdersPage() {
 
   const deriveStatus = (order: Order): 'upcoming' | 'completed' | 'cancelled' => {
     if (order.status === 'CANCELLED') return 'cancelled';
-    const eventDate = order.event?.startDateTime ? new Date(order.event.startDateTime) : null;
+    const event_date = order.event?.start_date_time ? new Date(order.event.start_date_time) : null;
     const now = new Date();
-    if (eventDate && eventDate < now) return 'completed';
+    if (event_date && event_date < now) return 'completed';
     return 'upcoming';
   };
 
@@ -97,7 +97,7 @@ export default function OrdersPage() {
     const matchesSearch =
       !needle ||
       (order.event?.title ?? '').toLowerCase().includes(needle) ||
-      (order.bookingCode ?? '').toLowerCase().includes(needle);
+      (order.booking_code ?? '').toLowerCase().includes(needle);
     return matchesFilter && matchesSearch;
   });
 
@@ -219,9 +219,9 @@ export default function OrdersPage() {
                       <CreditCard className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <div className="font-bold uppercase text-white">{order.bookingCode}</div>
+                      <div className="font-bold uppercase text-white">{order.booking_code}</div>
                       <div className="text-xs text-mono-light-grey">
-                        Ordered: {new Date(order.bookedAt).toLocaleDateString()}
+                        Ordered: {new Date(order.booked_at).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
@@ -232,7 +232,7 @@ export default function OrdersPage() {
                     <Link
                       href={`/dashboard/my-tickets?order=${order.id}`}
                       className="p-2 border border-mono-dark-grey hover:border-white transition-colors"
-                      aria-label={`View order ${order.bookingCode}`}
+                      aria-label={`View order ${order.booking_code}`}
                     >
                       <Eye className="w-4 h-4" />
                     </Link>
@@ -243,10 +243,10 @@ export default function OrdersPage() {
                 <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
                     <div className="flex items-start gap-4">
-                      {order.event?.imageUrl ? (
+                      {order.event?.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={order.event.imageUrl}
+                          src={order.event.image_url}
                           alt={order.event.title}
                           className="w-20 h-20 object-cover grayscale"
                         />
@@ -265,8 +265,8 @@ export default function OrdersPage() {
                         <div className="flex flex-wrap gap-3 text-xs text-[#CCCCCC]">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {order.event?.startDateTime
-                              ? new Date(order.event.startDateTime).toLocaleDateString()
+                            {order.event?.start_date_time
+                              ? new Date(order.event.start_date_time).toLocaleDateString()
                               : '—'}
                           </span>
                           {order.seats[0] && (
@@ -283,7 +283,7 @@ export default function OrdersPage() {
                   <div className="flex flex-col justify-between">
                     <div className="text-right mb-4">
                       <div className="text-xl font-display font-bold text-white">
-                        {formatPrice(order.totalPrice, order.currency)}
+                        {formatPrice(order.total_price, order.currency)}
                       </div>
                       <div className="text-xs text-mono-light-grey">
                         {order.seats.length} ticket{order.seats.length > 1 ? 's' : ''} • {paymentLabel(order.payment)}

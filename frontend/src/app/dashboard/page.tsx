@@ -14,18 +14,18 @@ import { useAuth } from '@/contexts/AuthContext';
 interface OrderEvent {
   id: string;
   title: string;
-  startDateTime: string;
-  imageUrl?: string | null;
+  start_date_time: string;
+  image_url?: string | null;
   venue?: { id: string; name: string; city: string } | null;
 }
 
 interface Order {
   id: string;
-  bookingCode: string;
+  booking_code: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
-  totalPrice: string | number;
+  total_price: string | number;
   currency: string;
-  bookedAt: string;
+  booked_at: string;
   event: OrderEvent;
   seats: { id: string }[];
   _count?: { tickets: number };
@@ -116,11 +116,11 @@ export default function DashboardPage() {
   };
 
   const isUpcoming = (o: Order) => {
-    if (!o.event?.startDateTime) return false;
-    return new Date(o.event.startDateTime).getTime() >= Date.now();
+    if (!o.event?.start_date_time) return false;
+    return new Date(o.event.start_date_time).getTime() >= Date.now();
   };
 
-  // Recent = the 3 latest bookings (list is sorted bookedAt desc by the API).
+  // Recent = the 3 latest bookings (list is sorted booked_at desc by the API).
   const recentOrders = orders.slice(0, 3);
   // Upcoming = every order whose event is still in the future, soonest first —
   // derived from the FULL list, not just the 3 most recently booked.
@@ -128,8 +128,8 @@ export default function DashboardPage() {
     .filter(isUpcoming)
     .sort(
       (a, b) =>
-        new Date(a.event.startDateTime).getTime() -
-        new Date(b.event.startDateTime).getTime(),
+        new Date(a.event.start_date_time).getTime() -
+        new Date(b.event.start_date_time).getTime(),
     )
     .slice(0, 4);
 
@@ -281,14 +281,14 @@ export default function DashboardPage() {
                       {order.event?.title ?? 'Unknown event'}
                     </div>
                     <div className="text-xs text-mono-light-grey">
-                      {order.bookingCode} &middot; {new Date(order.bookedAt).toLocaleDateString()}
+                      {order.booking_code} &middot; {new Date(order.booked_at).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
                   <div className="text-left sm:text-right">
                     <div className="font-bold text-white text-sm">
-                      {formatPrice(order.totalPrice, order.currency)}
+                      {formatPrice(order.total_price, order.currency)}
                     </div>
                     <div className="text-xs text-mono-light-grey">
                       {order.seats.length} ticket{order.seats.length > 1 ? 's' : ''}
@@ -297,7 +297,7 @@ export default function DashboardPage() {
                   <Link
                     href="/dashboard/my-tickets"
                     className="p-2 border border-mono-dark-grey hover:border-white transition-colors min-h-touch min-w-touch flex items-center justify-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-                    aria-label={`View tickets for ${order.bookingCode}`}
+                    aria-label={`View tickets for ${order.booking_code}`}
                   >
                     <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </Link>
@@ -341,8 +341,8 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 text-xs md:text-sm text-[#CCCCCC] mb-3">
                 <Calendar className="w-3 h-3 md:w-4 md:h-4 shrink-0" aria-hidden="true" />
-                {order.event?.startDateTime
-                  ? new Date(order.event.startDateTime).toLocaleDateString('en-GB', {
+                {order.event?.start_date_time
+                  ? new Date(order.event.start_date_time).toLocaleDateString('en-GB', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',

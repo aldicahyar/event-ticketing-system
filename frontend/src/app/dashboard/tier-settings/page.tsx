@@ -14,10 +14,10 @@ interface TicketTierSetting {
   ratio: number;
   multiplier: number;
   status: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  updatedBy: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  updated_by: string;
 }
 
 export default function TierSettingsManagementPage() {
@@ -222,21 +222,21 @@ export default function TierSettingsManagementPage() {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Created: {formatDate(tier.createdAt)}</span>
+                    <span>Created: {formatDate(tier.created_at)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
-                    <span>By: <span className="text-white uppercase">{tier.createdBy}</span></span>
+                    <span>By: <span className="text-white uppercase">{tier.created_by}</span></span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Updated: {formatDate(tier.updatedAt)}</span>
+                    <span>Updated: {formatDate(tier.updated_at)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
-                    <span>By: <span className="text-white uppercase">{tier.updatedBy}</span></span>
+                    <span>By: <span className="text-white uppercase">{tier.updated_by}</span></span>
                   </div>
                 </div>
               </div>

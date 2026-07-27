@@ -134,14 +134,14 @@ export default function CookiesPage() {
                 </h2>
                 <ol className="space-y-1">
                   {COOKIE_SECTIONS.map((section) => {
-                    const isActive = activeSection === section.id;
+                    const is_active = activeSection === section.id;
                     return (
                       <li key={section.id}>
                         <Link
                           href={`#section-${section.id}`}
-                          aria-current={isActive ? 'true' : undefined}
+                          aria-current={is_active ? 'true' : undefined}
                           className={`flex items-start gap-2 py-2 px-3 text-xs uppercase tracking-wide border-l-2 transition-colors min-h-touch ${
-                            isActive
+                            is_active
                               ? 'border-white text-white bg-white/5 font-bold'
                               : 'border-transparent text-mono-light-grey hover:text-white hover:border-mono-dark-grey'
                           } focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2`}

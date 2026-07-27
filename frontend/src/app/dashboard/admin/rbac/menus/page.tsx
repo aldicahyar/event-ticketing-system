@@ -21,8 +21,8 @@ export default function AdminMenusPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
   const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
-  const [form, setForm] = useState<CreateMenuDto & { isActive?: boolean }>({
-    code: '', name: '', nameEn: '', parentCode: '', icon: '', slug: '', order: 0, isNewTab: false,
+  const [form, setForm] = useState<CreateMenuDto & { is_active?: boolean }>({
+    code: '', name: '', name_en: '', parent_code: '', icon: '', slug: '', order: 0, is_new_tab: false,
   });
   const [saving, setSaving] = useState(false);
 
@@ -52,8 +52,8 @@ export default function AdminMenusPage() {
     for (const m of sorted) byCode.set(m.code, { ...m, children: [] });
     const roots: MenuNode[] = [];
     for (const node of byCode.values()) {
-      if (node.parentCode && byCode.has(node.parentCode)) {
-        byCode.get(node.parentCode)!.children.push(node);
+      if (node.parent_code && byCode.has(node.parent_code)) {
+        byCode.get(node.parent_code)!.children.push(node);
       } else {
         roots.push(node);
       }
@@ -62,12 +62,12 @@ export default function AdminMenusPage() {
   };
 
   const tree = buildTree(menus);
-  const rootMenus = menus.filter((m) => !m.parentCode);
+  const rootMenus = menus.filter((m) => !m.parent_code);
 
-  const openCreate = (parentCode?: string) => {
+  const openCreate = (parent_code?: string) => {
     setForm({
-      code: '', name: '', nameEn: '', parentCode: parentCode || '',
-      icon: 'CircleDot', slug: '', order: 0, isNewTab: false,
+      code: '', name: '', name_en: '', parent_code: parent_code || '',
+      icon: 'CircleDot', slug: '', order: 0, is_new_tab: false,
     });
     setEditingMenu(null);
     setModalMode('create');
@@ -77,13 +77,13 @@ export default function AdminMenusPage() {
     setForm({
       code: menu.code,
       name: menu.name,
-      nameEn: menu.nameEn ?? '',
-      parentCode: menu.parentCode ?? '',
+      name_en: menu.name_en ?? '',
+      parent_code: menu.parent_code ?? '',
       icon: menu.icon ?? 'CircleDot',
       slug: menu.slug ?? '',
       order: menu.order,
-      isNewTab: menu.isNewTab,
-      isActive: menu.isActive,
+      is_new_tab: menu.is_new_tab,
+      is_active: menu.is_active,
     });
     setEditingMenu(menu);
     setModalMode('edit');
@@ -97,8 +97,8 @@ export default function AdminMenusPage() {
     try {
       const payload = {
         ...form,
-        nameEn: form.nameEn || undefined,
-        parentCode: form.parentCode || null,
+        name_en: form.name_en || undefined,
+        parent_code: form.parent_code || null,
         icon: form.icon || undefined,
         slug: form.slug || undefined,
       };
@@ -149,10 +149,10 @@ export default function AdminMenusPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold uppercase text-white text-sm truncate">{node.name}</span>
               <code className="text-[10px] bg-white/10 px-1.5 py-0.5">{node.code}</code>
-              {!node.isActive && (
+              {!node.is_active && (
                 <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 font-bold uppercase">Inactive</span>
               )}
-              {node.isNewTab && (
+              {node.is_new_tab && (
                 <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 font-bold uppercase">New Tab</span>
               )}
             </div>
@@ -297,7 +297,7 @@ export default function AdminMenusPage() {
               <div>
                 <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Parent</label>
                 <select
-                  value={form.parentCode || ''}
+                  value={form.parent_code || ''}
                   onChange={(e) => {
                     const newParent = e.target.value;
                     let newSlug = form.slug;
@@ -307,7 +307,7 @@ export default function AdminMenusPage() {
                         newSlug = pMenu.slug + '/';
                       }
                     }
-                    setForm({ ...form, parentCode: newParent, slug: newSlug });
+                    setForm({ ...form, parent_code: newParent, slug: newSlug });
                   }}
                   className="w-full bg-black border border-white text-white px-3 py-2"
                 >
@@ -356,8 +356,8 @@ export default function AdminMenusPage() {
                 <div>
                   <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Open In</label>
                   <select
-                    value={form.isNewTab ? 'new' : 'same'}
-                    onChange={(e) => setForm({ ...form, isNewTab: e.target.value === 'new' })}
+                    value={form.is_new_tab ? 'new' : 'same'}
+                    onChange={(e) => setForm({ ...form, is_new_tab: e.target.value === 'new' })}
                     className="w-full bg-black border border-white text-white px-3 py-2"
                   >
                     <option value="same">Same Tab</option>
@@ -369,8 +369,8 @@ export default function AdminMenusPage() {
                 <div>
                   <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Active</label>
                   <select
-                    value={form.isActive === false ? 'false' : 'true'}
-                    onChange={(e) => setForm({ ...form, isActive: e.target.value === 'true' })}
+                    value={form.is_active === false ? 'false' : 'true'}
+                    onChange={(e) => setForm({ ...form, is_active: e.target.value === 'true' })}
                     className="w-full bg-black border border-white text-white px-3 py-2"
                   >
                     <option value="true">Active</option>

@@ -15,12 +15,12 @@ interface CurrentUser {
   email: string;
   name: string;
   role: string;
-  isActive: boolean;
-  emailVerified: boolean;
-  createdAt: string;
+  is_active: boolean;
+  email_verified: boolean;
+  created_at: string;
   profile?: {
     phone?: string | null;
-    dateOfBirth?: string | null;
+    date_of_birth?: string | null;
     gender?: string | null;
   } | null;
 }
@@ -33,11 +33,11 @@ export default function ProfilePage() {
     lastName: '',
     email: '',
     phone: '',
-    dateOfBirth: '',
+    date_of_birth: '',
     gender: 'prefer-not',
   });
   const [memberSince, setMemberSince] = useState('');
-  const [emailVerified, setEmailVerified] = useState(false);
+  const [email_verified, setEmailVerified] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +58,9 @@ export default function ProfilePage() {
         email: '',
         name: '',
         role: 'ATTENDEE',
-        isActive: true,
-        emailVerified: false,
-        createdAt: new Date().toISOString(),
+        is_active: true,
+        email_verified: false,
+        created_at: new Date().toISOString(),
       };
       const nameParts = (safeMe.name || '').split(' ');
       setFormData({
@@ -68,11 +68,11 @@ export default function ProfilePage() {
         lastName: nameParts.slice(1).join(' ') || '',
         email: safeMe.email || '',
         phone: safeMe.profile?.phone || '',
-        dateOfBirth: safeMe.profile?.dateOfBirth ? new Date(safeMe.profile.dateOfBirth).toISOString().split('T')[0] : '',
+        date_of_birth: safeMe.profile?.date_of_birth ? new Date(safeMe.profile.date_of_birth).toISOString().split('T')[0] : '',
         gender: safeMe.profile?.gender || 'prefer-not',
       });
-      setMemberSince(safeMe.createdAt);
-      setEmailVerified(safeMe.emailVerified);
+      setMemberSince(safeMe.created_at);
+      setEmailVerified(safeMe.email_verified);
     } catch (err) {
       setError(apiClient.getErrorMessage(err));
     } finally {
@@ -97,7 +97,7 @@ export default function ProfilePage() {
       await apiClient.patch('/auth/me', { 
         name: fullName,
         phone: formData.phone || undefined,
-        dateOfBirth: formData.dateOfBirth || undefined,
+        date_of_birth: formData.date_of_birth || undefined,
         gender: formData.gender || undefined,
       });
       // Refresh user context so sidebar/nav reflect the new name
@@ -278,7 +278,7 @@ export default function ProfilePage() {
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch opacity-70"
                       />
-                      {emailVerified && (
+                      {email_verified && (
                         <CheckCircle className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
                       )}
                     </div>
@@ -307,10 +307,10 @@ export default function ProfilePage() {
                     <input
                       type="date"
                       id="profile-dob"
-                      name="dateOfBirth"
+                      name="date_of_birth"
                       autoComplete="bday"
-                      value={formData.dateOfBirth}
-                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                      value={formData.date_of_birth}
+                      onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                       className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                     />
                   </div>
@@ -373,7 +373,7 @@ export default function ProfilePage() {
                     </div>
                     <span className="flex items-center gap-1 text-green-500 text-sm font-bold uppercase">
                       <CheckCircle className="w-4 h-4" />
-                      {emailVerified ? 'Verified' : 'Unverified'}
+                      {email_verified ? 'Verified' : 'Unverified'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-4 bg-white/5 border border-mono-dark-grey">

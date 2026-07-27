@@ -27,13 +27,13 @@ interface EventListItem {
 const mapDbEventToFrontend = (e: any): EventListItem => {
   return {
     id: e.id,
-    artist: e.title,
-    tour: e.subtitle || 'Live Show',
-    date: e.startDateTime,
-    venue: e.venue?.name || 'Venue',
-    price: Number(e.basePrice),
-    image: e.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
-    genre: 'Metalcore',
+    artist: e.title.toUpperCase(),
+    tour: e.subtitle.toUpperCase() || '',
+    date: e.start_date_time,
+    venue: e.venue?.name.toUpperCase() || '',
+    price: Number(e.base_price),
+    image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
+    genre: e.genre.toUpperCase() || '',
     ticketsLeft: 200,
     status: e.status === 'PUBLISHED' ? 'available' : 'selling_fast'
   };

@@ -16,8 +16,8 @@ export default function AdminRolesPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [form, setForm] = useState<CreateRoleDto & { isActive?: boolean }>({
-    code: '', name: '', nameEn: '', description: '', sortOrder: 0,
+  const [form, setForm] = useState<CreateRoleDto & { is_active?: boolean }>({
+    code: '', name: '', name_en: '', description: '', sort_order: 0,
   });
   const [saving, setSaving] = useState(false);
 
@@ -42,15 +42,15 @@ export default function AdminRolesPage() {
   };
 
   const openCreate = () => {
-    setForm({ code: '', name: '', nameEn: '', description: '', sortOrder: 0 });
+    setForm({ code: '', name: '', name_en: '', description: '', sort_order: 0 });
     setEditingRole(null);
     setModalMode('create');
   };
 
   const openEdit = (role: Role) => {
     setForm({
-      code: role.code, name: role.name, nameEn: role.nameEn ?? '',
-      description: role.description ?? '', sortOrder: role.sortOrder, isActive: role.isActive,
+      code: role.code, name: role.name, name_en: role.name_en ?? '',
+      description: role.description ?? '', sort_order: role.sort_order, is_active: role.is_active,
     });
     setEditingRole(role);
     setModalMode('edit');
@@ -67,16 +67,16 @@ export default function AdminRolesPage() {
     try {
       if (modalMode === 'create') {
         await apiClient.createRole({
-          code: form.code, name: form.name, nameEn: form.nameEn || undefined,
-          description: form.description || undefined, sortOrder: form.sortOrder,
+          code: form.code, name: form.name, name_en: form.name_en || undefined,
+          description: form.description || undefined, sort_order: form.sort_order,
         });
         showToast('success', `Role '${form.code}' created`);
       } else if (modalMode === 'edit' && editingRole) {
         const dto: UpdateRoleDto = {
-          name: form.name, nameEn: form.nameEn || undefined,
-          description: form.description || undefined, sortOrder: form.sortOrder,
+          name: form.name, name_en: form.name_en || undefined,
+          description: form.description || undefined, sort_order: form.sort_order,
         };
-        if (form.isActive !== undefined) dto.isActive = form.isActive;
+        if (form.is_active !== undefined) dto.is_active = form.is_active;
         await apiClient.updateRole(editingRole.code, dto);
         showToast('success', `Role '${editingRole.code}' updated`);
       }
@@ -90,7 +90,7 @@ export default function AdminRolesPage() {
   };
 
   const handleDelete = async (role: Role) => {
-    if (role.isSystem) {
+    if (role.is_system) {
       showToast('error', `Cannot delete system role '${role.code}'`);
       return;
     }
@@ -179,10 +179,10 @@ export default function AdminRolesPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold uppercase text-white">{role.name}</span>
                     <code className="text-[10px] bg-white/10 px-1.5 py-0.5">{role.code}</code>
-                    {role.isSystem && (
+                    {role.is_system && (
                       <span className="text-[10px] bg-white text-black px-1.5 py-0.5 font-bold uppercase">System</span>
                     )}
-                    {!role.isActive && (
+                    {!role.is_active && (
                       <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 font-bold uppercase">Inactive</span>
                     )}
                   </div>
@@ -204,7 +204,7 @@ export default function AdminRolesPage() {
                 </button>
                 <button
                   onClick={() => handleDelete(role)}
-                  disabled={role.isSystem}
+                  disabled={role.is_system}
                   className="p-2 border border-mono-dark-grey hover:border-red-500 text-[#CCCCCC] hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   aria-label={`Delete ${role.code}`}
                 >
@@ -265,8 +265,8 @@ export default function AdminRolesPage() {
                 <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">English Name (optional)</label>
                 <input
                   type="text"
-                  value={form.nameEn}
-                  onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+                  value={form.name_en}
+                  onChange={(e) => setForm({ ...form, name_en: e.target.value })}
                   className="w-full bg-black border border-white text-white px-3 py-2"
                 />
               </div>
@@ -283,8 +283,8 @@ export default function AdminRolesPage() {
                 <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Sort Order</label>
                 <input
                   type="number"
-                  value={form.sortOrder}
-                  onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })}
+                  value={form.sort_order}
+                  onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })}
                   className="w-full bg-black border border-white text-white px-3 py-2"
                 />
               </div>
@@ -292,15 +292,15 @@ export default function AdminRolesPage() {
                 <div>
                   <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Active</label>
                   <select
-                    value={form.isActive === false ? 'false' : 'true'}
-                    onChange={(e) => setForm({ ...form, isActive: e.target.value === 'true' })}
-                    disabled={editingRole?.isSystem}
+                    value={form.is_active === false ? 'false' : 'true'}
+                    onChange={(e) => setForm({ ...form, is_active: e.target.value === 'true' })}
+                    disabled={editingRole?.is_system}
                     className="w-full bg-black border border-white text-white px-3 py-2 disabled:opacity-50"
                   >
                     <option value="true">Active</option>
                     <option value="false">Inactive</option>
                   </select>
-                  {editingRole?.isSystem && (
+                  {editingRole?.is_system && (
                     <p className="text-[10px] text-mono-light-grey mt-1 uppercase">System role cannot be deactivated</p>
                   )}
                 </div>

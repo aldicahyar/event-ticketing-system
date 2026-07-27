@@ -11,12 +11,12 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface TaxSetting {
   id: string;
-  ppnPercent: number;
+  ppn_percent: number;
   status: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  updatedBy: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  updated_by: string;
 }
 
 export default function TaxSettingsManagementPage() {
@@ -64,7 +64,7 @@ export default function TaxSettingsManagementPage() {
     setIsSavingTax(true);
     try {
       await apiClient.patch(`/settings/tax`, {
-        ppnPercent: Number(tax.ppnPercent),
+        ppn_percent: Number(tax.ppn_percent),
         status: tax.status,
       });
       setSuccessMessage('Tax configuration updated successfully!');
@@ -158,10 +158,10 @@ export default function TaxSettingsManagementPage() {
                   min="0"
                   max="100"
                   required
-                  value={tax.ppnPercent}
+                  value={tax.ppn_percent}
                   onChange={(e) => {
                     const val = Number.parseFloat(e.target.value);
-                    setTax({ ...tax, ppnPercent: Number.isNaN(val) ? 0 : val });
+                    setTax({ ...tax, ppn_percent: Number.isNaN(val) ? 0 : val });
                   }}
                   className="w-full bg-black border border-white text-white pl-3 pr-8 py-2 text-sm focus:outline-none focus:border-white/50"
                 />
@@ -193,21 +193,21 @@ export default function TaxSettingsManagementPage() {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Created: {formatDate(tax.createdAt)}</span>
+                    <span>Created: {formatDate(tax.created_at)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
-                    <span>By: <span className="text-white uppercase">{tax.createdBy}</span></span>
+                    <span>By: <span className="text-white uppercase">{tax.created_by}</span></span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Updated: {formatDate(tax.updatedAt)}</span>
+                    <span>Updated: {formatDate(tax.updated_at)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
-                    <span>By: <span className="text-white uppercase">{tax.updatedBy}</span></span>
+                    <span>By: <span className="text-white uppercase">{tax.updated_by}</span></span>
                   </div>
                 </div>
               </div>

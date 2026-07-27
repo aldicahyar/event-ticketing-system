@@ -16,12 +16,12 @@ interface Venue {
   city: string;
   country: string;
   capacity: number;
-  seatMap?: {
+  seat_map?: {
     rows?: number;
     seatsPerRow?: number;
   };
   description?: string;
-  imageUrl?: string;
+  image_url?: string;
 }
 
 const DEFAULT_FORM = {
@@ -34,7 +34,7 @@ const DEFAULT_FORM = {
   rows: 10,
   seatsPerRow: 10,
   description: '',
-  imageUrl: ''
+  image_url: ''
 };
 
 export default function VenuesManagementPage() {
@@ -85,9 +85,9 @@ export default function VenuesManagementPage() {
     setError('');
     setSuccessMessage('');
     
-    // Parse seatMap jika ada
-    const rows = venue.seatMap?.rows || 10;
-    const seatsPerRow = venue.seatMap?.seatsPerRow || 10;
+    // Parse seat_map jika ada
+    const rows = venue.seat_map?.rows || 10;
+    const seatsPerRow = venue.seat_map?.seatsPerRow || 10;
 
     setFormData({
       id: venue.id,
@@ -99,7 +99,7 @@ export default function VenuesManagementPage() {
       rows: rows,
       seatsPerRow: seatsPerRow,
       description: venue.description || '',
-      imageUrl: venue.imageUrl || ''
+      image_url: venue.image_url || ''
     });
     setActiveView('edit');
   };
@@ -115,7 +115,7 @@ export default function VenuesManagementPage() {
       return;
     }
 
-    const seatMap = {
+    const seat_map = {
       rows: Number(formData.rows),
       seatsPerRow: Number(formData.seatsPerRow),
       layout: 'STADIUM'
@@ -127,9 +127,9 @@ export default function VenuesManagementPage() {
       city: formData.city,
       country: formData.country,
       capacity: Number(formData.capacity),
-      seatMap,
+      seat_map,
       description: formData.description || undefined,
-      imageUrl: formData.imageUrl || undefined
+      image_url: formData.image_url || undefined
     };
 
     try {
@@ -331,7 +331,7 @@ export default function VenuesManagementPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. TENNIS INDOOR SENAYAN"
-                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white uppercase min-h-touch"
+                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />
               </div>
 
@@ -362,8 +362,8 @@ export default function VenuesManagementPage() {
                   required
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="e.g. JAKARTA"
-                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white uppercase min-h-touch"
+                  placeholder="e.g. SENAYAN"
+                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />
               </div>
 
@@ -379,7 +379,7 @@ export default function VenuesManagementPage() {
                   value={formData.country}
                   onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                   placeholder="e.g. INDONESIA"
-                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white uppercase min-h-touch"
+                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />
               </div>
 
@@ -443,8 +443,8 @@ export default function VenuesManagementPage() {
                 <input
                   id="venue-image-url"
                   type="text"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                  value={formData.image_url}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                   placeholder="https://images.unsplash.com/..."
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />

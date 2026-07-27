@@ -85,7 +85,7 @@ export default function AdminMediaPage() {
   };
 
   const handleDelete = async (m: AdminMedia) => {
-    if (!confirm(`Delete '${m.originalName}'? This removes the file permanently.`)) return;
+    if (!confirm(`Delete '${m.original_name}'? This removes the file permanently.`)) return;
     setBusyId(m.id);
     try {
       await apiClient.deleteMedia(m.id);
@@ -206,17 +206,17 @@ export default function AdminMediaPage() {
             <div key={m.id} className="bg-black border border-mono-dark-grey group">
               <div className="relative aspect-square overflow-hidden bg-white/5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={m.url} alt={m.alt || m.originalName} className="w-full h-full object-cover" loading="lazy" />
+                <img src={m.url} alt={m.alt || m.original_name} className="w-full h-full object-cover" loading="lazy" />
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <button type="button" onClick={() => copyUrl(m)} aria-label={`Copy URL for ${m.originalName}`} className="p-2 bg-white text-black hover:bg-[#CCCCCC]"><Copy className="w-4 h-4" /></button>
-                  <button type="button" onClick={() => openEdit(m)} aria-label={`Edit ${m.originalName}`} className="p-2 bg-white text-black hover:bg-[#CCCCCC]"><Pencil className="w-4 h-4" /></button>
-                  <button type="button" onClick={() => handleDelete(m)} disabled={busyId === m.id} aria-label={`Delete ${m.originalName}`} className="p-2 bg-red-600 text-white hover:bg-red-500 disabled:opacity-50">
+                  <button type="button" onClick={() => copyUrl(m)} aria-label={`Copy URL for ${m.original_name}`} className="p-2 bg-white text-black hover:bg-[#CCCCCC]"><Copy className="w-4 h-4" /></button>
+                  <button type="button" onClick={() => openEdit(m)} aria-label={`Edit ${m.original_name}`} className="p-2 bg-white text-black hover:bg-[#CCCCCC]"><Pencil className="w-4 h-4" /></button>
+                  <button type="button" onClick={() => handleDelete(m)} disabled={busyId === m.id} aria-label={`Delete ${m.original_name}`} className="p-2 bg-red-600 text-white hover:bg-red-500 disabled:opacity-50">
                     {busyId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
               <div className="p-2">
-                <p className="text-xs text-white truncate" title={m.originalName}>{m.originalName}</p>
+                <p className="text-xs text-white truncate" title={m.original_name}>{m.original_name}</p>
                 <p className="text-[10px] text-mono-light-grey uppercase mt-0.5">{formatBytes(m.size)}</p>
               </div>
             </div>
@@ -248,7 +248,7 @@ export default function AdminMediaPage() {
               <button onClick={() => setEditing(null)} aria-label="Close" className="p-1 hover:bg-white/10"><X className="w-5 h-5 text-white" /></button>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={editing.url} alt={editing.alt || editing.originalName} className="w-full h-32 object-contain bg-white/5 border border-mono-dark-grey mb-4" />
+            <img src={editing.url} alt={editing.alt || editing.original_name} className="w-full h-32 object-contain bg-white/5 border border-mono-dark-grey mb-4" />
             <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Alt text (accessibility / SEO)</label>
             <input value={altDraft} onChange={(e) => setAltDraft(e.target.value)} className="w-full bg-black border border-white text-white px-3 py-2 mb-4" />
             <div className="flex gap-2">

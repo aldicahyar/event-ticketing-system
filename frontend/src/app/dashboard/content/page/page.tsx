@@ -29,15 +29,15 @@ interface FormState {
   excerpt: string;
   content: string;
   status: PageStatus;
-  seoTitle: string;
-  seoDescription: string;
-  ogImageId: string | null;
+  seo_title: string;
+  seo_description: string;
+  og_image_id: string | null;
   ogImageUrl: string | null;
 }
 
 const EMPTY_FORM: FormState = {
   title: '', slug: '', excerpt: '', content: '', status: 'DRAFT',
-  seoTitle: '', seoDescription: '', ogImageId: null, ogImageUrl: null,
+  seo_title: '', seo_description: '', og_image_id: null, ogImageUrl: null,
 };
 
 const PUBLIC_BASE = process.env.NEXT_PUBLIC_SITE_URL || '';
@@ -100,9 +100,9 @@ export default function AdminPagesPage() {
       excerpt: p.excerpt ?? '',
       content: p.content ?? '',
       status: p.status,
-      seoTitle: p.seoTitle ?? '',
-      seoDescription: p.seoDescription ?? '',
-      ogImageId: p.ogImageId ?? null,
+      seo_title: p.seo_title ?? '',
+      seo_description: p.seo_description ?? '',
+      og_image_id: p.og_image_id ?? null,
       ogImageUrl: p.ogImage?.url ?? null,
     });
     setEditingId(p.id);
@@ -119,7 +119,7 @@ export default function AdminPagesPage() {
   };
 
   const pickOgImage = (media: AdminMedia) => {
-    setForm((f) => ({ ...f, ogImageId: media.id, ogImageUrl: media.url }));
+    setForm((f) => ({ ...f, og_image_id: media.id, ogImageUrl: media.url }));
     setPickerOpen(false);
   };
 
@@ -138,9 +138,9 @@ export default function AdminPagesPage() {
           excerpt: form.excerpt || undefined,
           content: form.content,
           status: form.status,
-          seoTitle: form.seoTitle || undefined,
-          seoDescription: form.seoDescription || undefined,
-          ogImageId: form.ogImageId, // null clears it
+          seo_title: form.seo_title || undefined,
+          seo_description: form.seo_description || undefined,
+          og_image_id: form.og_image_id, // null clears it
         };
         await apiClient.updatePage(editingId, dto);
         showToast('success', `Page '${form.slug}' updated`);
@@ -151,9 +151,9 @@ export default function AdminPagesPage() {
           excerpt: form.excerpt || undefined,
           content: form.content,
           status: form.status,
-          seoTitle: form.seoTitle || undefined,
-          seoDescription: form.seoDescription || undefined,
-          ogImageId: form.ogImageId || undefined,
+          seo_title: form.seo_title || undefined,
+          seo_description: form.seo_description || undefined,
+          og_image_id: form.og_image_id || undefined,
         };
         await apiClient.createPage(dto);
         showToast('success', `Page '${form.slug}' created`);
@@ -234,12 +234,12 @@ export default function AdminPagesPage() {
               </div>
               <div>
                 <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">SEO Title</label>
-                <input value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} maxLength={200} className="w-full bg-black border border-white text-white px-3 py-2" />
+                <input value={form.seo_title} onChange={(e) => setForm({ ...form, seo_title: e.target.value })} maxLength={200} className="w-full bg-black border border-white text-white px-3 py-2" />
               </div>
             </div>
             <div>
               <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">SEO Description</label>
-              <textarea value={form.seoDescription} onChange={(e) => setForm({ ...form, seoDescription: e.target.value })} maxLength={300} rows={2} className="w-full bg-black border border-white text-white px-3 py-2 resize-none" />
+              <textarea value={form.seo_description} onChange={(e) => setForm({ ...form, seo_description: e.target.value })} maxLength={300} rows={2} className="w-full bg-black border border-white text-white px-3 py-2 resize-none" />
             </div>
             <div>
               <label className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Social / OG Image</label>
@@ -251,8 +251,8 @@ export default function AdminPagesPage() {
                   <div className="w-24 h-16 border border-mono-dark-grey flex items-center justify-center text-mono-dark-grey"><ImagePlus className="w-5 h-5" /></div>
                 )}
                 <button type="button" onClick={() => setPickerOpen(true)} className="px-3 py-2 border border-mono-dark-grey text-[#CCCCCC] hover:border-white hover:text-white text-xs font-bold uppercase">Choose</button>
-                {form.ogImageId && (
-                  <button type="button" onClick={() => setForm({ ...form, ogImageId: null, ogImageUrl: null })} className="p-2 border border-mono-dark-grey text-[#CCCCCC] hover:border-red-500 hover:text-red-500" aria-label="Remove OG image"><X className="w-4 h-4" /></button>
+                {form.og_image_id && (
+                  <button type="button" onClick={() => setForm({ ...form, og_image_id: null, ogImageUrl: null })} className="p-2 border border-mono-dark-grey text-[#CCCCCC] hover:border-red-500 hover:text-red-500" aria-label="Remove OG image"><X className="w-4 h-4" /></button>
                 )}
               </div>
             </div>
@@ -266,7 +266,7 @@ export default function AdminPagesPage() {
           </div>
         </form>
 
-        <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={pickOgImage} selectedId={form.ogImageId} />
+        <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={pickOgImage} selectedId={form.og_image_id} />
 
         {toast && (
           <div className={`fixed bottom-4 right-4 z-50 p-4 border max-w-sm flex items-start gap-3 ${toast.type === 'success' ? 'bg-white text-black border-white' : 'bg-red-500/20 text-red-300 border-red-500'}`} role="status" aria-live="polite">

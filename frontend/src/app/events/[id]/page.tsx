@@ -103,13 +103,13 @@ const computeTiersFromSeats = (seats: any[]): TicketTier[] => {
 export default function EventDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const eventId = params.id as string;
+  const event_id = params.id as string;
 
   const [event, setEvent] = useState<Event | null>(null);
   const [allSeats, setAllSeats] = useState<Seat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [ppnPercent, setPpnPercent] = useState(11);
+  const [ppn_percent, setPpnPercent] = useState(11);
 
   // Selection state
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
@@ -123,14 +123,14 @@ export default function EventDetailPage() {
     async function fetchEventAndSettings() {
       try {
         const [eventData, settingsRes] = await Promise.all([
-          apiClient.get<any>(`/events/${eventId}`),
+          apiClient.get<any>(`/events/${event_id}`),
           apiClient.get<any>('/settings').catch(() => null)
         ]);
 
         if (settingsRes && settingsRes.tax) {
           const taxData = settingsRes.tax;
           if (taxData.status === 'ACTIVE') {
-            setPpnPercent(Number(taxData.ppnPercent));
+            setPpnPercent(Number(taxData.ppn_percent));
           } else {
             setPpnPercent(0);
           }
@@ -140,13 +140,13 @@ export default function EventDetailPage() {
           const computedTiers = computeTiersFromSeats(eventData.seats || []);
           const frontEvent: Event = {
             id: eventData.id,
-            artist: eventData.title,
-            tour: eventData.subtitle || 'Live Show',
-            date: eventData.eventDate || eventData.startDateTime,
-            venue: eventData.venue?.name || 'Venue',
-            price: Number(eventData.basePrice),
-            image: eventData.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
-            genre: 'Metalcore',
+            artist: eventData.title?.toUpperCase() || '',
+            tour: eventData.subtitle?.toUpperCase() || '',
+            date: eventData.event_date || eventData.start_date_time,
+            venue: eventData.venue?.name?.toUpperCase() || '',
+            price: Number(eventData.base_price),
+            image: eventData.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
+            genre: eventData.genre?.toUpperCase() || 'GENERAL',
             description: eventData.description || '',
             ticketsLeft: (eventData.seats || []).filter((s: any) => s.status === 'AVAILABLE').length,
             tiers: computedTiers
@@ -170,10 +170,10 @@ export default function EventDetailPage() {
       }
     }
 
-    if (eventId) {
+    if (event_id) {
       fetchEventAndSettings();
     }
-  }, [eventId]);
+  }, [event_id]);
 
   // Fetch seats when tier changes
   useEffect(() => {
@@ -206,13 +206,13 @@ export default function EventDetailPage() {
   };
 
   const subtotal = selectedTierData ? selectedTierData.price * (selectedSeats.length > 0 ? selectedSeats.length : quantity) : 0;
-  const ppn = subtotal * (ppnPercent / 100);
+  const ppn = subtotal * (ppn_percent / 100);
   const total = subtotal + ppn;
 
   const handleCheckout = () => {
     // Navigate to checkout
     const seatIds = selectedSeats.map(s => s.id).join(',');
-    router.push(`/checkout?event=${eventId}&seats=${seatIds}&subtotal=${subtotal}&ppn=${ppn}&total=${total}&ppnPercent=${ppnPercent}`);
+    router.push(`/checkout?event=${event_id}&seats=${seatIds}&subtotal=${subtotal}&ppn=${ppn}&total=${total}&ppn_percent=${ppn_percent}`);
   };
 
   if (loading) {
@@ -553,7 +553,7 @@ export default function EventDetailPage() {
                     <dd className="text-white">IDR {subtotal.toLocaleString('id-ID')}</dd>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <dt className="text-[#CCCCCC]">PPN ({ppnPercent}%)</dt>
+                    <dt className="text-[#CCCCCC]">PPN ({ppn_percent}%)</dt>
                     <dd className="text-white">IDR {ppn.toLocaleString('id-ID')}</dd>
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t border-mono-dark-grey">

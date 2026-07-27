@@ -96,21 +96,21 @@ const mapDbVenueToFrontend = (v: any): Venue => {
   return {
     id: v.id,
     slug: v.id,
-    name: v.name,
-    type: (v.seatMap?.layout?.toLowerCase() || 'arena') as any,
+    name: v.name.toUpperCase(),
+    type: (v.seat_map?.layout?.toLowerCase() || 'arena') as any,
     shortDescription: v.description || '',
-    description: v.description || '',
-    city: v.city,
-    address: v.address,
-    province: v.country || 'Indonesia',
-    postalCode: '',
+    description: v.description.toUpperCase() || '',
+    city: v.city.toUpperCase() || '',
+    address: v.address.toUpperCase() || '',
+    country: v.country?.toUpperCase() || '',
+    postalCode: v.postal_code || '',
     capacity: {
       seated: Math.round(v.capacity * 0.7),
       standing: Math.round(v.capacity * 0.3),
       total: v.capacity
     },
     facilities: ['Car', 'Accessibility', 'Wifi', 'Coffee', 'Shield', 'Music'],
-    images: [{ url: v.imageUrl || 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678', alt: v.name }],
+    images: [{ url: v.image_url || 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678', alt: v.name }],
     geo: { lat: -6.2186, lng: 106.8019 },
     contact: { phone: '+62 21 5723 333', email: 'info@venue.id' },
     rating: 4.5,
@@ -126,16 +126,16 @@ const mapDbVenueToFrontend = (v: any): Venue => {
 
 export default function VenueDetailPage() {
   const params = useParams<{ id: string }>();
-  const venueId = params?.id ?? '';
+  const venue_id = params?.id ?? '';
   const [venue, setVenue] = useState<Venue | null>(null);
   const [related, setRelated] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadVenueDetails() {
-      if (!venueId) return;
+      if (!venue_id) return;
       try {
-        const item = await apiClient.get<any>(`/venues/${venueId}`);
+        const item = await apiClient.get<any>(`/venues/${venue_id}`);
         if (item) {
           const frontVenue = mapDbVenueToFrontend(item);
           setVenue(frontVenue);
@@ -145,7 +145,7 @@ export default function VenueDetailPage() {
           if (allVenues && Array.isArray(allVenues)) {
             const parsed = allVenues.map(mapDbVenueToFrontend);
             const filteredRelated = parsed
-              .filter((v) => v.id !== venueId && (v.city === frontVenue.city || v.type === frontVenue.type))
+              .filter((v) => v.id !== venue_id && (v.city === frontVenue.city || v.type === frontVenue.type))
               .slice(0, 3);
             setRelated(filteredRelated);
           }
@@ -157,7 +157,7 @@ export default function VenueDetailPage() {
       }
     }
     loadVenueDetails();
-  }, [venueId]);
+  }, [venue_id]);
 
   if (loading) {
     return (
@@ -240,7 +240,7 @@ export default function VenueDetailPage() {
               {VENUE_TYPE_LABELS[venue.type]}
             </span>
             <span className="text-[10px] uppercase tracking-widest border border-mono-dark-grey text-mono-light-grey px-2 py-0.5 flex items-center gap-1">
-              <MapPin className="w-3 h-3" aria-hidden="true" /> {venue.city}, {venue.province}
+              <MapPin className="w-3 h-3" aria-hidden="true" /> {venue.city}, {venue.country}
             </span>
             <span
               className="text-[10px] uppercase tracking-widest border border-mono-dark-grey text-mono-light-grey px-2 py-0.5 flex items-center gap-1"
@@ -379,7 +379,7 @@ export default function VenueDetailPage() {
                     <div>
                       <p className="text-sm text-white font-bold">{venue.name}</p>
                       <p className="text-sm text-[#CCCCCC]">
-                        {venue.address}, {venue.city}, {venue.province} {venue.postalCode}
+                        {venue.address}, {venue.city}, {venue.country} {venue.postalCode}
                       </p>
                       <p className="text-xs text-mono-light-grey mt-1 font-mono">
                         {venue.geo.lat.toFixed(4)}, {venue.geo.lng.toFixed(4)}
