@@ -45,7 +45,7 @@ export class AuthService {
     private lockoutService: AccountLockoutService,
   ) {}
 
-  async register(dto: RegisterDto, ipAddress: string, userAgent: string) {
+  async register(dto: RegisterDto, ip_address: string, user_agent: string) {
     // Normalize email to lowercase
     const normalizedEmail = dto.email.toLowerCase().trim();
 
@@ -63,7 +63,7 @@ export class AuthService {
       );
     }
 
-    const existingUser = await this.prisma.user.findUnique({
+    const existingUser = await this.prisma.t_mtr_users.findUnique({
       where: { email: normalizedEmail },
     });
 
@@ -76,21 +76,21 @@ export class AuthService {
     // Generate OTP code before DB write so we have everything ready
     const verificationCode = this.generateOtpCode();
 
-    const user = await this.prisma.user.create({
+    const user = await this.prisma.t_mtr_users.create({
       data: {
         email: normalizedEmail,
         password: hashedPassword,
         name: dto.name.trim(),
-        roleCode: dto.role || 'ATTENDEE',
+        role_code: dto.role || 'ATTENDEE',
       },
       select: {
         id: true,
         email: true,
         name: true,
-        roleCode: true,
-        isActive: true,
-        emailVerified: true,
-        createdAt: true,
+        role_code: true,
+        is_active: true,
+        email_verified: true,
+        created_at: true,
       },
     });
 
@@ -102,17 +102,17 @@ export class AuthService {
         `Failed to store OTP for ${normalizedEmail}, rolling back user record`,
         error,
       );
-      await this.prisma.user.delete({ where: { id: user.id } });
+      await this.prisma.t_mtr_users.delete({ where: { id: user.id } });
       throw error;
     }
 
     // Log registration
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId: user.id,
+        user_id: user.id,
         action: 'REGISTER',
-        ipAddress,
-        userAgent,
+        ip_address,
+        user_agent,
         metadata: { method: 'local' },
       },
     });
@@ -121,11 +121,11 @@ export class AuthService {
     this.logger.debug(`[Mock Email] Verification code for ${user.email} is: ${verificationCode}`);
 
     // Log OTP sent event
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId: user.id,
+        user_id: user.id,
         action: 'OTP_SENT',
-        ipAddress,
+        ip_address,
         metadata: { method: 'register' },
       },
     });
@@ -141,7 +141,7 @@ export class AuthService {
   async verifyEmail(email: string, token: string) {
     const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.t_mtr_users.findUnique({
       where: { email: normalizedEmail },
     });
 
@@ -149,16 +149,16 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    if (user.emailVerified) {
+    if (user.email_verified) {
       const userWithoutPassword = {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.roleCode,
-        roleCode: user.roleCode,
-        isActive: user.isActive,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt,
+        role: user.role_code,
+        role_code: user.role_code,
+        is_active: user.is_active,
+        email_verified: user.email_verified,
+        created_at: user.created_at,
       };
       const tokens = await this.generateTokens(userWithoutPassword);
       return {
@@ -179,9 +179,9 @@ export class AuthService {
       if (attempts >= OtpConfig.MAX_ATTEMPTS) {
         await this.deleteVerificationCode(normalizedEmail);
 
-        await this.prisma.securityLog.create({
+        await this.prisma.t_trx_security_logs.create({
           data: {
-            userId: user.id,
+            user_id: user.id,
             action: 'OTP_FAILED',
             metadata: { email: normalizedEmail, attempts, reason: 'max_attempts' },
           },
@@ -190,9 +190,9 @@ export class AuthService {
         throw new BadRequestException('Too many invalid attempts. Please request a new code.');
       }
 
-      await this.prisma.securityLog.create({
+      await this.prisma.t_trx_security_logs.create({
         data: {
-          userId: user.id,
+          user_id: user.id,
           action: 'OTP_FAILED',
           metadata: { email: normalizedEmail, attempts },
         },
@@ -207,24 +207,24 @@ export class AuthService {
     await this.deleteVerificationCode(normalizedEmail);
 
     // Update user in DB
-    const updatedUser = await this.prisma.user.update({
+    const updatedUser = await this.prisma.t_mtr_users.update({
       where: { email: normalizedEmail },
-      data: { emailVerified: true },
+      data: { email_verified: true },
       select: {
         id: true,
         email: true,
         name: true,
-        roleCode: true,
-        isActive: true,
-        emailVerified: true,
-        createdAt: true,
+        role_code: true,
+        is_active: true,
+        email_verified: true,
+        created_at: true,
       },
     });
 
     // Log verification
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId: updatedUser.id,
+        user_id: updatedUser.id,
         action: 'EMAIL_VERIFIED',
         metadata: { method: 'local' },
       },
@@ -251,7 +251,7 @@ export class AuthService {
       );
     }
 
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.t_mtr_users.findUnique({
       where: { email: normalizedEmail },
     });
 
@@ -259,7 +259,7 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    if (user.emailVerified) {
+    if (user.email_verified) {
       throw new BadRequestException('Email is already verified');
     }
 
@@ -267,9 +267,9 @@ export class AuthService {
     const cooldownKey = `${OtpRedisKeys.COOLDOWN_PREFIX}${normalizedEmail}`;
     const isCoolingDown = await this.redisService.exists(cooldownKey);
     if (isCoolingDown) {
-      await this.prisma.securityLog.create({
+      await this.prisma.t_trx_security_logs.create({
         data: {
-          userId: user.id,
+          user_id: user.id,
           action: 'OTP_RATE_LIMITED',
           metadata: { email: normalizedEmail },
         },
@@ -291,9 +291,9 @@ export class AuthService {
     );
 
     // Log OTP sent event
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId: user.id,
+        user_id: user.id,
         action: 'OTP_SENT',
         metadata: { method: 'resend' },
       },
@@ -302,7 +302,7 @@ export class AuthService {
     return { message: 'Verification code sent successfully' };
   }
 
-  async login(dto: LoginDto, ipAddress: string, userAgent: string) {
+  async login(dto: LoginDto, ip_address: string, user_agent: string) {
     const normalizedEmail = dto.email.toLowerCase().trim();
 
     // Check if account is locked before attempting login
@@ -313,7 +313,7 @@ export class AuthService {
       );
     }
 
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.t_mtr_users.findUnique({
       where: { email: normalizedEmail },
     });
 
@@ -324,7 +324,7 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
 
     if (!isPasswordValid) {
-      const result = await this.lockoutService.recordFailedAttempt(user.id, ipAddress, userAgent);
+      const result = await this.lockoutService.recordFailedAttempt(user.id, ip_address, user_agent);
 
       if (result.isLocked) {
         throw new ForbiddenException(
@@ -338,7 +338,7 @@ export class AuthService {
       );
     }
 
-    if (!user.isActive) {
+    if (!user.is_active) {
       throw new UnauthorizedException('Account is inactive');
     }
 
@@ -346,12 +346,12 @@ export class AuthService {
     await this.lockoutService.resetFailedAttempts(user.id);
 
     // Log successful login
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId: user.id,
+        user_id: user.id,
         action: 'LOGIN',
-        ipAddress,
-        userAgent,
+        ip_address,
+        user_agent,
       },
     });
 
@@ -359,11 +359,11 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.roleCode,
-      roleCode: user.roleCode,
-      isActive: user.isActive,
-      emailVerified: user.emailVerified,
-      createdAt: user.createdAt,
+      role: user.role_code,
+      role_code: user.role_code,
+      is_active: user.is_active,
+      email_verified: user.email_verified,
+      created_at: user.created_at,
     };
 
     const tokens = await this.generateTokens(userWithoutPassword);
@@ -402,20 +402,20 @@ export class AuthService {
         throw new ForbiddenException('Account is locked');
       }
 
-      const user = await this.prisma.user.findUnique({
+      const user = await this.prisma.t_mtr_users.findUnique({
         where: { id: payload.sub },
         select: {
           id: true,
           email: true,
           name: true,
           role: true,
-          isActive: true,
-          emailVerified: true,
-          createdAt: true,
+          is_active: true,
+          email_verified: true,
+          created_at: true,
         },
       });
 
-      if (!user || !user.isActive) {
+      if (!user || !user.is_active) {
         throw new UnauthorizedException('User not found or inactive');
       }
 
@@ -436,22 +436,22 @@ export class AuthService {
     }
   }
 
-  async logout(refreshToken: string, userId: string, ipAddress: string) {
+  async logout(refreshToken: string, user_id: string, ip_address: string) {
     try {
       const payload = this.jwtService.decode(refreshToken) as any;
 
       await this.revokeRefreshToken(refreshToken);
 
       // Delete all user sessions
-      await this.redisService.delPattern(`session:${userId}:*`);
+      await this.redisService.delPattern(`session:${user_id}:*`);
 
       // Log logout
       if (payload?.sub) {
-        await this.prisma.securityLog.create({
+        await this.prisma.t_trx_security_logs.create({
           data: {
-            userId: payload.sub,
+            user_id: payload.sub,
             action: 'LOGOUT',
-            ipAddress,
+            ip_address,
             metadata: { method: 'manual' },
           },
         });
@@ -463,36 +463,36 @@ export class AuthService {
     }
   }
 
-  async logoutAllDevices(userId: string, ipAddress: string) {
+  async logoutAllDevices(user_id: string, ip_address: string) {
     // Revoke all refresh tokens by pattern
-    await this.redisService.delPattern(`refresh:${userId}:*`);
-    await this.redisService.delPattern(`session:${userId}:*`);
+    await this.redisService.delPattern(`refresh:${user_id}:*`);
+    await this.redisService.delPattern(`session:${user_id}:*`);
 
     // Log logout all
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId,
+        user_id,
         action: 'LOGOUT_ALL',
-        ipAddress,
+        ip_address,
         metadata: { method: 'all_devices' },
       },
     });
 
-    this.logger.log(`User logged out from all devices: ${userId}`);
+    this.logger.log(`User logged out from all devices: ${user_id}`);
   }
 
   async changePassword(
-    userId: string,
+    user_id: string,
     dto: ChangePasswordDto,
-    ipAddress: string,
-    userAgent: string,
+    ip_address: string,
+    user_agent: string,
   ) {
     if (dto.newPassword !== dto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    const user = await this.prisma.t_mtr_users.findUnique({
+      where: { id: user_id },
     });
 
     if (!user || !user.password) {
@@ -512,28 +512,28 @@ export class AuthService {
 
     const hashedPassword = await this.hashPassword(dto.newPassword);
 
-    await this.prisma.user.update({
-      where: { id: userId },
+    await this.prisma.t_mtr_users.update({
+      where: { id: user_id },
       data: {
         password: hashedPassword,
-        passwordChangedAt: new Date(),
+        password_changed_at: new Date(),
       },
     });
 
     // Log password change
-    await this.prisma.securityLog.create({
+    await this.prisma.t_trx_security_logs.create({
       data: {
-        userId,
+        user_id,
         action: 'PASSWORD_CHANGE',
-        ipAddress,
-        userAgent,
+        ip_address,
+        user_agent,
       },
     });
 
     // Revoke all refresh tokens to force re-login
-    await this.redisService.delPattern(`refresh:${userId}:*`);
+    await this.redisService.delPattern(`refresh:${user_id}:*`);
 
-    this.logger.log(`Password changed for user: ${userId}`);
+    this.logger.log(`Password changed for user: ${user_id}`);
 
     return { message: 'Password changed successfully. Please login again.' };
   }
@@ -651,25 +651,25 @@ export class AuthService {
     }
   }
 
-  async validateUser(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+  async validateUser(user_id: string) {
+    const user = await this.prisma.t_mtr_users.findUnique({
+      where: { id: user_id },
       select: {
         id: true,
         email: true,
         name: true,
-        roleCode: true,
-        isActive: true,
-        emailVerified: true,
+        role_code: true,
+        is_active: true,
+        email_verified: true,
       },
     });
 
-    if (!user || !user.isActive) {
+    if (!user || !user.is_active) {
       return null;
     }
 
     // Check if account is locked
-    const lockoutStatus = await this.lockoutService.checkLockout(userId);
+    const lockoutStatus = await this.lockoutService.checkLockout(user_id);
     if (lockoutStatus.isLocked) {
       return null;
     }
@@ -678,24 +678,24 @@ export class AuthService {
   }
 
   // Admin: Get security logs for a user
-  async getSecurityLogs(userId: string, limit: number = 50) {
-    return this.prisma.securityLog.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+  async getSecurityLogs(user_id: string, limit: number = 50) {
+    return this.prisma.t_trx_security_logs.findMany({
+      where: { user_id },
+      orderBy: { created_at: 'desc' },
       take: limit,
     });
   }
 
-  // User: update own profile (currently supports name, phone, dateOfBirth, gender)
-  async updateProfile(userId: string, updates: { name?: string, phone?: string, dateOfBirth?: string, gender?: string }) {
+  // t_mtr_users: update own profile (currently supports name, phone, date_of_birth, gender)
+  async updateProfile(user_id: string, updates: { name?: string, phone?: string, date_of_birth?: string, gender?: string }) {
     const data: { name?: string } = {};
     if (typeof updates.name === 'string' && updates.name.trim().length >= 2) {
       data.name = updates.name.trim();
     }
 
     if (Object.keys(data).length > 0) {
-      await this.prisma.user.update({
-        where: { id: userId },
+      await this.prisma.t_mtr_users.update({
+        where: { id: user_id },
         data,
       });
     }
@@ -703,29 +703,29 @@ export class AuthService {
     const profileData: any = {};
     if (updates.phone !== undefined) profileData.phone = updates.phone;
     if (updates.gender !== undefined) profileData.gender = updates.gender;
-    if (updates.dateOfBirth !== undefined) profileData.dateOfBirth = updates.dateOfBirth ? new Date(updates.dateOfBirth) : null;
+    if (updates.date_of_birth !== undefined) profileData.date_of_birth = updates.date_of_birth ? new Date(updates.date_of_birth) : null;
 
     if (Object.keys(profileData).length > 0) {
-      await this.prisma.userProfile.upsert({
-        where: { userId },
+      await this.prisma.t_mtr_user_profiles.upsert({
+        where: { user_id },
         update: profileData,
         create: {
-          userId,
+          user_id,
           ...profileData,
         },
       });
     }
 
-    const updated = await this.prisma.user.findUnique({
-      where: { id: userId },
+    const updated = await this.prisma.t_mtr_users.findUnique({
+      where: { id: user_id },
       select: {
         id: true,
         email: true,
         name: true,
-        roleCode: true,
-        isActive: true,
-        emailVerified: true,
-        createdAt: true,
+        role_code: true,
+        is_active: true,
+        email_verified: true,
+        created_at: true,
         profile: true,
       },
     });
@@ -734,8 +734,8 @@ export class AuthService {
   }
 
   // Admin: Unlock user account
-  async adminUnlockAccount(targetUserId: string, adminId: string, ipAddress: string) {
-    await this.lockoutService.unlockAccount(targetUserId, adminId, ipAddress);
+  async adminUnlockAccount(targetUserId: string, adminId: string, ip_address: string) {
+    await this.lockoutService.unlockAccount(targetUserId, adminId, ip_address);
     return { message: 'Account unlocked successfully' };
   }
 }

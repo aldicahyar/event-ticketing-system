@@ -54,9 +54,9 @@ export class AuthController {
     description: 'Too many registration attempts',
   })
   async register(@Body() dto: RegisterDto, @Req() req: Request) {
-    const ipAddress = this.getClientIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.register(dto, ipAddress, userAgent);
+    const ip_address = this.getClientIp(req);
+    const user_agent = req.headers['user-agent'] || 'unknown';
+    return this.authService.register(dto, ip_address, user_agent);
   }
 
   @Post('verify-email')
@@ -103,9 +103,9 @@ export class AuthController {
     description: 'Too many login attempts',
   })
   async login(@Body() dto: LoginDto, @Req() req: Request) {
-    const ipAddress = this.getClientIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.login(dto, ipAddress, userAgent);
+    const ip_address = this.getClientIp(req);
+    const user_agent = req.headers['user-agent'] || 'unknown';
+    return this.authService.login(dto, ip_address, user_agent);
   }
 
   @Post('refresh')
@@ -138,8 +138,8 @@ export class AuthController {
     description: 'User successfully logged out',
   })
   async logout(@Body() dto: RefreshTokenDto, @CurrentUser() user: any, @Req() req: Request) {
-    const ipAddress = this.getClientIp(req);
-    await this.authService.logout(dto.refreshToken, user.id, ipAddress);
+    const ip_address = this.getClientIp(req);
+    await this.authService.logout(dto.refreshToken, user.id, ip_address);
     return { message: 'Logged out successfully' };
   }
 
@@ -154,8 +154,8 @@ export class AuthController {
     description: 'Logged out from all devices',
   })
   async logoutAll(@CurrentUser() user: any, @Req() req: Request) {
-    const ipAddress = this.getClientIp(req);
-    await this.authService.logoutAllDevices(user.id, ipAddress);
+    const ip_address = this.getClientIp(req);
+    await this.authService.logoutAllDevices(user.id, ip_address);
     return { message: 'Logged out from all devices successfully' };
   }
 
@@ -197,9 +197,9 @@ export class AuthController {
     @CurrentUser() user: any,
     @Req() req: Request,
   ) {
-    const ipAddress = this.getClientIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.changePassword(user.id, dto, ipAddress, userAgent);
+    const ip_address = this.getClientIp(req);
+    const user_agent = req.headers['user-agent'] || 'unknown';
+    return this.authService.changePassword(user.id, dto, ip_address, user_agent);
   }
 
   @Patch('me')
@@ -216,7 +216,7 @@ export class AuthController {
     description: 'Invalid input',
   })
   async updateProfile(
-    @Body() dto: { name?: string, phone?: string, dateOfBirth?: string, gender?: string },
+    @Body() dto: { name?: string, phone?: string, date_of_birth?: string, gender?: string },
     @CurrentUser() user: any,
   ) {
     const data = await this.authService.updateProfile(user.id, dto);

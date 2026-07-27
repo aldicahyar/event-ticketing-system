@@ -2,7 +2,7 @@ import { IsEmail, IsString, MinLength, MaxLength, IsOptional, IsEnum } from 'cla
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsStrongPassword } from '../../../common/decorators/strong-password.decorator';
 
-export enum Role {
+export enum t_mtr_roles {
   ADMIN = 'ADMIN',
   ORGANIZER = 'ORGANIZER',
   ATTENDEE = 'ATTENDEE',
@@ -36,10 +36,10 @@ export class RegisterDto {
   @MaxLength(128)
   confirmPassword: string;
 
-  @ApiPropertyOptional({ enum: Role, default: Role.ATTENDEE })
-  @IsEnum(Role)
+  @ApiPropertyOptional({ enum: t_mtr_roles, default: t_mtr_roles.ATTENDEE })
+  @IsEnum(t_mtr_roles)
   @IsOptional()
-  role?: Role;
+  role?: t_mtr_roles;
 }
 
 export class LoginDto {

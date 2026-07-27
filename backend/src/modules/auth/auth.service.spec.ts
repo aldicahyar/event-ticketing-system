@@ -44,16 +44,16 @@ function createRedisMock(available = true) {
 }
 
 function createPrismaMock() {
-  const securityLogs: any[] = [];
+  const security_logs: any[] = [];
   return {
-    securityLogs,
-    securityLog: {
+    security_logs,
+    t_trx_security_logs: {
       create: jest.fn(async ({ data }: any) => {
-        securityLogs.push(data);
+        security_logs.push(data);
         return data;
       }),
     },
-    user: {
+    t_mtr_users: {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -72,10 +72,10 @@ describe('AuthService - OTP via Redis', () => {
     email: 'test@example.com',
     name: 'Test User',
     role: 'ATTENDEE',
-    isActive: true,
-    emailVerified: false,
+    is_active: true,
+    email_verified: false,
     password: 'hashed',
-    createdAt: new Date(),
+    created_at: new Date(),
   };
 
   beforeEach(async () => {
@@ -107,7 +107,7 @@ describe('AuthService - OTP via Redis', () => {
 
   describe('resendVerification - cooldown rate-limit', () => {
     beforeEach(() => {
-      prismaMock.user.findUnique.mockResolvedValue(mockUser);
+      prismaMock.t_mtr_users.findUnique.mockResolvedValue(mockUser);
       redisMock.set.mockClear();
     });
 
@@ -135,7 +135,7 @@ describe('AuthService - OTP via Redis', () => {
         await service.resendVerification('test@example.com');
       } catch {}
 
-      expect(prismaMock.securityLog.create).toHaveBeenCalledWith(
+      expect(prismaMock.t_trx_security_logs.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ action: 'OTP_RATE_LIMITED' }) }),
       );
     });
@@ -143,17 +143,17 @@ describe('AuthService - OTP via Redis', () => {
 
   describe('verifyEmail - code validation', () => {
     beforeEach(() => {
-      prismaMock.user.findUnique.mockResolvedValue(mockUser);
+      prismaMock.t_mtr_users.findUnique.mockResolvedValue(mockUser);
     });
 
     it('succeeds with correct code and deletes from Redis', async () => {
       await redisMock.set('otp:verify:test@example.com', '482917', 900);
       await redisMock.set('otp:attempts:test@example.com', '0', 900);
-      prismaMock.user.update.mockResolvedValue({ ...mockUser, emailVerified: true });
+      prismaMock.t_mtr_users.update.mockResolvedValue({ ...mockUser, email_verified: true });
 
       const result = await service.verifyEmail('test@example.com', '482917');
 
-      expect(result.user.emailVerified).toBe(true);
+      expect(result.user.email_verified).toBe(true);
       expect(redisMock.store.has('otp:verify:test@example.com')).toBe(false);
       expect(redisMock.store.has('otp:attempts:test@example.com')).toBe(false);
     });
@@ -205,7 +205,7 @@ describe('AuthService - OTP via Redis', () => {
 
   describe('Redis unavailability', () => {
     beforeEach(() => {
-      prismaMock.user.findUnique.mockResolvedValue(mockUser);
+      prismaMock.t_mtr_users.findUnique.mockResolvedValue(mockUser);
     });
 
     it('resendVerification throws ServiceUnavailableException when Redis down', async () => {
@@ -224,7 +224,7 @@ describe('AuthService - OTP via Redis', () => {
       );
 
       // Should not even query the user since Redis check is first
-      expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.t_mtr_users.findUnique).not.toHaveBeenCalled();
     });
 
     it('verifyEmail throws ServiceUnavailableException when Redis down', async () => {
@@ -237,7 +237,7 @@ describe('AuthService - OTP via Redis', () => {
 
     it('register throws ServiceUnavailableException pre-flight when Redis down', async () => {
       redisMock.isAvailable.mockReturnValue(false);
-      prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.t_mtr_users.findUnique.mockResolvedValue(null);
 
       await expect(
         service.register(
@@ -252,8 +252,8 @@ describe('AuthService - OTP via Redis', () => {
         ),
       ).rejects.toThrow(ServiceUnavailableException);
 
-      // User should NOT have been created in the database
-      expect(prismaMock.user.create).not.toHaveBeenCalled();
+      // t_mtr_users should NOT have been created in the database
+      expect(prismaMock.t_mtr_users.create).not.toHaveBeenCalled();
     });
 
     it('register rolls back user record if OTP storage fails after user creation', async () => {
@@ -262,13 +262,13 @@ describe('AuthService - OTP via Redis', () => {
         .mockReturnValueOnce(true) // pre-flight check passes
         .mockReturnValueOnce(false); // storeVerificationCode guard fails
 
-      prismaMock.user.findUnique.mockResolvedValue(null);
-      prismaMock.user.create.mockResolvedValue({
+      prismaMock.t_mtr_users.findUnique.mockResolvedValue(null);
+      prismaMock.t_mtr_users.create.mockResolvedValue({
         ...mockUser,
         id: 'new-user-id',
         email: 'new@test.com',
       });
-      prismaMock.user.delete.mockResolvedValue(undefined);
+      prismaMock.t_mtr_users.delete.mockResolvedValue(undefined);
 
       await expect(
         service.register(
@@ -283,15 +283,15 @@ describe('AuthService - OTP via Redis', () => {
         ),
       ).rejects.toThrow(ServiceUnavailableException);
 
-      // User record should have been rolled back
-      expect(prismaMock.user.delete).toHaveBeenCalledWith({ where: { id: 'new-user-id' } });
+      // t_mtr_users record should have been rolled back
+      expect(prismaMock.t_mtr_users.delete).toHaveBeenCalledWith({ where: { id: 'new-user-id' } });
     });
   });
 
   describe('register - stores code in Redis (not Map)', () => {
     it('stores verification code and attempts counter in Redis with correct key prefixes', async () => {
-      prismaMock.user.findUnique.mockResolvedValue(null);
-      prismaMock.user.create.mockResolvedValue(mockUser);
+      prismaMock.t_mtr_users.findUnique.mockResolvedValue(null);
+      prismaMock.t_mtr_users.create.mockResolvedValue(mockUser);
 
       await service.register(
         {
