@@ -184,3 +184,34 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* React Phone Number Input Dark Theme Overrides */
+.phone-input-dark .PhoneInput {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.phone-input-dark .PhoneInputCountry {
+  margin-right: 0.5rem;
+  padding: 0 0.5rem;
+}
+.phone-input-dark .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: white;
+  outline: none;
+}
+.phone-input-dark .PhoneInputInput:focus {
+  outline: none;
+  box-shadow: none;
+}
+.phone-input-dark .PhoneInputCountrySelectArrow {
+  border-color: white;
+  opacity: 0.7;
+}
+.phone-input-dark .PhoneInputCountrySelect {
+  background-color: black;
+  color: white;
+}

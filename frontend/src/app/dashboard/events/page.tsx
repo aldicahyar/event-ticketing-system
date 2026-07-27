@@ -20,6 +20,7 @@ interface Event {
   title: string;
   subtitle?: string;
   description: string;
+  eventDate: string;
   startDateTime: string;
   endDateTime: string;
   basePrice: number;
@@ -37,6 +38,7 @@ const DEFAULT_FORM = {
   subtitle: '',
   description: '',
   venueId: '',
+  eventDate: '',
   startDateTime: '',
   endDateTime: '',
   basePrice: 150000,
@@ -113,6 +115,7 @@ export default function EventsManagementPage() {
       subtitle: event.subtitle || '',
       description: event.description,
       venueId: event.venueId || '',
+      eventDate: toDatetimeLocal(event.eventDate),
       startDateTime: toDatetimeLocal(event.startDateTime),
       endDateTime: toDatetimeLocal(event.endDateTime),
       basePrice: event.basePrice,
@@ -127,7 +130,7 @@ export default function EventsManagementPage() {
     setError('');
     setSuccessMessage('');
 
-    if (!formData.title || !formData.description || !formData.venueId || !formData.startDateTime || !formData.endDateTime) {
+    if (!formData.title || !formData.description || !formData.venueId || !formData.eventDate || !formData.startDateTime || !formData.endDateTime) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -137,6 +140,7 @@ export default function EventsManagementPage() {
       subtitle: formData.subtitle || undefined,
       description: formData.description,
       venueId: formData.venueId,
+      eventDate: new Date(formData.eventDate).toISOString(),
       startDateTime: new Date(formData.startDateTime).toISOString(),
       endDateTime: new Date(formData.endDateTime).toISOString(),
       basePrice: Number(formData.basePrice),
@@ -229,8 +233,8 @@ export default function EventsManagementPage() {
                   {event.venue?.name || 'Unassigned Venue'}
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey text-xs text-[#CCCCCC]">
-                  <div>Start: {new Date(event.startDateTime).toLocaleString()}</div>
-                  <div className="mt-1 text-[#888]">End: {new Date(event.endDateTime).toLocaleString()}</div>
+                  <div className="font-bold text-white mb-1">{new Date(event.eventDate).toLocaleString()}</div>
+                  <div className="text-[#888]">Sales: {new Date(event.startDateTime).toLocaleDateString()} - {new Date(event.endDateTime).toLocaleDateString()}</div>
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey font-bold text-sm">
                   {/* basePrice arrives as a Prisma Decimal serialized to a string;
@@ -432,10 +436,25 @@ export default function EventsManagementPage() {
                 </div>
               </div>
 
+              {/* Event Date Time */}
+              <div>
+                <label htmlFor="event-eventDate" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                  Event Date & Time *
+                </label>
+                <input
+                  id="event-eventDate"
+                  type="datetime-local"
+                  required
+                  value={formData.eventDate}
+                  onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
+                  className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
+                />
+              </div>
+
               {/* Start Date Time */}
               <div>
                 <label htmlFor="event-startDateTime" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
-                  Start Date & Time *
+                  Ticket Sales Start *
                 </label>
                 <input
                   id="event-startDateTime"
@@ -450,7 +469,7 @@ export default function EventsManagementPage() {
               {/* End Date Time */}
               <div>
                 <label htmlFor="event-endDateTime" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
-                  End Date & Time *
+                  Ticket Sales End *
                 </label>
                 <input
                   id="event-endDateTime"

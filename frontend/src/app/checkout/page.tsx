@@ -10,6 +10,8 @@ import {
   Ticket, Calendar, ChevronRight
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
+import 'react-phone-number-input/style.css';
+import PhoneInput from 'react-phone-number-input';
 
 // Checkout Steps
 const STEPS = ['Review', 'Details', 'Payment', 'Confirmation'];
@@ -55,10 +57,49 @@ function CheckoutContent() {
   const finalPpn = hasCalculatedParams ? ppnVal : total - finalSubtotal;
   const finalTotal = total;
 
+  const [eventData, setEventData] = useState<any>(null);
+
+  React.useEffect(() => {
+    if (eventId) {
+      fetch(`http://localhost:3000/events/${eventId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setEventData(data.data);
+          }
+        })
+        .catch(err => console.error("Failed to fetch event", err));
+    }
+  }, [eventId]);
+
+  React.useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setFormData(prev => ({
+          ...prev,
+          firstName: user.name?.split(' ')[0] || prev.firstName,
+          lastName: user.name?.split(' ').slice(1).join(' ') || prev.lastName,
+          email: user.email || prev.email,
+        }));
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+      }
+    }
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
+    });
+  };
+
+  const handlePhoneChange = (value?: string) => {
+    setFormData({
+      ...formData,
+      phone: value || ''
     });
   };
 
@@ -77,26 +118,48 @@ function CheckoutContent() {
   const handlePayment = async () => {
     setLoading(true);
     
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate order number
-    const orderNum = 'EVT-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
-    setOrderNumber(orderNum);
-    
-    setOrderComplete(true);
-    setLoading(false);
-    setCurrentStep(STEPS.length - 1);
-  };
+    try {
+      // 1. Get Token from local storage (assuming auth is stored here)
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+      if (!token) {
+        alert('You must be logged in to checkout. Please login first.');
+        setLoading(false);
+        return;
+      }
 
-  // Mock event data
-  const event = {
-    id: eventId,
-    artist: 'BRING ME THE HORIZON',
-    tour: 'POST HUMAN: SURVIVAL HORROR',
-    date: '2026-03-15',
-    venue: 'Jakarta GBK Stadium',
-    seats: seats.map((s, i) => ({ id: s, label: `Section ${s.charAt(0)}-Row ${s.charAt(1)}${s.slice(2)}` }))
+      // 2. Call backend API
+      const response = await fetch('http://localhost:3000/bookings/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          eventId: eventId,
+          seatIds: seats,
+          guestName: `${formData.firstName} ${formData.lastName}`.trim(),
+          guestEmail: formData.email,
+          guestPhone: formData.phone
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Checkout failed');
+      }
+
+      // 3. Redirect to Stripe
+      if (data.data?.checkoutUrl) {
+        window.location.href = data.data.checkoutUrl;
+      } else {
+        throw new Error('Checkout URL not found from backend');
+      }
+      
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+      setLoading(false);
+    }
   };
 
   if (!eventId || !seatsParam || !totalParam) {
@@ -187,41 +250,19 @@ function CheckoutContent() {
                       <Ticket className="w-6 h-6 md:w-8 md:h-8 text-white mt-1 shrink-0" aria-hidden="true" />
                       <div className="min-w-0">
                         <div className="text-xs md:text-sm text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
-                        <h3 className="font-display font-bold text-lg md:text-xl uppercase text-white">{event.artist}</h3>
-                        <p className="text-[#CCCCCC] text-sm">{event.tour}</p>
+                        <h3 className="font-display font-bold text-lg md:text-xl uppercase text-white">{eventData ? eventData.title : 'Loading...'}</h3>
+                        <p className="text-[#CCCCCC] text-sm">{eventData?.subtitle || ''}</p>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs md:text-sm text-[#CCCCCC]">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 md:w-4 md:h-4" aria-hidden="true" />
-                            {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {eventData ? new Date(eventData.eventDate || eventData.startDateTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '...'}
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3 md:w-4 md:h-4" aria-hidden="true" />
-                            {event.venue}
+                            {eventData?.venue?.name || 'Loading Venue...'}
                           </span>
                         </div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Selected Seats */}
-                  <div className="mb-6">
-                    <h3 className="font-bold uppercase text-white mb-3">Your Tickets</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {event.seats.map((seat) => (
-                        <div key={seat.id} className="bg-white/10 px-3 py-2 text-center border border-mono-dark-grey">
-                          <span className="text-xs md:text-sm font-bold">{seat.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Order Total */}
-                  <div className="bg-white/5 p-4">
-                    <div className="flex justify-between items-center">
-                      <span className="uppercase text-mono-light-grey text-sm">Order Total</span>
-                      <span className="text-xl md:text-2xl font-display font-bold text-white">
-                        IDR {total.toLocaleString('id-ID')}
-                      </span>
                     </div>
                   </div>
                 </motion.div>
@@ -286,17 +327,15 @@ function CheckoutContent() {
                     </div>
                     <div>
                       <label htmlFor="phone" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Phone</label>
-                      <div className="relative">
-                        <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
-                        <input
+                      <div className="relative phone-input-dark">
+                        <PhoneInput
                           id="phone"
-                          type="tel"
                           name="phone"
+                          defaultCountry="ID"
                           value={formData.phone}
-                          onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white text-base px-10 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
-                          placeholder="+62 812 3456 7890"
-                          autoComplete="tel"
+                          onChange={handlePhoneChange}
+                          placeholder="812 3456 7890"
+                          className="w-full bg-black border border-white text-white text-base px-4 py-2 min-h-touch focus-within:border-white/50 transition-colors"
                         />
                       </div>
                     </div>
@@ -313,85 +352,15 @@ function CheckoutContent() {
                   exit={{ opacity: 0, x: -20 }}
                   className="bg-black border border-mono-dark-grey p-4 md:p-6"
                 >
-                  <h2 className="font-display font-bold text-xl md:text-2xl uppercase text-white mb-6">Payment Method</h2>
+                  <h2 className="font-display font-bold text-xl md:text-2xl uppercase text-white mb-6">Secure Payment</h2>
                   
-                  {/* Payment Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    {[
-                      { id: 'card', icon: CreditCard, label: 'Credit Card' },
-                      { id: 'bank', icon: Smartphone, label: 'Bank Transfer' },
-                      { id: 'ewallet', icon: Smartphone, label: 'E-Wallet' }
-                    ].map((option) => (
-                      <button
-                        key={option.id}
-                        className="p-4 min-h-touch border-2 border-mono-dark-grey hover:border-white transition-all flex flex-col items-center gap-2 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-                        aria-label={option.label}
-                      >
-                        <option.icon className="w-6 h-6 text-white" aria-hidden="true" />
-                        <span className="text-sm font-bold uppercase">{option.label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Card Form */}
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="cardNumber" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Card Number</label>
-                      <div className="relative">
-                        <CreditCard className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-mono-light-grey" aria-hidden="true" />
-                        <input
-                          id="cardNumber"
-                          type="text"
-                          name="cardNumber"
-                          value={formData.cardNumber}
-                          onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white text-base px-10 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
-                          placeholder="1234 5678 9012 3456"
-                          autoComplete="cc-number"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label htmlFor="cardName" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Cardholder Name</label>
-                      <input
-                        id="cardName"
-                        type="text"
-                        name="cardName"
-                        value={formData.cardName}
-                        onChange={handleInputChange}
-                        className="w-full bg-black border border-white text-white text-base px-4 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
-                        placeholder="JOHN DOE"
-                        autoComplete="cc-name"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="expiryDate" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">Expiry Date</label>
-                        <input
-                          id="expiryDate"
-                          type="text"
-                          name="expiryDate"
-                          value={formData.expiryDate}
-                          onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white text-base px-4 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
-                          placeholder="MM/YY"
-                          autoComplete="cc-exp"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="cvv" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">CVV</label>
-                        <input
-                          id="cvv"
-                          type="text"
-                          name="cvv"
-                          value={formData.cvv}
-                          onChange={handleInputChange}
-                          className="w-full bg-black border border-white text-white text-base px-4 py-3 min-h-touch focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 transition-colors placeholder-[#666]"
-                          placeholder="123"
-                          autoComplete="cc-csc"
-                        />
-                      </div>
-                    </div>
+                  <div className="bg-white/5 border border-mono-dark-grey p-6 text-center">
+                    <Lock className="w-12 h-12 text-white mx-auto mb-4" aria-hidden="true" />
+                    <h3 className="font-bold text-lg mb-2">Proceed to Stripe Checkout</h3>
+                    <p className="text-mono-light-grey text-sm">
+                      You will be securely redirected to Stripe to complete your payment. 
+                      You can pay using Credit Card, Bank Transfer, or E-Wallet.
+                    </p>
                   </div>
                 </motion.div>
               )}
@@ -426,15 +395,15 @@ function CheckoutContent() {
                     <div className="grid grid-cols-2 gap-3 md:gap-4 text-sm">
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Event</div>
-                        <div className="font-bold uppercase text-xs md:text-sm">{event.artist}</div>
+                        <div className="font-bold uppercase text-xs md:text-sm">{eventData?.title || '...'}</div>
                       </div>
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Date</div>
-                        <div className="font-bold text-xs md:text-sm">{new Date(event.date).toLocaleDateString()}</div>
+                        <div className="font-bold text-xs md:text-sm">{eventData ? new Date(eventData.startDateTime).toLocaleDateString() : '...'}</div>
                       </div>
                       <div className="col-span-2">
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Tickets</div>
-                        <div className="font-bold text-xs md:text-sm">{event.seats.map(s => s.label).join(', ')}</div>
+                        <div className="font-bold text-xs md:text-sm">{seats.length} Tickets</div>
                       </div>
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Total Paid</div>
@@ -513,21 +482,25 @@ function CheckoutContent() {
               {/* Event */}
               <div className="pb-4 border-b border-mono-dark-grey mb-4">
                 <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-1">Event</div>
-                <div className="font-bold uppercase text-white text-sm md:text-base">{event.artist}</div>
+                <div className="font-bold uppercase text-white text-sm md:text-base">{eventData?.title || 'Loading...'}</div>
                 <div className="text-xs md:text-sm text-[#CCCCCC]">
-                  {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {eventData ? new Date(eventData.eventDate || eventData.startDateTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '...'}
                 </div>
               </div>
 
               {/* Tickets */}
               <div className="pb-4 border-b border-mono-dark-grey mb-4">
-                <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-2">Tickets ({event.seats.length})</div>
-                {event.seats.map((seat) => (
-                  <div key={seat.id} className="flex justify-between text-xs md:text-sm mb-1">
-                    <span className="text-[#CCCCCC]">{seat.label}</span>
-                    <span className="text-white">IDR {(finalSubtotal / event.seats.length).toLocaleString('id-ID')}</span>
-                  </div>
-                ))}
+                <div className="text-xs text-mono-light-grey uppercase tracking-widest mb-2">Tickets ({seats.length})</div>
+                {seats.map((seatId) => {
+                  const seatDetails = eventData?.seats?.find((s: any) => s.id === seatId);
+                  const seatLabel = seatDetails ? `${seatDetails.type} - Row ${seatDetails.row} / ${seatDetails.number}` : `${seatId.substring(0, 8)}...`;
+                  return (
+                    <div key={seatId} className="flex justify-between text-xs md:text-sm mb-1">
+                      <span className="text-[#CCCCCC]">{seatLabel}</span>
+                      <span className="text-white">IDR {(finalSubtotal / seats.length).toLocaleString('id-ID')}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Price Breakdown */}

@@ -22,7 +22,7 @@ const mapDbEventToFrontend = (e: any): EventItem => {
   return {
     id: e.id,
     artist: e.title,
-    date: e.startDateTime,
+    date: e.eventDate || e.startDateTime,
     price: Number(e.basePrice),
     genre: 'Metalcore',
     image: e.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=1000&auto=format&fit=crop',

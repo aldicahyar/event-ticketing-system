@@ -3,6 +3,13 @@
  * Keep in sync when the API contract changes.
  */
 
+export interface UserProfile {
+  id: string;
+  phone?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -19,6 +26,7 @@ export interface AdminUser {
   passwordChangedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  profile?: UserProfile | null;
   /** Computed server-side: lockedUntil is in the future. */
   isLocked: boolean;
   role?: {

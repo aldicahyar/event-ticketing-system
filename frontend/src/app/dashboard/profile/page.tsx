@@ -18,6 +18,11 @@ interface CurrentUser {
   isActive: boolean;
   emailVerified: boolean;
   createdAt: string;
+  profile?: {
+    phone?: string | null;
+    dateOfBirth?: string | null;
+    gender?: string | null;
+  } | null;
 }
 
 export default function ProfilePage() {
@@ -62,9 +67,9 @@ export default function ProfilePage() {
         firstName: nameParts[0] || '',
         lastName: nameParts.slice(1).join(' ') || '',
         email: safeMe.email || '',
-        phone: '',
-        dateOfBirth: '',
-        gender: 'prefer-not',
+        phone: safeMe.profile?.phone || '',
+        dateOfBirth: safeMe.profile?.dateOfBirth ? new Date(safeMe.profile.dateOfBirth).toISOString().split('T')[0] : '',
+        gender: safeMe.profile?.gender || 'prefer-not',
       });
       setMemberSince(safeMe.createdAt);
       setEmailVerified(safeMe.emailVerified);
@@ -88,8 +93,13 @@ export default function ProfilePage() {
     setError(null);
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-      // Only name is editable through existing profile; email changes typically need verification.
-      await apiClient.patch('/auth/me', { name: fullName });
+      
+      await apiClient.patch('/auth/me', { 
+        name: fullName,
+        phone: formData.phone || undefined,
+        dateOfBirth: formData.dateOfBirth || undefined,
+        gender: formData.gender || undefined,
+      });
       // Refresh user context so sidebar/nav reflect the new name
       if (refreshUser) await refreshUser();
       setSaved(true);

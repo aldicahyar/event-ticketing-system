@@ -142,7 +142,7 @@ export default function EventDetailPage() {
             id: eventData.id,
             artist: eventData.title,
             tour: eventData.subtitle || 'Live Show',
-            date: eventData.startDateTime,
+            date: eventData.eventDate || eventData.startDateTime,
             venue: eventData.venue?.name || 'Venue',
             price: Number(eventData.basePrice),
             image: eventData.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
