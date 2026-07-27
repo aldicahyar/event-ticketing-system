@@ -26,15 +26,15 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Cron-like job to find all PENDING bookings that have passed their expiresAt,
+   * Cron-like job to find all PENDING bookings that have passed their expires_at,
    * cancel them, and release their seats back to AVAILABLE.
    */
   async expireOldBookings() {
     try {
-      const expiredBookings = await this.prisma.booking.findMany({
+      const expiredBookings = await this.prisma.t_trx_bookings.findMany({
         where: {
           status: 'PENDING',
-          expiresAt: { lt: new Date() },
+          expires_at: { lt: new Date() },
         },
         select: { id: true },
       });
@@ -46,13 +46,13 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
       await this.prisma.$transaction(async (tx) => {
         // 1. Release seats
-        await tx.seat.updateMany({
-          where: { bookingId: { in: bookingIds } },
-          data: { status: 'AVAILABLE', bookingId: null },
+        await tx.t_mtr_seats.updateMany({
+          where: { booking_id: { in: bookingIds } },
+          data: { status: 'AVAILABLE', booking_id: null },
         });
 
         // 2. Mark bookings as EXPIRED
-        await tx.booking.updateMany({
+        await tx.t_trx_bookings.updateMany({
           where: { id: { in: bookingIds } },
           data: { status: 'EXPIRED' },
         });
@@ -64,10 +64,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async checkout(userId: string, eventId: string, seatIds: string[], guestInfo?: { guestName?: string, guestEmail?: string, guestPhone?: string }) {
-    // 1. Verify Event
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
+  async checkout(user_id: string, event_id: string, seatIds: string[], guestInfo?: { guest_name?: string, guest_email?: string, guest_phone?: string }) {
+    // 1. Verify t_trx_events
+    const event = await this.prisma.t_trx_events.findUnique({
+      where: { id: event_id },
       include: { venue: true },
     });
     if (!event) throw new NotFoundException('Event not found');
@@ -77,8 +77,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 2. Fetch all requested seats
-    const seats = await this.prisma.seat.findMany({
-      where: { id: { in: seatIds }, eventId },
+    const seats = await this.prisma.t_mtr_seats.findMany({
+      where: { id: { in: seatIds }, event_id },
     });
     if (seats.length !== seatIds.length) {
       throw new BadRequestException('Some seats do not exist or do not belong to this event');
@@ -93,10 +93,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     const redisClient = this.redis.getClient();
     const lockedKeys: string[] = [];
     if (redisClient) {
-      for (const seatId of seatIds) {
-        const lockKey = `seat_lock:${seatId}`;
+      for (const seat_id of seatIds) {
+        const lockKey = `seat_lock:${seat_id}`;
         // Set NX (Not Exists), EX 900 (Expires in 900s = 15m)
-        const acquired = await redisClient.set(lockKey, userId, 'EX', 900, 'NX');
+        const acquired = await redisClient.set(lockKey, user_id, 'EX', 900, 'NX');
         if (!acquired) {
           // If we fail to acquire a lock, rollback any locks we already got
           if (lockedKeys.length > 0) {
@@ -110,50 +110,50 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // 4. Calculate Total Price
-      const tierSettings = await this.prisma.ticketTierSetting.findMany({ where: { status: 'ACTIVE' } });
-      const taxSetting = await this.prisma.taxSetting.findUnique({ where: { id: 'default' } });
-      const taxPercent = taxSetting?.status === 'ACTIVE' ? taxSetting.ppnPercent : 0;
+      const tierSettings = await this.prisma.t_mtr_ticket_tier_settings.findMany({ where: { status: 'ACTIVE' } });
+      const taxSetting = await this.prisma.t_mtr_tax_settings.findUnique({ where: { id: 'default' } });
+      const taxPercent = taxSetting?.status === 'ACTIVE' ? taxSetting.ppn_percent : 0;
 
       let subtotal = 0;
       for (const seat of seats) {
         const tier = tierSettings.find((t) => t.id === seat.type);
         const multiplier = tier ? tier.multiplier : 1;
-        const price = Number(event.basePrice) * multiplier;
+        const price = Number(event.base_price) * multiplier;
         subtotal += price;
       }
       const tax = subtotal * (taxPercent / 100);
-      const totalPrice = subtotal + tax;
-      const bookingCode = `BOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+      const total_price = subtotal + tax;
+      const booking_code = `BOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const expires_at = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
-      // 5. Database Transaction to create Booking and update Seats
+      // 5. Database Transaction to create t_trx_bookings and update Seats
       const booking = await this.prisma.$transaction(async (tx) => {
         // Double check status inside transaction
-        const currentSeats = await tx.seat.findMany({
+        const currentSeats = await tx.t_mtr_seats.findMany({
           where: { id: { in: seatIds }, status: 'AVAILABLE' },
         });
         if (currentSeats.length !== seatIds.length) {
           throw new ConflictException('Seats were taken before transaction completed');
         }
 
-        const b = await tx.booking.create({
+        const b = await tx.t_trx_bookings.create({
           data: {
-            userId,
-            eventId,
-            bookingCode,
-            totalPrice,
+            user_id,
+            event_id,
+            booking_code,
+            total_price,
             currency: event.currency,
             status: 'PENDING',
-            expiresAt,
-            guestName: guestInfo?.guestName,
-            guestEmail: guestInfo?.guestEmail,
-            guestPhone: guestInfo?.guestPhone,
+            expires_at,
+            guest_name: guestInfo?.guest_name,
+            guest_email: guestInfo?.guest_email,
+            guest_phone: guestInfo?.guest_phone,
           },
         });
 
-        await tx.seat.updateMany({
+        await tx.t_mtr_seats.updateMany({
           where: { id: { in: seatIds } },
-          data: { status: 'RESERVED', bookingId: b.id },
+          data: { status: 'RESERVED', booking_id: b.id },
         });
 
         return b;
@@ -165,7 +165,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       });
 
       // Fetch user to get email for Stripe
-      const customer = await this.prisma.user.findUnique({ where: { id: userId } });
+      const customer = await this.prisma.t_mtr_users.findUnique({ where: { id: user_id } });
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -176,9 +176,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
               currency: event.currency.toLowerCase(),
               product_data: {
                 name: `${event.title} - Ticketing`,
-                description: `Booking Code: ${booking.bookingCode}`,
+                description: `Booking Code: ${booking.booking_code}`,
               },
-              unit_amount: Math.round(totalPrice * 100), // Stripe expects cents
+              unit_amount: Math.round(total_price * 100), // Stripe expects cents
             },
             quantity: 1,
           },
@@ -190,10 +190,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       });
 
       return {
-        bookingId: booking.id,
-        bookingCode: booking.bookingCode,
+        booking_id: booking.id,
+        booking_code: booking.booking_code,
         checkoutUrl: session.url,
-        expiresAt,
+        expires_at,
         message: 'Seats locked and checkout session created successfully',
       };
     } catch (error) {
@@ -207,9 +207,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   /**
    * Returns only bookings owned by the user, including event, venue, seats, and payment.
    */
-  async findMyOrders(userId: string) {
-    return this.prisma.booking.findMany({
-      where: { userId },
+  async findMyOrders(user_id: string) {
+    return this.prisma.t_trx_bookings.findMany({
+      where: { user_id },
       include: {
         event: {
           include: {
@@ -228,10 +228,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         },
         payment: true,
         tickets: {
-          select: { id: true, qrCode: true, isCheckedIn: true },
+          select: { id: true, qr_code: true, is_checked_in: true },
         },
       },
-      orderBy: { bookedAt: 'desc' },
+      orderBy: { booked_at: 'desc' },
     });
   }
 
@@ -239,9 +239,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
    * Get a single booking (order) owned by the user.
    * Throws NotFound if the booking does not exist or does not belong to the user.
    */
-  async findMyOrderById(userId: string, bookingId: string) {
-    const booking = await this.prisma.booking.findFirst({
-      where: { id: bookingId, userId },
+  async findMyOrderById(user_id: string, booking_id: string) {
+    const booking = await this.prisma.t_trx_bookings.findFirst({
+      where: { id: booking_id, user_id },
       include: {
         event: {
           include: {
@@ -257,7 +257,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     });
 
     if (!booking) {
-      throw new NotFoundException(`Order with ID ${bookingId} not found`);
+      throw new NotFoundException(`Order with ID ${booking_id} not found`);
     }
 
     return booking;
@@ -268,10 +268,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
    * Returns tickets associated with bookings owned by the user.
    * Only includes CONFIRMED bookings (i.e. valid tickets).
    */
-  async findMyTickets(userId: string) {
-    const bookings = await this.prisma.booking.findMany({
+  async findMyTickets(user_id: string) {
+    const bookings = await this.prisma.t_trx_bookings.findMany({
       where: {
-        userId,
+        user_id,
         status: 'CONFIRMED',
       },
       include: {
@@ -293,7 +293,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         payment: true,
         tickets: true,
       },
-      orderBy: { event: { startDateTime: 'asc' } },
+      orderBy: { event: { start_date_time: 'asc' } },
     });
 
     return bookings;
@@ -302,11 +302,11 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get aggregate order stats for the current user (for dashboard overview).
    */
-  async getMyOrderStats(userId: string) {
-    const bookings = await this.prisma.booking.findMany({
-      where: { userId, status: 'CONFIRMED' },
+  async getMyOrderStats(user_id: string) {
+    const bookings = await this.prisma.t_trx_bookings.findMany({
+      where: { user_id, status: 'CONFIRMED' },
       select: {
-        totalPrice: true,
+        total_price: true,
         _count: { select: { tickets: true } },
       },
     });
@@ -317,7 +317,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       0,
     );
     const totalSpent = bookings.reduce(
-      (acc, b) => acc + (b.totalPrice instanceof Prisma.Decimal ? Number(b.totalPrice) : Number(b.totalPrice ?? 0)),
+      (acc, b) => acc + (b.total_price instanceof Prisma.Decimal ? Number(b.total_price) : Number(b.total_price ?? 0)),
       0,
     );
 

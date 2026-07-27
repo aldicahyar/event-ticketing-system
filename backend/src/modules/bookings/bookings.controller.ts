@@ -30,12 +30,12 @@ export class BookingsController {
   ) {
     const data = await this.bookingsService.checkout(
       user.id, 
-      dto.eventId, 
+      dto.event_id, 
       dto.seatIds,
       {
-        guestName: dto.guestName,
-        guestEmail: dto.guestEmail,
-        guestPhone: dto.guestPhone,
+        guest_name: dto.guest_name,
+        guest_email: dto.guest_email,
+        guest_phone: dto.guest_phone,
       }
     );
     return {

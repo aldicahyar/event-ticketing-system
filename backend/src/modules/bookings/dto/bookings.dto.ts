@@ -2,7 +2,7 @@ import { IsString, IsArray, ArrayNotEmpty, IsOptional } from 'class-validator';
 
 export class CheckoutDto {
   @IsString()
-  eventId: string;
+  event_id: string;
 
   @IsArray()
   @ArrayNotEmpty()
@@ -11,13 +11,13 @@ export class CheckoutDto {
 
   @IsOptional()
   @IsString()
-  guestName?: string;
+  guest_name?: string;
 
   @IsOptional()
   @IsString()
-  guestEmail?: string;
+  guest_email?: string;
 
   @IsOptional()
   @IsString()
-  guestPhone?: string;
+  guest_phone?: string;
 }
