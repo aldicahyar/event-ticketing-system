@@ -40,7 +40,7 @@ export class CreateVenueDto {
     description: 'JSON object describing rows, seats per row, and layout type',
   })
   @IsObject()
-  seatMap: Record<string, any>;
+  seat_map: Record<string, any>;
 
   @ApiPropertyOptional({ example: 'Tennis Indoor arena with modern facilities.' })
   @IsString()
@@ -50,5 +50,5 @@ export class CreateVenueDto {
   @ApiPropertyOptional({ example: 'https://images.unsplash.com/...jpg' })
   @IsString()
   @IsOptional()
-  imageUrl?: string;
+  image_url?: string;
 }

@@ -8,28 +8,28 @@ export class VenuesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateVenueDto) {
-    return this.prisma.venue.create({
+    return this.prisma.t_mtr_venues.create({
       data: {
         name: dto.name,
         address: dto.address,
         city: dto.city.toUpperCase(),
         country: dto.country,
         capacity: dto.capacity,
-        seatMap: dto.seatMap,
+        seat_map: dto.seat_map,
         description: dto.description,
-        imageUrl: dto.imageUrl,
+        image_url: dto.image_url,
       },
     });
   }
 
   async findAll() {
-    return this.prisma.venue.findMany({
-      orderBy: { createdAt: 'desc' },
+    return this.prisma.t_mtr_venues.findMany({
+      orderBy: { created_at: 'desc' },
     });
   }
 
   async findOne(id: string) {
-    const venue = await this.prisma.venue.findUnique({
+    const venue = await this.prisma.t_mtr_venues.findUnique({
       where: { id },
     });
 
@@ -51,7 +51,7 @@ export class VenuesService {
       updates.city = updates.city.toUpperCase();
     }
 
-    return this.prisma.venue.update({
+    return this.prisma.t_mtr_venues.update({
       where: { id },
       data: updates,
     });
@@ -61,7 +61,7 @@ export class VenuesService {
     // Check if venue exists
     await this.findOne(id);
 
-    await this.prisma.venue.delete({
+    await this.prisma.t_mtr_venues.delete({
       where: { id },
     });
 

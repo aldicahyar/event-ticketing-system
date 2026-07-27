@@ -28,7 +28,7 @@ export class UpdateTaxSettingDto {
   @ApiProperty({ example: 11, description: 'PPN/VAT percentage' })
   @IsNumber()
   @Min(0)
-  ppnPercent: number;
+  ppn_percent: number;
 
   @ApiPropertyOptional({ example: 'ACTIVE', default: 'ACTIVE' })
   @IsString()

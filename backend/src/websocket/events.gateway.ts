@@ -52,24 +52,24 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   }
 
   @SubscribeMessage('join:room')
-  handleJoinRoom(@MessageBody() data: { eventId: string }, @ConnectedSocket() client: Socket) {
-    client.join(`event:${data.eventId}`);
-    this.logger.log(`Client ${client.id} joined room: event:${data.eventId}`);
+  handleJoinRoom(@MessageBody() data: { event_id: string }, @ConnectedSocket() client: Socket) {
+    client.join(`event:${data.event_id}`);
+    this.logger.log(`Client ${client.id} joined room: event:${data.event_id}`);
   }
 
   @SubscribeMessage('leave:room')
-  handleLeaveRoom(@MessageBody() data: { eventId: string }, @ConnectedSocket() client: Socket) {
-    client.leave(`event:${data.eventId}`);
-    this.logger.log(`Client ${client.id} left room: event:${data.eventId}`);
+  handleLeaveRoom(@MessageBody() data: { event_id: string }, @ConnectedSocket() client: Socket) {
+    client.leave(`event:${data.event_id}`);
+    this.logger.log(`Client ${client.id} left room: event:${data.event_id}`);
   }
 
   @SubscribeMessage('seat:availability')
   async handleSeatAvailability(
-    @MessageBody() data: { eventId: string },
+    @MessageBody() data: { event_id: string },
     @ConnectedSocket() client: Socket,
   ) {
     client.emit('seat:availability', {
-      eventId: data.eventId,
+      event_id: data.event_id,
       timestamp: Date.now(),
     });
   }

@@ -39,18 +39,18 @@ const parseQueryBoolean = ({ obj, key }: TransformFnParams) => {
 };
 
 export const USER_SORT_FIELDS = [
-  'createdAt',
+  'created_at',
   'name',
   'email',
-  'roleCode',
-  'lastLoginAt',
+  'role_code',
+  'last_login_at',
 ] as const;
 export type UserSortField = (typeof USER_SORT_FIELDS)[number];
 
 /**
  * Query params for GET /users (admin monitoring list).
  * Global ValidationPipe runs with `enableImplicitConversion: true`,
- * so `?isActive=true&page=2` arrive already coerced to boolean/number.
+ * so `?is_active=true&page=2` arrive already coerced to boolean/number.
  */
 export class ListUsersQueryDto {
   @ApiPropertyOptional({ description: 'Free-text search on name or email' })
@@ -62,20 +62,20 @@ export class ListUsersQueryDto {
   @ApiPropertyOptional({ example: 'ADMIN', description: 'Filter by exact role code' })
   @IsOptional()
   @IsString()
-  @Matches(new RegExp(ROLE_CODE_PATTERN), { message: 'invalid roleCode format' })
-  roleCode?: string;
+  @Matches(new RegExp(ROLE_CODE_PATTERN), { message: 'invalid role_code format' })
+  role_code?: string;
 
   @ApiPropertyOptional({ description: 'Filter by account active flag' })
   @IsOptional()
   @Transform(parseQueryBoolean)
   @IsBoolean()
-  isActive?: boolean;
+  is_active?: boolean;
 
   @ApiPropertyOptional({ description: 'Filter by email verification status' })
   @IsOptional()
   @Transform(parseQueryBoolean)
   @IsBoolean()
-  emailVerified?: boolean;
+  email_verified?: boolean;
 
   @ApiPropertyOptional({ example: 'local', description: 'Auth provider (local, google, ...)' })
   @IsOptional()
@@ -106,7 +106,7 @@ export class ListUsersQueryDto {
   @Max(100)
   limit?: number;
 
-  @ApiPropertyOptional({ enum: USER_SORT_FIELDS, default: 'createdAt' })
+  @ApiPropertyOptional({ enum: USER_SORT_FIELDS, default: 'created_at' })
   @IsOptional()
   @IsIn(USER_SORT_FIELDS as unknown as string[])
   sortBy?: UserSortField;
@@ -114,7 +114,7 @@ export class ListUsersQueryDto {
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'desc' })
   @IsOptional()
   @IsIn(['asc', 'desc'])
-  sortOrder?: 'asc' | 'desc';
+  sort_order?: 'asc' | 'desc';
 }
 
 export class CreateUserDto {
@@ -141,8 +141,8 @@ export class CreateUserDto {
 
   @ApiProperty({ example: 'ATTENDEE', pattern: ROLE_CODE_PATTERN })
   @IsString()
-  @Matches(new RegExp(ROLE_CODE_PATTERN), { message: 'invalid roleCode format' })
-  roleCode: string;
+  @Matches(new RegExp(ROLE_CODE_PATTERN), { message: 'invalid role_code format' })
+  role_code: string;
 
   @ApiPropertyOptional({
     default: true,
@@ -150,12 +150,12 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsBoolean()
-  emailVerified?: boolean;
+  email_verified?: boolean;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
-  isActive?: boolean;
+  is_active?: boolean;
 }
 
 export class UpdateUserDto {
@@ -175,18 +175,18 @@ export class UpdateUserDto {
   @ApiPropertyOptional({ example: 'ORGANIZER', pattern: ROLE_CODE_PATTERN })
   @IsOptional()
   @IsString()
-  @Matches(new RegExp(ROLE_CODE_PATTERN), { message: 'invalid roleCode format' })
-  roleCode?: string;
+  @Matches(new RegExp(ROLE_CODE_PATTERN), { message: 'invalid role_code format' })
+  role_code?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  isActive?: boolean;
+  is_active?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  emailVerified?: boolean;
+  email_verified?: boolean;
 }
 
 export class AdminResetPasswordDto {

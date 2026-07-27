@@ -46,71 +46,71 @@ export class PaymentsService {
   }
 
   private async processSuccessfulPayment(session: Stripe.Checkout.Session) {
-    const bookingId = session.client_reference_id;
-    if (!bookingId) {
+    const booking_id = session.client_reference_id;
+    if (!booking_id) {
       this.logger.error('No client_reference_id found in checkout session');
       return;
     }
 
-    const booking = await this.prisma.booking.findUnique({
-      where: { id: bookingId },
+    const booking = await this.prisma.t_trx_bookings.findUnique({
+      where: { id: booking_id },
       include: { seats: true },
     });
 
     if (!booking) {
-      this.logger.error(`Booking ${bookingId} not found for completed session`);
+      this.logger.error(`Booking ${booking_id} not found for completed session`);
       return;
     }
 
     if (booking.status === 'CONFIRMED') {
-      this.logger.warn(`Booking ${bookingId} is already CONFIRMED`);
+      this.logger.warn(`Booking ${booking_id} is already CONFIRMED`);
       return;
     }
 
     const amountPaid = session.amount_total ? session.amount_total / 100 : 0;
 
     await this.prisma.$transaction(async (tx) => {
-      // 1. Create Payment Record
-      await tx.payment.create({
+      // 1. Create t_trx_payments Record
+      await tx.t_trx_payments.create({
         data: {
-          bookingId: booking.id,
+          booking_id: booking.id,
           amount: amountPaid,
           currency: (session.currency || 'usd').toUpperCase(),
           provider: 'STRIPE',
-          providerTxId: session.id,
+          provider_tx_id: session.id,
           status: 'COMPLETED',
-          paidAt: new Date(),
+          paid_at: new Date(),
         },
       });
 
-      // 2. Update Booking Status
-      await tx.booking.update({
+      // 2. Update t_trx_bookings Status
+      await tx.t_trx_bookings.update({
         where: { id: booking.id },
         data: {
           status: 'CONFIRMED',
-          confirmedAt: new Date(),
+          confirmed_at: new Date(),
         },
       });
 
-      // 3. Update Seat Statuses
+      // 3. Update t_mtr_seats Statuses
       const seatIds = booking.seats.map(s => s.id);
-      await tx.seat.updateMany({
+      await tx.t_mtr_seats.updateMany({
         where: { id: { in: seatIds } },
         data: { status: 'SOLD' },
       });
 
       // 4. Generate E-Tickets for each seat
       for (const seat of booking.seats) {
-        await tx.ticket.create({
+        await tx.t_trx_tickets.create({
           data: {
-            bookingId: booking.id,
-            seatId: seat.id,
-            qrCode: uuidv4(), // Unique QR code for scanner
+            booking_id: booking.id,
+            seat_id: seat.id,
+            qr_code: uuidv4(), // Unique QR code for scanner
           },
         });
       }
     });
 
-    this.logger.log(`Successfully processed payment and issued tickets for Booking ${booking.bookingCode}`);
+    this.logger.log(`Successfully processed payment and issued tickets for Booking ${booking.booking_code}`);
   }
 }

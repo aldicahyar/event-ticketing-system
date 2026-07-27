@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Role } from '../auth/dto/auth.dto';
+import { t_mtr_roles } from '../auth/dto/auth.dto';
 
 @ApiTags('events')
 @Controller('events')
@@ -56,7 +56,7 @@ export class EventsController {
   @Post('create')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @Roles(t_mtr_roles.ADMIN, t_mtr_roles.ORGANIZER)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new event (Admin/Organizer only)' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Event successfully created' })
@@ -75,7 +75,7 @@ export class EventsController {
   @Post('update')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @Roles(t_mtr_roles.ADMIN, t_mtr_roles.ORGANIZER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update an event (Admin/Organizer only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Event successfully updated' })
@@ -93,7 +93,7 @@ export class EventsController {
   @Post('delete')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @Roles(t_mtr_roles.ADMIN, t_mtr_roles.ORGANIZER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an event (Admin/Organizer only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Event successfully deleted' })

@@ -23,7 +23,7 @@ export class CreateRoleDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  nameEn?: string;
+  name_en?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -34,7 +34,7 @@ export class CreateRoleDto {
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()
   @IsInt()
-  sortOrder?: number;
+  sort_order?: number;
 }
 
 export class UpdateRoleDto {
@@ -49,7 +49,7 @@ export class UpdateRoleDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  nameEn?: string;
+  name_en?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -59,12 +59,12 @@ export class UpdateRoleDto {
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
-  isActive?: boolean;
+  is_active?: boolean;
 
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()
   @IsInt()
-  sortOrder?: number;
+  sort_order?: number;
 }
 
 export class CreateMenuDto {
@@ -85,12 +85,12 @@ export class CreateMenuDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  nameEn?: string;
+  name_en?: string;
 
   @ApiPropertyOptional({ example: 'EVENTS', description: 'Parent menu code (null = root)' })
   @IsOptional()
   @IsString()
-  parentCode?: string | null;
+  parent_code?: string | null;
 
   @ApiPropertyOptional({ example: 'FolderTree', description: 'Lucide icon name' })
   @IsOptional()
@@ -111,7 +111,7 @@ export class CreateMenuDto {
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  isNewTab?: boolean;
+  is_new_tab?: boolean;
 }
 
 export class UpdateMenuDto {
@@ -126,12 +126,12 @@ export class UpdateMenuDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  nameEn?: string;
+  name_en?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  parentCode?: string | null;
+  parent_code?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -152,33 +152,33 @@ export class UpdateMenuDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  isNewTab?: boolean;
+  is_new_tab?: boolean;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
-  isActive?: boolean;
+  is_active?: boolean;
 }
 
 export class PermissionCellDto {
   @ApiProperty({ example: 'EVENTS' })
   @IsString()
-  menuCode: string;
+  menu_code: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  canView?: boolean;
+  can_view?: boolean;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  canCreate?: boolean;
+  can_create?: boolean;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  canEdit?: boolean;
+  can_edit?: boolean;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  canDelete?: boolean;
+  can_delete?: boolean;
 }
 
 export class ReplacePermissionsDto {
@@ -193,6 +193,6 @@ export class ReplacePermissionsDto {
 export class AssignRoleDto {
   @ApiProperty({ example: 'CASHIER' })
   @IsString()
-  @Matches(new RegExp(CODE_PATTERN), { message: 'invalid roleCode format' })
-  roleCode: string;
+  @Matches(new RegExp(CODE_PATTERN), { message: 'invalid role_code format' })
+  role_code: string;
 }

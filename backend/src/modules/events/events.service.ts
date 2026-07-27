@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { Prisma, Venue } from '@prisma/client';
+import { Prisma, t_mtr_venues } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { SettingsService } from '../settings/settings.service';
 
-// Issue 3 fix: typed interface instead of 'any' for seatMap
+// Issue 3 fix: typed interface instead of 'any' for seat_map
 interface SeatMap {
   rows?: number;
   seatsPerRow?: number;
@@ -19,49 +19,49 @@ export class EventsService {
     private readonly settingsService: SettingsService,
   ) {}
 
-  async create(dto: CreateEventDto, organizerId: string) {
-    // Issue 1 fix: validate startDateTime must be before endDateTime
-    const start = new Date(dto.startDateTime);
-    const end = new Date(dto.endDateTime);
+  async create(dto: CreateEventDto, organizer_id: string) {
+    // Issue 1 fix: validate start_date_time must be before end_date_time
+    const start = new Date(dto.start_date_time);
+    const end = new Date(dto.end_date_time);
     if (start >= end) {
-      throw new BadRequestException('startDateTime must be before endDateTime');
+      throw new BadRequestException('start_date_time must be before end_date_time');
     }
 
     // 1. Verify venue exists
-    const venue = await this.prisma.venue.findUnique({
-      where: { id: dto.venueId },
+    const venue = await this.prisma.t_mtr_venues.findUnique({
+      where: { id: dto.venue_id },
     });
 
     if (!venue) {
-      throw new NotFoundException(`Venue with ID ${dto.venueId} not found`);
+      throw new NotFoundException(`Venue with ID ${dto.venue_id} not found`);
     }
 
     // 2. Create the event
-    const event = await this.prisma.event.create({
+    const event = await this.prisma.t_trx_events.create({
       data: {
         title: dto.title,
         subtitle: dto.subtitle,
         description: dto.description,
-        venueId: dto.venueId,
-        eventDate: new Date(dto.eventDate),
-        startDateTime: start,
-        endDateTime: end,
+        venue_id: dto.venue_id,
+        event_date: new Date(dto.event_date),
+        start_date_time: start,
+        end_date_time: end,
         status: dto.status || 'DRAFT',
-        basePrice: dto.basePrice,
+        base_price: dto.base_price,
         currency: dto.currency || 'IDR',
-        organizerId: organizerId,
-        imageUrl: dto.imageUrl,
+        organizer_id: organizer_id,
+        image_url: dto.image_url,
       },
     });
 
-    // 3. Generate seats automatically based on Venue seatMap configuration
-    await this.generateSeatsForEvent(event.id, venue, dto.basePrice);
+    // 3. Generate seats automatically based on t_mtr_venues seat_map configuration
+    await this.generateSeatsForEvent(event.id, venue, dto.base_price);
 
     return this.findOne(event.id);
   }
 
   async findAll() {
-    return this.prisma.event.findMany({
+    return this.prisma.t_trx_events.findMany({
       include: {
         venue: {
           select: {
@@ -72,12 +72,12 @@ export class EventsService {
           },
         },
       },
-      orderBy: { startDateTime: 'asc' },
+      orderBy: { start_date_time: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.t_trx_events.findUnique({
       where: { id },
       include: {
         venue: true,
@@ -100,40 +100,40 @@ export class EventsService {
     // Check if event exists and get current data for validation
     const existing = await this.findOne(id);
 
-    // If venueId is provided and different, verify new venue exists
-    let venue: Venue | null = null;
-    if (updates.venueId && updates.venueId !== existing.venueId) {
-      venue = await this.prisma.venue.findUnique({
-        where: { id: updates.venueId },
+    // If venue_id is provided and different, verify new venue exists
+    let venue: t_mtr_venues | null = null;
+    if (updates.venue_id && updates.venue_id !== existing.venue_id) {
+      venue = await this.prisma.t_mtr_venues.findUnique({
+        where: { id: updates.venue_id },
       });
       if (!venue) {
-        throw new NotFoundException(`Venue with ID ${updates.venueId} not found`);
+        throw new NotFoundException(`Venue with ID ${updates.venue_id} not found`);
       }
     }
 
     // Build update data with Date conversions using Prisma's native EventUpdateInput type
-    const updateData: Prisma.EventUpdateInput = {
+    const updateData: Prisma.t_trx_eventsUpdateInput = {
       title: updates.title,
       subtitle: updates.subtitle,
       description: updates.description,
-      venue: updates.venueId ? { connect: { id: updates.venueId } } : undefined,
-      eventDate: updates.eventDate ? new Date(updates.eventDate) : undefined,
-      startDateTime: updates.startDateTime ? new Date(updates.startDateTime) : undefined,
-      endDateTime: updates.endDateTime ? new Date(updates.endDateTime) : undefined,
+      venue: updates.venue_id ? { connect: { id: updates.venue_id } } : undefined,
+      event_date: updates.event_date ? new Date(updates.event_date) : undefined,
+      start_date_time: updates.start_date_time ? new Date(updates.start_date_time) : undefined,
+      end_date_time: updates.end_date_time ? new Date(updates.end_date_time) : undefined,
       status: updates.status,
-      basePrice: updates.basePrice,
+      base_price: updates.base_price,
       currency: updates.currency,
-      imageUrl: updates.imageUrl,
+      image_url: updates.image_url,
     };
 
     // Issue 2 fix: validate updated start < end using updated or existing values
-    const finalStart = (updateData.startDateTime as Date | undefined) ?? existing.startDateTime;
-    const finalEnd = (updateData.endDateTime as Date | undefined) ?? existing.endDateTime;
+    const finalStart = (updateData.start_date_time as Date | undefined) ?? existing.start_date_time;
+    const finalEnd = (updateData.end_date_time as Date | undefined) ?? existing.end_date_time;
     if (finalStart >= finalEnd) {
-      throw new BadRequestException('startDateTime must be before endDateTime');
+      throw new BadRequestException('start_date_time must be before end_date_time');
     }
 
-    const updatedEvent = await this.prisma.event.update({
+    const updatedEvent = await this.prisma.t_trx_events.update({
       where: { id },
       data: updateData,
     });
@@ -141,21 +141,21 @@ export class EventsService {
     // If venue was changed, regenerate seats from scratch (new seat map).
     if (venue) {
       // 1. Delete existing seats
-      await this.prisma.seat.deleteMany({
-        where: { eventId: id },
+      await this.prisma.t_mtr_seats.deleteMany({
+        where: { event_id: id },
       });
 
-      // 2. Generate new seats using the new venue's seatMap configuration
-      const finalBasePrice = updates.basePrice ?? existing.basePrice;
+      // 2. Generate new seats using the new venue's seat_map configuration
+      const finalBasePrice = updates.base_price ?? existing.base_price;
       await this.generateSeatsForEvent(id, venue, finalBasePrice);
     } else if (
-      updates.basePrice !== undefined &&
-      Number(updates.basePrice) !== Number(existing.basePrice)
+      updates.base_price !== undefined &&
+      Number(updates.base_price) !== Number(existing.base_price)
     ) {
       // Base price changed but the venue (and thus the seat map) did not.
       // Reprice existing seats in place rather than regenerating them —
       // regeneration deletes SOLD/RESERVED seats and would break their bookings.
-      await this.repriceAvailableSeats(id, updates.basePrice);
+      await this.repriceAvailableSeats(id, updates.base_price);
     }
 
     return updatedEvent;
@@ -167,21 +167,21 @@ export class EventsService {
    * multiplier from settings. SOLD/RESERVED seats keep the price the buyer
    * already agreed to.
    */
-  private async repriceAvailableSeats(eventId: string, basePrice: any) {
+  private async repriceAvailableSeats(event_id: string, base_price: any) {
     const tiers = await this.settingsService.getActiveTiers();
     const multiplierByType = new Map<string, number>();
     for (const tier of tiers) {
       multiplierByType.set(tier.id, tier.multiplier);
     }
 
-    const base = Number(basePrice);
+    const base = Number(base_price);
     const types = ['VIP', 'PREMIUM', 'REGULAR'] as const;
     // One updateMany per distinct seat type — a handful of queries regardless
     // of seat count.
     await this.prisma.$transaction(
       types.map((type) =>
-        this.prisma.seat.updateMany({
-          where: { eventId, type, status: 'AVAILABLE' },
+        this.prisma.t_mtr_seats.updateMany({
+          where: { event_id, type, status: 'AVAILABLE' },
           data: { price: base * (multiplierByType.get(type) ?? 1) },
         }),
       ),
@@ -193,15 +193,15 @@ export class EventsService {
     await this.findOne(id);
 
     // Delete event (associated seats will be deleted due to Cascade onDelete in schema)
-    await this.prisma.event.delete({
+    await this.prisma.t_trx_events.delete({
       where: { id },
     });
 
     return { message: 'Event and all its seats deleted successfully' };
   }
 
-  private async generateSeatsForEvent(eventId: string, venue: any, basePrice: any) {
-    const seatMapObj = venue.seatMap as SeatMap;
+  private async generateSeatsForEvent(event_id: string, venue: any, base_price: any) {
+    const seatMapObj = venue.seat_map as SeatMap;
     const rowsCount = seatMapObj?.rows ? Number(seatMapObj.rows) : 5;
     const seatsPerRow = seatMapObj?.seatsPerRow ? Number(seatMapObj.seatsPerRow) : 20;
 
@@ -222,12 +222,12 @@ export class EventsService {
         multiplier = matchedTier.multiplier;
       }
 
-      const price = basePrice * multiplier;
+      const price = base_price * multiplier;
 
       for (let s = 1; s <= seatsPerRow; s++) {
         seatsToCreate.push({
-          eventId,
-          venueId: venue.id,
+          event_id,
+          venue_id: venue.id,
           row: rowName,
           number: s,
           type: type,
@@ -238,7 +238,7 @@ export class EventsService {
     }
 
     if (seatsToCreate.length > 0) {
-      await this.prisma.seat.createMany({
+      await this.prisma.t_mtr_seats.createMany({
         data: seatsToCreate,
       });
     }

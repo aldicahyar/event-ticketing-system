@@ -71,8 +71,8 @@ export class MediaController {
 
     const result = await this.media.upload(
       {
-        originalName: data.filename,
-        mimeType: data.mimetype,
+        original_name: data.filename,
+        mime_type: data.mimetype,
         content: data.file,
         folder,
       },

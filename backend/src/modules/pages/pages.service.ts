@@ -11,8 +11,8 @@ import { CreatePageDto, UpdatePageDto, ListPagesQueryDto } from './dto/page.dto'
 
 /** Relation payload shared by admin reads so the OG image comes along. */
 const PAGE_INCLUDE = {
-  ogImage: { select: { id: true, url: true, alt: true } },
-} satisfies Prisma.PageInclude;
+  og_image: { select: { id: true, url: true, alt: true } },
+} satisfies Prisma.t_mtr_pagesInclude;
 
 @Injectable()
 export class PagesService {
@@ -29,7 +29,7 @@ export class PagesService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const where: Prisma.PageWhereInput = {};
+    const where: Prisma.t_mtr_pagesWhereInput = {};
     const search = query.search?.trim();
     if (search) {
       where.OR = [
@@ -40,10 +40,10 @@ export class PagesService {
     if (query.status) where.status = query.status as PageStatus;
 
     const [total, items] = await this.prisma.$transaction([
-      this.prisma.page.count({ where }),
-      this.prisma.page.findMany({
+      this.prisma.t_mtr_pages.count({ where }),
+      this.prisma.t_mtr_pages.findMany({
         where,
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { updated_at: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
         include: PAGE_INCLUDE,
@@ -64,7 +64,7 @@ export class PagesService {
   }
 
   async getById(id: string) {
-    const page = await this.prisma.page.findUnique({
+    const page = await this.prisma.t_mtr_pages.findUnique({
       where: { id },
       include: PAGE_INCLUDE,
     });
@@ -74,40 +74,40 @@ export class PagesService {
 
   async create(dto: CreatePageDto, actorId?: string) {
     const slug = dto.slug.trim().toLowerCase();
-    const clash = await this.prisma.page.findUnique({ where: { slug } });
+    const clash = await this.prisma.t_mtr_pages.findUnique({ where: { slug } });
     if (clash) throw new ConflictException(`Page slug '${slug}' already exists`);
 
-    await this.assertOgImageExists(dto.ogImageId);
+    await this.assertOgImageExists(dto.og_image_id);
 
     const status = (dto.status ?? 'DRAFT') as PageStatus;
-    return this.prisma.page.create({
+    return this.prisma.t_mtr_pages.create({
       data: {
         slug,
         title: dto.title.trim(),
         excerpt: dto.excerpt?.trim() || null,
         content: this.sanitizer.sanitize(dto.content),
         status,
-        seoTitle: dto.seoTitle?.trim() || null,
-        seoDescription: dto.seoDescription?.trim() || null,
-        ogImageId: dto.ogImageId || null,
-        publishedAt: status === 'PUBLISHED' ? new Date() : null,
-        createdBy: actorId,
-        updatedBy: actorId,
+        seo_title: dto.seo_title?.trim() || null,
+        seo_description: dto.seo_description?.trim() || null,
+        og_image_id: dto.og_image_id || null,
+        published_at: status === 'PUBLISHED' ? new Date() : null,
+        created_by: actorId,
+        updated_by: actorId,
       },
       include: PAGE_INCLUDE,
     });
   }
 
   async update(id: string, dto: UpdatePageDto, actorId?: string) {
-    const existing = await this.prisma.page.findUnique({ where: { id } });
+    const existing = await this.prisma.t_mtr_pages.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Page '${id}' not found`);
 
-    const data: Prisma.PageUncheckedUpdateInput = { updatedBy: actorId };
+    const data: Prisma.t_mtr_pagesUncheckedUpdateInput = { updated_by: actorId };
 
     if (dto.slug !== undefined) {
       const slug = dto.slug.trim().toLowerCase();
       if (slug !== existing.slug) {
-        const clash = await this.prisma.page.findUnique({ where: { slug } });
+        const clash = await this.prisma.t_mtr_pages.findUnique({ where: { slug } });
         if (clash) throw new ConflictException(`Page slug '${slug}' already exists`);
         data.slug = slug;
       }
@@ -115,24 +115,24 @@ export class PagesService {
     if (dto.title !== undefined) data.title = dto.title.trim();
     if (dto.excerpt !== undefined) data.excerpt = dto.excerpt.trim() || null;
     if (dto.content !== undefined) data.content = this.sanitizer.sanitize(dto.content);
-    if (dto.seoTitle !== undefined) data.seoTitle = dto.seoTitle.trim() || null;
-    if (dto.seoDescription !== undefined) {
-      data.seoDescription = dto.seoDescription.trim() || null;
+    if (dto.seo_title !== undefined) data.seo_title = dto.seo_title.trim() || null;
+    if (dto.seo_description !== undefined) {
+      data.seo_description = dto.seo_description.trim() || null;
     }
-    if (dto.ogImageId !== undefined) {
-      await this.assertOgImageExists(dto.ogImageId);
-      data.ogImageId = dto.ogImageId || null;
+    if (dto.og_image_id !== undefined) {
+      await this.assertOgImageExists(dto.og_image_id);
+      data.og_image_id = dto.og_image_id || null;
     }
 
     if (dto.status !== undefined && dto.status !== existing.status) {
       data.status = dto.status as PageStatus;
-      // Stamp publishedAt the first time it goes live; keep it on re-publish.
+      // Stamp published_at the first time it goes live; keep it on re-publish.
       if (dto.status === 'PUBLISHED') {
-        data.publishedAt = existing.publishedAt ?? new Date();
+        data.published_at = existing.published_at ?? new Date();
       }
     }
 
-    return this.prisma.page.update({
+    return this.prisma.t_mtr_pages.update({
       where: { id },
       data,
       include: PAGE_INCLUDE,
@@ -141,7 +141,7 @@ export class PagesService {
 
   async remove(id: string) {
     await this.getById(id);
-    await this.prisma.page.delete({ where: { id } });
+    await this.prisma.t_mtr_pages.delete({ where: { id } });
     return { id, deleted: true };
   }
 
@@ -151,16 +151,16 @@ export class PagesService {
 
   /** Public list of published pages (for a sitemap / footer nav). */
   async listPublished() {
-    return this.prisma.page.findMany({
+    return this.prisma.t_mtr_pages.findMany({
       where: { status: 'PUBLISHED' },
       orderBy: { title: 'asc' },
-      select: { slug: true, title: true, excerpt: true, updatedAt: true },
+      select: { slug: true, title: true, excerpt: true, updated_at: true },
     });
   }
 
   /** A single published page by slug. Drafts are treated as not found. */
   async getPublishedBySlug(slug: string) {
-    const page = await this.prisma.page.findFirst({
+    const page = await this.prisma.t_mtr_pages.findFirst({
       where: { slug: slug.trim().toLowerCase(), status: 'PUBLISHED' },
       include: PAGE_INCLUDE,
     });
@@ -172,9 +172,9 @@ export class PagesService {
   // HELPERS
   // ============================================================
 
-  private async assertOgImageExists(ogImageId?: string | null) {
-    if (!ogImageId) return;
-    const media = await this.prisma.media.findUnique({ where: { id: ogImageId } });
-    if (!media) throw new BadRequestException(`OG image media '${ogImageId}' not found`);
+  private async assertOgImageExists(og_image_id?: string | null) {
+    if (!og_image_id) return;
+    const media = await this.prisma.t_mtr_media.findUnique({ where: { id: og_image_id } });
+    if (!media) throw new BadRequestException(`OG image media '${og_image_id}' not found`);
   }
 }

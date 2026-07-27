@@ -35,26 +35,26 @@ export class MediaService {
    */
   async upload(
     file: StorageInput & { folder?: string },
-    uploadedBy?: string,
+    uploaded_by?: string,
   ) {
-    if (!ALLOWED_MIME.has(file.mimeType)) {
+    if (!ALLOWED_MIME.has(file.mime_type)) {
       throw new BadRequestException(
-        `Unsupported file type '${file.mimeType}'. Allowed: ${[...ALLOWED_MIME].join(', ')}`,
+        `Unsupported file type '${file.mime_type}'. Allowed: ${[...ALLOWED_MIME].join(', ')}`,
       );
     }
 
     const stored = await this.storage.save(file);
 
     try {
-      return await this.prisma.media.create({
+      return await this.prisma.t_mtr_media.create({
         data: {
           filename: stored.filename,
-          originalName: file.originalName,
+          original_name: file.original_name,
           url: stored.url,
-          mimeType: file.mimeType,
+          mime_type: file.mime_type,
           size: stored.size,
           folder: file.folder?.trim() || 'general',
-          uploadedBy,
+          uploaded_by,
         },
       });
     } catch (err) {
@@ -68,21 +68,21 @@ export class MediaService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 24;
 
-    const where: Prisma.MediaWhereInput = {};
+    const where: Prisma.t_mtr_mediaWhereInput = {};
     const search = query.search?.trim();
     if (search) {
       where.OR = [
-        { originalName: { contains: search, mode: 'insensitive' } },
+        { original_name: { contains: search, mode: 'insensitive' } },
         { alt: { contains: search, mode: 'insensitive' } },
       ];
     }
     if (query.folder) where.folder = query.folder;
 
     const [total, items] = await this.prisma.$transaction([
-      this.prisma.media.count({ where }),
-      this.prisma.media.findMany({
+      this.prisma.t_mtr_media.count({ where }),
+      this.prisma.t_mtr_media.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { created_at: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -102,14 +102,14 @@ export class MediaService {
   }
 
   async getById(id: string) {
-    const media = await this.prisma.media.findUnique({ where: { id } });
+    const media = await this.prisma.t_mtr_media.findUnique({ where: { id } });
     if (!media) throw new NotFoundException(`Media '${id}' not found`);
     return media;
   }
 
   async update(id: string, dto: UpdateMediaDto) {
     await this.getById(id);
-    return this.prisma.media.update({
+    return this.prisma.t_mtr_media.update({
       where: { id },
       data: {
         ...(dto.alt !== undefined && { alt: dto.alt }),
@@ -123,12 +123,12 @@ export class MediaService {
     const media = await this.getById(id);
 
     // Detach from any page still using it as OG image so the FK doesn't block.
-    await this.prisma.page.updateMany({
-      where: { ogImageId: id },
-      data: { ogImageId: null },
+    await this.prisma.t_mtr_pages.updateMany({
+      where: { og_image_id: id },
+      data: { og_image_id: null },
     });
 
-    await this.prisma.media.delete({ where: { id } });
+    await this.prisma.t_mtr_media.delete({ where: { id } });
     await this.storage.delete(media.filename);
 
     return { id, deleted: true };

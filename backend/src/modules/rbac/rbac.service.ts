@@ -32,32 +32,32 @@ export class RbacService {
   // ============================================================
 
   /**
-   * Get flat list of menus visible to the user (canView=true).
-   * Cache per roleCode in Redis for 5 minutes.
+   * Get flat list of menus visible to the user (can_view=true).
+   * Cache per role_code in Redis for 5 minutes.
    */
-  async getMySidebar(roleCode: string) {
-    const cacheKey = `${this.SIDEBAR_CACHE_PREFIX}${roleCode}`;
+  async getMySidebar(role_code: string) {
+    const cacheKey = `${this.SIDEBAR_CACHE_PREFIX}${role_code}`;
     const cached = await this.redis.get<any[]>(cacheKey);
     if (cached) return cached;
 
-    const rows = await this.prisma.roleMenuPermission.findMany({
+    const rows = await this.prisma.t_mtr_role_menu_permissions.findMany({
       where: {
-        roleCode,
-        canView: true,
-        isActive: true,
-        menu: { isActive: true },
+        role_code,
+        can_view: true,
+        is_active: true,
+        menu: { is_active: true },
       },
       include: {
         menu: {
           select: {
             code: true,
             name: true,
-            nameEn: true,
-            parentCode: true,
+            name_en: true,
+            parent_code: true,
             icon: true,
             slug: true,
             order: true,
-            isNewTab: true,
+            is_new_tab: true,
           },
         },
       },
@@ -67,10 +67,10 @@ export class RbacService {
     const result = rows.map((r) => ({
       ...r.menu,
       permissions: {
-        canView: r.canView,
-        canCreate: r.canCreate,
-        canEdit: r.canEdit,
-        canDelete: r.canDelete,
+        can_view: r.can_view,
+        can_create: r.can_create,
+        can_edit: r.can_edit,
+        can_delete: r.can_delete,
       },
     }));
 
@@ -79,10 +79,10 @@ export class RbacService {
   }
 
   /** Invalidate sidebar cache for one role (or all roles with '*'). */
-  async invalidateSidebarCache(roleCode?: string) {
+  async invalidateSidebarCache(role_code?: string) {
     try {
-      if (roleCode) {
-        await this.redis.del(`${this.SIDEBAR_CACHE_PREFIX}${roleCode}`);
+      if (role_code) {
+        await this.redis.del(`${this.SIDEBAR_CACHE_PREFIX}${role_code}`);
       } else {
         // Best-effort pattern delete — Redis may not have KEYS in prod.
         // For dev/local this is fine. In prod use SCAN.
@@ -97,13 +97,13 @@ export class RbacService {
   // ROLES
   // ============================================================
 
-  async listRoles(filters: { isActive?: boolean; includePermissions?: boolean } = {}) {
-    const where: Prisma.RoleWhereInput = {};
-    if (typeof filters.isActive === 'boolean') where.isActive = filters.isActive;
+  async listRoles(filters: { is_active?: boolean; includePermissions?: boolean } = {}) {
+    const where: Prisma.t_mtr_rolesWhereInput = {};
+    if (typeof filters.is_active === 'boolean') where.is_active = filters.is_active;
 
-    return this.prisma.role.findMany({
+    return this.prisma.t_mtr_roles.findMany({
       where,
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
       include: filters.includePermissions
         ? { _count: { select: { permissions: true, users: true } } }
         : { _count: { select: { users: true } } },
@@ -111,25 +111,25 @@ export class RbacService {
   }
 
   async getRole(code: string) {
-    const role = await this.prisma.role.findUnique({ where: { code } });
+    const role = await this.prisma.t_mtr_roles.findUnique({ where: { code } });
     if (!role) throw new NotFoundException(`Role with code '${code}' not found`);
     return role;
   }
 
   async createRole(dto: CreateRoleDto, actorId: string) {
-    const existing = await this.prisma.role.findUnique({ where: { code: dto.code } });
+    const existing = await this.prisma.t_mtr_roles.findUnique({ where: { code: dto.code } });
     if (existing) throw new ConflictException(`Role code '${dto.code}' already exists`);
 
-    return this.prisma.role.create({
+    return this.prisma.t_mtr_roles.create({
       data: {
         code: dto.code,
         name: dto.name,
-        nameEn: dto.nameEn,
+        name_en: dto.name_en,
         description: dto.description,
-        sortOrder: dto.sortOrder ?? 0,
-        isSystem: false, // user-created roles are never system
-        isActive: true,
-        createdBy: actorId,
+        sort_order: dto.sort_order ?? 0,
+        is_system: false, // user-created roles are never system
+        is_active: true,
+        created_by: actorId,
       },
     });
   }
@@ -138,19 +138,19 @@ export class RbacService {
     const existing = await this.getRole(code);
 
     // System roles: restrict what can be changed (cannot deactivate, only metadata)
-    if (existing.isSystem && dto.isActive === false) {
+    if (existing.is_system && dto.is_active === false) {
       throw new BadRequestException(`Cannot deactivate system role '${code}'`);
     }
 
-    const updated = await this.prisma.role.update({
+    const updated = await this.prisma.t_mtr_roles.update({
       where: { code },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.nameEn !== undefined && { nameEn: dto.nameEn }),
+        ...(dto.name_en !== undefined && { name_en: dto.name_en }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
-        updatedBy: actorId,
+        ...(dto.is_active !== undefined && { is_active: dto.is_active }),
+        ...(dto.sort_order !== undefined && { sort_order: dto.sort_order }),
+        updated_by: actorId,
       },
     });
 
@@ -160,10 +160,10 @@ export class RbacService {
 
   async deleteRole(code: string, actorId: string) {
     const role = await this.getRole(code);
-    if (role.isSystem) {
+    if (role.is_system) {
       throw new ConflictException(`Cannot delete system role '${code}'`);
     }
-    const userCount = await this.prisma.user.count({ where: { roleCode: code } });
+    const userCount = await this.prisma.t_mtr_users.count({ where: { role_code: code } });
     if (userCount > 0) {
       throw new ConflictException(
         `Cannot delete role '${code}' — ${userCount} user(s) still assigned`,
@@ -172,20 +172,20 @@ export class RbacService {
 
     // Soft delete: cascade to permissions
     const [updatedRole, permResult] = await this.prisma.$transaction([
-      this.prisma.role.update({
+      this.prisma.t_mtr_roles.update({
         where: { code },
-        data: { isActive: false, updatedBy: actorId },
+        data: { is_active: false, updated_by: actorId },
       }),
-      this.prisma.roleMenuPermission.updateMany({
-        where: { roleCode: code },
-        data: { isActive: false },
+      this.prisma.t_mtr_role_menu_permissions.updateMany({
+        where: { role_code: code },
+        data: { is_active: false },
       }),
     ]);
 
     await this.invalidateSidebarCache(code);
     return {
       code: updatedRole.code,
-      isActive: updatedRole.isActive,
+      is_active: updatedRole.is_active,
       cascadedPermissions: permResult.count,
     };
   }
@@ -194,62 +194,62 @@ export class RbacService {
   // MENUS
   // ============================================================
 
-  async listMenus(filters: { isActive?: boolean } = {}) {
-    const where: Prisma.MenuWhereInput = {};
-    if (typeof filters.isActive === 'boolean') where.isActive = filters.isActive;
+  async listMenus(filters: { is_active?: boolean } = {}) {
+    const where: Prisma.t_mtr_menusWhereInput = {};
+    if (typeof filters.is_active === 'boolean') where.is_active = filters.is_active;
 
-    return this.prisma.menu.findMany({
+    return this.prisma.t_mtr_menus.findMany({
       where,
       orderBy: [{ order: 'asc' }, { name: 'asc' }],
     });
   }
 
   async getMenu(code: string) {
-    const menu = await this.prisma.menu.findUnique({ where: { code } });
+    const menu = await this.prisma.t_mtr_menus.findUnique({ where: { code } });
     if (!menu) throw new NotFoundException(`Menu with code '${code}' not found`);
     return menu;
   }
 
   async createMenu(dto: CreateMenuDto, actorId: string) {
-    if (dto.parentCode) {
-      await this.getMenu(dto.parentCode); // exists check
-      await this.assertNoCycle(dto.code, dto.parentCode);
+    if (dto.parent_code) {
+      await this.getMenu(dto.parent_code); // exists check
+      await this.assertNoCycle(dto.code, dto.parent_code);
     }
 
-    const existing = await this.prisma.menu.findUnique({ where: { code: dto.code } });
+    const existing = await this.prisma.t_mtr_menus.findUnique({ where: { code: dto.code } });
     if (existing) {
-      if (existing.isActive) {
+      if (existing.is_active) {
         throw new ConflictException(`Menu code '${dto.code}' already exists.`);
       }
       // Resurrect inactive menu
-      return this.prisma.menu.update({
+      return this.prisma.t_mtr_menus.update({
         where: { code: dto.code },
         data: {
           name: dto.name,
-          nameEn: dto.nameEn,
-          parentCode: dto.parentCode ?? null,
+          name_en: dto.name_en,
+          parent_code: dto.parent_code ?? null,
           icon: dto.icon,
           slug: dto.slug,
           order: dto.order ?? 0,
-          isNewTab: dto.isNewTab ?? false,
-          isActive: true,
-          updatedBy: actorId,
+          is_new_tab: dto.is_new_tab ?? false,
+          is_active: true,
+          updated_by: actorId,
         },
       });
     }
 
-    return this.prisma.menu.create({
+    return this.prisma.t_mtr_menus.create({
       data: {
         code: dto.code,
         name: dto.name,
-        nameEn: dto.nameEn,
-        parentCode: dto.parentCode ?? null,
+        name_en: dto.name_en,
+        parent_code: dto.parent_code ?? null,
         icon: dto.icon,
         slug: dto.slug,
         order: dto.order ?? 0,
-        isNewTab: dto.isNewTab ?? false,
-        isActive: true,
-        createdBy: actorId,
+        is_new_tab: dto.is_new_tab ?? false,
+        is_active: true,
+        created_by: actorId,
       },
     });
   }
@@ -257,28 +257,28 @@ export class RbacService {
   async updateMenu(code: string, dto: UpdateMenuDto, actorId: string) {
     const existing = await this.getMenu(code);
 
-    if (dto.parentCode !== undefined && dto.parentCode !== existing.parentCode) {
-      if (dto.parentCode) {
-        await this.getMenu(dto.parentCode);
-        if (dto.parentCode === code) {
+    if (dto.parent_code !== undefined && dto.parent_code !== existing.parent_code) {
+      if (dto.parent_code) {
+        await this.getMenu(dto.parent_code);
+        if (dto.parent_code === code) {
           throw new BadRequestException('Menu cannot be its own parent');
         }
-        await this.assertNoCycle(code, dto.parentCode);
+        await this.assertNoCycle(code, dto.parent_code);
       }
     }
 
-    const updated = await this.prisma.menu.update({
+    const updated = await this.prisma.t_mtr_menus.update({
       where: { code },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.nameEn !== undefined && { nameEn: dto.nameEn }),
-        ...(dto.parentCode !== undefined && { parentCode: dto.parentCode }),
+        ...(dto.name_en !== undefined && { name_en: dto.name_en }),
+        ...(dto.parent_code !== undefined && { parent_code: dto.parent_code }),
         ...(dto.icon !== undefined && { icon: dto.icon }),
         ...(dto.slug !== undefined && { slug: dto.slug }),
         ...(dto.order !== undefined && { order: dto.order }),
-        ...(dto.isNewTab !== undefined && { isNewTab: dto.isNewTab }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-        updatedBy: actorId,
+        ...(dto.is_new_tab !== undefined && { is_new_tab: dto.is_new_tab }),
+        ...(dto.is_active !== undefined && { is_active: dto.is_active }),
+        updated_by: actorId,
       },
     });
 
@@ -293,24 +293,24 @@ export class RbacService {
     const descendants = await this.collectDescendants(code);
 
     const [updatedMenu, childResult, permResult] = await this.prisma.$transaction([
-      this.prisma.menu.update({
+      this.prisma.t_mtr_menus.update({
         where: { code },
-        data: { isActive: false, updatedBy: actorId },
+        data: { is_active: false, updated_by: actorId },
       }),
-      this.prisma.menu.updateMany({
+      this.prisma.t_mtr_menus.updateMany({
         where: { code: { in: descendants } },
-        data: { isActive: false },
+        data: { is_active: false },
       }),
-      this.prisma.roleMenuPermission.updateMany({
-        where: { menuCode: { in: [code, ...descendants] } },
-        data: { isActive: false },
+      this.prisma.t_mtr_role_menu_permissions.updateMany({
+        where: { menu_code: { in: [code, ...descendants] } },
+        data: { is_active: false },
       }),
     ]);
 
     await this.invalidateSidebarCache();
     return {
       code: updatedMenu.code,
-      isActive: updatedMenu.isActive,
+      is_active: updatedMenu.is_active,
       cascadedMenus: childResult.count,
     };
   }
@@ -323,8 +323,8 @@ export class RbacService {
     const queue = [rootCode];
     while (queue.length > 0) {
       const current = queue.shift()!;
-      const children = await this.prisma.menu.findMany({
-        where: { parentCode: current },
+      const children = await this.prisma.t_mtr_menus.findMany({
+        where: { parent_code: current },
         select: { code: true },
       });
       for (const c of children) {
@@ -350,11 +350,11 @@ export class RbacService {
         );
       }
       seen.add(current);
-      const node = await this.prisma.menu.findUnique({
+      const node = await this.prisma.t_mtr_menus.findUnique({
         where: { code: current },
-        select: { parentCode: true },
+        select: { parent_code: true },
       });
-      current = node?.parentCode ?? null;
+      current = node?.parent_code ?? null;
       depth++;
     }
   }
@@ -363,22 +363,22 @@ export class RbacService {
   // PERMISSIONS
   // ============================================================
 
-  async getPermissionMatrix(filters: { roleCode?: string; menuCode?: string } = {}) {
-    const where: Prisma.RoleMenuPermissionWhereInput = { isActive: true };
-    if (filters.roleCode) where.roleCode = filters.roleCode;
-    if (filters.menuCode) where.menuCode = filters.menuCode;
+  async getPermissionMatrix(filters: { role_code?: string; menu_code?: string } = {}) {
+    const where: Prisma.t_mtr_role_menu_permissionsWhereInput = { is_active: true };
+    if (filters.role_code) where.role_code = filters.role_code;
+    if (filters.menu_code) where.menu_code = filters.menu_code;
 
-    return this.prisma.roleMenuPermission.findMany({
+    return this.prisma.t_mtr_role_menu_permissions.findMany({
       where,
-      orderBy: [{ roleCode: 'asc' }, { menu: { order: 'asc' } }],
+      orderBy: [{ role_code: 'asc' }, { menu: { order: 'asc' } }],
       include: { menu: { select: { name: true, code: true } } },
     });
   }
 
-  async getRolePermissions(roleCode: string) {
-    await this.getRole(roleCode);
-    return this.prisma.roleMenuPermission.findMany({
-      where: { roleCode },
+  async getRolePermissions(role_code: string) {
+    await this.getRole(role_code);
+    return this.prisma.t_mtr_role_menu_permissions.findMany({
+      where: { role_code },
       include: { menu: { select: { name: true, code: true } } },
       orderBy: { menu: { order: 'asc' } },
     });
@@ -388,13 +388,13 @@ export class RbacService {
    * Full replacement of permission matrix for one role.
    * Atomic transaction — either all cells written or none.
    */
-  async replaceRolePermissions(roleCode: string, dto: ReplacePermissionsDto, actorId: string) {
-    await this.getRole(roleCode);
+  async replaceRolePermissions(role_code: string, dto: ReplacePermissionsDto, actorId: string) {
+    await this.getRole(role_code);
 
     // Validate all menuCodes exist & are active
-    const requestedCodes = dto.permissions.map((p) => p.menuCode);
-    const existingMenus = await this.prisma.menu.findMany({
-      where: { code: { in: requestedCodes }, isActive: true },
+    const requestedCodes = dto.permissions.map((p) => p.menu_code);
+    const existingMenus = await this.prisma.t_mtr_menus.findMany({
+      where: { code: { in: requestedCodes }, is_active: true },
       select: { code: true },
     });
     const existingCodes = new Set(existingMenus.map((m) => m.code));
@@ -404,43 +404,43 @@ export class RbacService {
     }
 
     // Build full list of all active menu codes for this role
-    const allActiveMenus = await this.prisma.menu.findMany({
-      where: { isActive: true },
+    const allActiveMenus = await this.prisma.t_mtr_menus.findMany({
+      where: { is_active: true },
       select: { code: true },
     });
     const allCodes = new Set(allActiveMenus.map((m) => m.code));
 
     // Build desired permission map
-    const desired = new Map<string, { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean }>();
+    const desired = new Map<string, { can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean }>();
     for (const cell of dto.permissions) {
-      desired.set(cell.menuCode, {
-        canView: cell.canView ?? false,
-        canCreate: cell.canCreate ?? false,
-        canEdit: cell.canEdit ?? false,
-        canDelete: cell.canDelete ?? false,
+      desired.set(cell.menu_code, {
+        can_view: cell.can_view ?? false,
+        can_create: cell.can_create ?? false,
+        can_edit: cell.can_edit ?? false,
+        can_delete: cell.can_delete ?? false,
       });
     }
 
     // Perform upsert in transaction
     await this.prisma.$transaction(async (tx) => {
-      for (const menuCode of allCodes) {
-        const want = desired.get(menuCode) ?? {
-          canView: false,
-          canCreate: false,
-          canEdit: false,
-          canDelete: false,
+      for (const menu_code of allCodes) {
+        const want = desired.get(menu_code) ?? {
+          can_view: false,
+          can_create: false,
+          can_edit: false,
+          can_delete: false,
         };
-        await tx.roleMenuPermission.upsert({
-          where: { roleCode_menuCode: { roleCode, menuCode } },
-          update: { ...want, isActive: true, updatedBy: actorId },
-          create: { roleCode, menuCode, ...want, isActive: true, createdBy: actorId },
+        await tx.t_mtr_role_menu_permissions.upsert({
+          where: { role_code_menu_code: { role_code, menu_code } },
+          update: { ...want, is_active: true, updated_by: actorId },
+          create: { role_code, menu_code, ...want, is_active: true, created_by: actorId },
         });
       }
     });
 
-    await this.invalidateSidebarCache(roleCode);
+    await this.invalidateSidebarCache(role_code);
     return {
-      roleCode,
+      role_code,
       updated: allCodes.size,
       cacheInvalidated: true,
     };
@@ -450,38 +450,38 @@ export class RbacService {
   // USER ROLE ASSIGNMENT
   // ============================================================
 
-  async getUserRole(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+  async getUserRole(user_id: string) {
+    const user = await this.prisma.t_mtr_users.findUnique({
+      where: { id: user_id },
       include: { role: true },
     });
-    if (!user) throw new NotFoundException(`User '${userId}' not found`);
-    return { userId: user.id, roleCode: user.roleCode, role: user.role };
+    if (!user) throw new NotFoundException(`User '${user_id}' not found`);
+    return { user_id: user.id, role_code: user.role_code, role: user.role };
   }
 
-  async assignUserRole(userId: string, roleCode: string, actorId: string) {
-    const role = await this.getRole(roleCode);
-    if (!role.isActive) {
-      throw new ConflictException(`Cannot assign inactive role '${roleCode}'`);
+  async assignUserRole(user_id: string, role_code: string, actorId: string) {
+    const role = await this.getRole(role_code);
+    if (!role.is_active) {
+      throw new ConflictException(`Cannot assign inactive role '${role_code}'`);
     }
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException(`User '${userId}' not found`);
+    const user = await this.prisma.t_mtr_users.findUnique({ where: { id: user_id } });
+    if (!user) throw new NotFoundException(`User '${user_id}' not found`);
 
     // Safeguard: cannot demote the last active ADMIN
-    if (user.roleCode === 'ADMIN' && roleCode !== 'ADMIN') {
-      const adminCount = await this.prisma.user.count({ where: { roleCode: 'ADMIN' } });
+    if (user.role_code === 'ADMIN' && role_code !== 'ADMIN') {
+      const adminCount = await this.prisma.t_mtr_users.count({ where: { role_code: 'ADMIN' } });
       if (adminCount <= 1) {
         throw new ConflictException('Cannot demote the last active ADMIN — system lockout prevention');
       }
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { roleCode },
+    const updated = await this.prisma.t_mtr_users.update({
+      where: { id: user_id },
+      data: { role_code },
     });
 
-    return { userId: updated.id, roleCode: updated.roleCode };
+    return { user_id: updated.id, role_code: updated.role_code };
   }
 
   // ============================================================
@@ -493,23 +493,23 @@ export class RbacService {
    * Uses a short Redis cache (30s) to avoid hammering the DB.
    */
   async hasPermission(
-    roleCode: string,
-    menuCode: string,
+    role_code: string,
+    menu_code: string,
     action: 'view' | 'create' | 'edit' | 'delete',
   ): Promise<boolean> {
     const fieldMap = {
-      view: 'canView',
-      create: 'canCreate',
-      edit: 'canEdit',
-      delete: 'canDelete',
+      view: 'can_view',
+      create: 'can_create',
+      edit: 'can_edit',
+      delete: 'can_delete',
     } as const;
 
-    const perm = await this.prisma.roleMenuPermission.findFirst({
+    const perm = await this.prisma.t_mtr_role_menu_permissions.findFirst({
       where: {
-        roleCode,
-        menuCode,
-        isActive: true,
-        menu: { isActive: true },
+        role_code,
+        menu_code,
+        is_active: true,
+        menu: { is_active: true },
       },
       select: { [fieldMap[action]]: true },
     });
@@ -521,11 +521,11 @@ export class RbacService {
    * Check if a role has ANY of the listed permissions.
    */
   async hasAnyPermission(
-    roleCode: string,
-    checks: Array<{ menuCode: string; action: 'view' | 'create' | 'edit' | 'delete' }>,
+    role_code: string,
+    checks: Array<{ menu_code: string; action: 'view' | 'create' | 'edit' | 'delete' }>,
   ): Promise<boolean> {
     for (const check of checks) {
-      if (await this.hasPermission(roleCode, check.menuCode, check.action)) {
+      if (await this.hasPermission(role_code, check.menu_code, check.action)) {
         return true;
       }
     }

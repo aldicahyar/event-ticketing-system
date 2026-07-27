@@ -39,7 +39,7 @@ export class SidebarController {
   @ApiOperation({ summary: "Get sidebar menus for current user" })
   @ApiResponse({ status: HttpStatus.OK, description: 'Flat list of visible menus with permissions' })
   async getMySidebar(@CurrentUser() user: any) {
-    const data = await this.rbac.getMySidebar(user.roleCode);
+    const data = await this.rbac.getMySidebar(user.role_code);
     return { data, message: 'Sidebar menus retrieved successfully' };
   }
 }
@@ -55,14 +55,14 @@ export class RolesController {
   @RequirePermission('RBAC_ROLES')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all roles' })
-  @ApiQuery({ name: 'isActive', required: false, type: Boolean })
+  @ApiQuery({ name: 'is_active', required: false, type: Boolean })
   @ApiQuery({ name: 'includePermissions', required: false, type: Boolean })
   async listRoles(
-    @Query('isActive') isActive?: string,
+    @Query('is_active') is_active?: string,
     @Query('includePermissions') includePermissions?: string,
   ) {
     const data = await this.rbac.listRoles({
-      isActive: isActive === undefined ? undefined : isActive === 'true',
+      is_active: is_active === undefined ? undefined : is_active === 'true',
       includePermissions: includePermissions === 'true',
     });
     return { data, message: 'Roles retrieved successfully' };
@@ -107,9 +107,9 @@ export class MenusAdminController {
   @RequirePermission('RBAC_MENUS')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all menus' })
-  async listMenus(@Query('isActive') isActive?: string) {
+  async listMenus(@Query('is_active') is_active?: string) {
     const data = await this.rbac.listMenus({
-      isActive: isActive === undefined ? undefined : isActive === 'true',
+      is_active: is_active === undefined ? undefined : is_active === 'true',
     });
     return { data, message: 'Menus retrieved successfully' };
   }
@@ -154,32 +154,32 @@ export class PermissionsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get permission matrix' })
   async getMatrix(
-    @Query('roleCode') roleCode?: string,
-    @Query('menuCode') menuCode?: string,
+    @Query('role_code') role_code?: string,
+    @Query('menu_code') menu_code?: string,
   ) {
-    const data = await this.rbac.getPermissionMatrix({ roleCode, menuCode });
+    const data = await this.rbac.getPermissionMatrix({ role_code, menu_code });
     return { data, message: 'Permission matrix retrieved successfully' };
   }
 
-  @Get(':roleCode')
+  @Get(':role_code')
   @RequirePermission('RBAC_PERMISSIONS')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get permissions for a single role' })
-  async getRolePermissions(@Param('roleCode') roleCode: string) {
-    const data = await this.rbac.getRolePermissions(roleCode);
+  async getRolePermissions(@Param('role_code') role_code: string) {
+    const data = await this.rbac.getRolePermissions(role_code);
     return { data, message: 'Role permissions retrieved successfully' };
   }
 
-  @Put(':roleCode')
+  @Put(':role_code')
   @RequirePermission('RBAC_PERMISSIONS', 'edit')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Replace permission matrix for a role (atomic)' })
   async replacePermissions(
-    @Param('roleCode') roleCode: string,
+    @Param('role_code') role_code: string,
     @Body() dto: ReplacePermissionsDto,
     @CurrentUser() user: any,
   ) {
-    const data = await this.rbac.replaceRolePermissions(roleCode, dto, user.id);
+    const data = await this.rbac.replaceRolePermissions(role_code, dto, user.id);
     return { data, message: 'Permissions updated successfully' };
   }
 }
@@ -209,7 +209,7 @@ export class UserRolesController {
     @Body() dto: AssignRoleDto,
     @CurrentUser() user: any,
   ) {
-    const data = await this.rbac.assignUserRole(id, dto.roleCode, user.id);
+    const data = await this.rbac.assignUserRole(id, dto.role_code, user.id);
     return { data, message: 'Role assigned successfully' };
   }
 }

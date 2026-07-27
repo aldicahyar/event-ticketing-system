@@ -49,7 +49,7 @@ export class UpdateVenueDto {
   })
   @IsObject()
   @IsOptional()
-  seatMap?: Record<string, any>;
+  seat_map?: Record<string, any>;
 
   @ApiPropertyOptional({ example: 'Updated description here.' })
   @IsString()
@@ -59,5 +59,5 @@ export class UpdateVenueDto {
   @ApiPropertyOptional({ example: 'https://images.unsplash.com/...jpg' })
   @IsString()
   @IsOptional()
-  imageUrl?: string;
+  image_url?: string;
 }

@@ -37,28 +37,28 @@ export class UpdateEventDto {
   @ApiPropertyOptional({ example: 'cmqotgog30005advvy6o3hauf' })
   @IsString()
   @IsOptional()
-  venueId?: string;
+  venue_id?: string;
 
   @ApiPropertyOptional({ example: '2026-08-15T19:00:00.000Z' })
   @IsDateString()
   @IsOptional()
-  eventDate?: string;
+  event_date?: string;
 
   @ApiPropertyOptional({ example: '2026-07-15T10:00:00.000Z' })
   @IsDateString()
   @IsOptional()
-  startDateTime?: string;
+  start_date_time?: string;
 
   @ApiPropertyOptional({ example: '2026-08-15T22:00:00.000Z' })
   @IsDateString()
   @IsOptional()
-  endDateTime?: string;
+  end_date_time?: string;
 
   @ApiPropertyOptional({ example: 800000 })
   @IsNumber()
   @Min(0)
   @IsOptional()
-  basePrice?: number;
+  base_price?: number;
 
   @ApiPropertyOptional({ example: 'IDR' })
   @IsString()
@@ -73,5 +73,5 @@ export class UpdateEventDto {
   @ApiPropertyOptional({ example: 'https://images.unsplash.com/...jpg' })
   @IsString()
   @IsOptional()
-  imageUrl?: string;
+  image_url?: string;
 }

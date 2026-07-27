@@ -30,24 +30,24 @@ export class CreateEventDto {
 
   @ApiProperty({ example: 'cmqotgog30005advvy6o3hauf', description: 'ID of the venue hosting the event' })
   @IsString()
-  venueId: string;
+  venue_id: string;
 
   @ApiProperty({ example: '2026-08-15T19:00:00.000Z' })
   @IsDateString()
-  eventDate: string;
+  event_date: string;
 
   @ApiProperty({ example: '2026-07-15T10:00:00.000Z' })
   @IsDateString()
-  startDateTime: string;
+  start_date_time: string;
 
   @ApiProperty({ example: '2026-08-15T22:00:00.000Z' })
   @IsDateString()
-  endDateTime: string;
+  end_date_time: string;
 
   @ApiProperty({ example: 750000, description: 'Base price of tickets for this event' })
   @IsNumber()
   @Min(0)
-  basePrice: number;
+  base_price: number;
 
   @ApiProperty({ example: 'IDR', default: 'IDR' })
   @IsString()
@@ -62,5 +62,5 @@ export class CreateEventDto {
   @ApiPropertyOptional({ example: 'https://images.unsplash.com/...jpg' })
   @IsString()
   @IsOptional()
-  imageUrl?: string;
+  image_url?: string;
 }

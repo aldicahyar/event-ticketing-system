@@ -16,7 +16,7 @@ import { IdDto } from './dto/id.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../auth/dto/auth.dto';
+import { t_mtr_roles } from '../auth/dto/auth.dto';
 
 @ApiTags('venues')
 @Controller('venues')
@@ -55,7 +55,7 @@ export class VenuesController {
   @Post('create')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @Roles(t_mtr_roles.ADMIN, t_mtr_roles.ORGANIZER)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new venue (Admin/Organizer only)' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Venue successfully created' })
@@ -74,7 +74,7 @@ export class VenuesController {
   @Post('update')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @Roles(t_mtr_roles.ADMIN, t_mtr_roles.ORGANIZER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a venue (Admin/Organizer only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Venue successfully updated' })
@@ -92,7 +92,7 @@ export class VenuesController {
   @Post('delete')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN, Role.ORGANIZER)
+  @Roles(t_mtr_roles.ADMIN, t_mtr_roles.ORGANIZER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a venue (Admin/Organizer only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Venue successfully deleted' })

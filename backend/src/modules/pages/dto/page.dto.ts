@@ -55,18 +55,18 @@ export class CreatePageDto {
   @IsOptional()
   @IsString()
   @MaxLength(200)
-  seoTitle?: string;
+  seo_title?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MaxLength(300)
-  seoDescription?: string;
+  seo_description?: string;
 
   @ApiPropertyOptional({ description: 'Media id used as the OG/share image' })
   @IsOptional()
   @IsString()
-  ogImageId?: string;
+  og_image_id?: string;
 }
 
 export class UpdatePageDto {
@@ -107,18 +107,18 @@ export class UpdatePageDto {
   @IsOptional()
   @IsString()
   @MaxLength(200)
-  seoTitle?: string;
+  seo_title?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MaxLength(300)
-  seoDescription?: string;
+  seo_description?: string;
 
   @ApiPropertyOptional({ description: 'Media id, or null to clear' })
   @IsOptional()
   @IsString()
-  ogImageId?: string | null;
+  og_image_id?: string | null;
 }
 
 export class ListPagesQueryDto {
