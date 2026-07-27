@@ -10,7 +10,10 @@ import { VenuesModule } from './modules/venues/venues.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { RbacModule } from './modules/rbac/rbac.module';
+import { MediaModule } from './modules/media/media.module';
+import { PagesModule } from './modules/pages/pages.module';
 import { DatabaseModule } from './common/database/database.module';
+import { StorageModule } from './common/storage/storage.module';
 import { RedisModule } from './common/redis/redis.module';
 import { WebSocketModule } from './websocket/websocket.module';
 import { HealthModule } from './common/modules/health/health.module';
@@ -29,6 +32,7 @@ import { HealthModule } from './common/modules/health/health.module';
       },
     ]),
     DatabaseModule,
+    StorageModule,
     RedisModule,
     WebSocketModule,
     HealthModule,
@@ -41,6 +45,8 @@ import { HealthModule } from './common/modules/health/health.module';
     AnalyticsModule,
     SettingsModule,
     RbacModule,
+    MediaModule,
+    PagesModule,
   ],
 })
 export class AppModule {}

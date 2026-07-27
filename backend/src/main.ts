@@ -7,7 +7,9 @@ import helmet from '@fastify/helmet';
 import compress from '@fastify/compress';
 import rateLimit from '@fastify/rate-limit';
 import cors from '@fastify/cors';
-import { readFileSync } from 'node:fs';
+import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import { readFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { AppModule } from './app.module';
@@ -19,7 +21,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app: any = await NestFactory.create(AppModule, new FastifyAdapter() as any);
 
-  const configService = app.get(ConfigService);
+  const configService: ConfigService = app.get(ConfigService);
   const port = configService.get('PORT', 3000);
   const nodeEnv = configService.get('NODE_ENV', 'development');
   const corsOrigin = configService.get('CORS_ORIGIN', 'http://localhost:3001');
@@ -42,6 +44,29 @@ async function bootstrap() {
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
+  });
+
+  // ===== CMS: media uploads (multipart) + static serving =====
+  // Multipart is consumed manually in MediaController via req.file().
+  const maxUploadMb = Number(configService.get('UPLOAD_MAX_MB', 10));
+  await app.register(multipart, {
+    limits: {
+      fileSize: maxUploadMb * 1024 * 1024,
+      files: 1,
+    },
+  });
+
+  // Serve uploaded assets. Keep the URL prefix in sync with UPLOAD_URL_PREFIX
+  // used by LocalStorageService (default "/uploads").
+  const uploadDir = configService.get<string>('UPLOAD_DIR') || join(process.cwd(), 'uploads');
+  const uploadPrefix =
+    '/' + (configService.get<string>('UPLOAD_URL_PREFIX') || '/uploads').replace(/^\/+|\/+$/g, '') + '/';
+  // @fastify/static requires the root to exist at registration time.
+  mkdirSync(uploadDir, { recursive: true });
+  await app.register(fastifyStatic, {
+    root: uploadDir,
+    prefix: uploadPrefix,
+    decorateReply: false, // avoid clashing with other plugins that add reply.sendFile
   });
 
   app.useGlobalPipes(
