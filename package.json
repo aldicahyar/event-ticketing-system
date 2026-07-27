@@ -28,6 +28,8 @@
     "db:generate": "npx prisma generate --schema prisma/schema.prisma",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:reset": "npx prisma migrate reset --schema prisma/schema.prisma --force",
+    "prisma:pull": "npx prisma db pull --schema prisma/schema.prisma",
+    "prisma:generate": "npx prisma generate --schema prisma/schema.prisma",
     "status": "echo '✅ Project Setup Complete!' && echo '' && echo 'Backend: cd backend && npm run start:dev' && echo 'Frontend: cd frontend && npm run dev' && echo '' && echo 'API Docs: http://localhost:3000/api/docs' && echo 'RBAC Docs: http://localhost:3000/swagger' && echo 'Frontend: http://localhost:3001'"
   },
   "prisma": {

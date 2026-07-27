@@ -66,6 +66,7 @@ export interface Event {
   title: string;
   description: string;
   venue: Venue;
+  eventDate: Date;
   startDateTime: Date;
   endDateTime: Date;
   status: EventStatus;

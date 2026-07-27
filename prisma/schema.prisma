@@ -7,6 +7,346 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Uploaded asset (image/file) managed via the admin Media library.
+/// The binary lives on disk (see StorageService); this row is metadata only.
+model Media {
+  id           String   @id @default(cuid())
+  filename     String   @unique
+  originalName String
+  url          String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  alt          String?
+  folder       String?  @default("general")
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ogPages      Page[]   @relation("PageOgImage")
+
+  @@index([folder])
+  @@index([mimeType])
+  @@map("media")
+}
+
+/// CMS page — editable static content (About, FAQ, Terms, ...) served publicly
+/// by slug. `content` holds SANITIZED HTML produced by the rich-text editor.
+model Page {
+  id             String     @id @default(cuid())
+  slug           String     @unique
+  title          String
+  excerpt        String?
+  content        String
+  status         PageStatus @default(DRAFT)
+  seoTitle       String?
+  seoDescription String?
+  ogImageId      String?
+  publishedAt    DateTime?
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  ogImage        Media?     @relation("PageOgImage", fields: [ogImageId], references: [id])
+
+  @@index([status])
+  @@index([slug])
+  @@map("pages")
+}
+
+/// RBAC role. System roles (ADMIN, ORGANIZER, ATTENDEE) are seeded with isSystem=true
+/// and cannot be deleted. Custom roles can be created via admin UI.
+model Role {
+  id          String               @id @default(cuid())
+  code        String               @unique
+  name        String
+  nameEn      String?
+  description String?
+  isSystem    Boolean              @default(false)
+  isActive    Boolean              @default(true)
+  sortOrder   Int                  @default(0)
+  createdBy   String?
+  createdAt   DateTime             @default(now())
+  updatedBy   String?
+  updatedAt   DateTime             @updatedAt
+  permissions RoleMenuPermission[]
+  users       User[]
+
+  @@index([isActive])
+  @@map("roles")
+}
+
+/// Sidebar menu definition. Tree structure via parentCode (self-reference).
+/// Seeded from frontend navigation config + can be added via admin UI later.
+model Menu {
+  id          String               @id @default(cuid())
+  code        String               @unique
+  name        String
+  nameEn      String?
+  parentCode  String?
+  icon        String?
+  slug        String?
+  order       Int                  @default(0)
+  isNewTab    Boolean              @default(false)
+  isActive    Boolean              @default(true)
+  createdBy   String?
+  createdAt   DateTime             @default(now())
+  updatedBy   String?
+  updatedAt   DateTime             @updatedAt
+  parent      Menu?                @relation("MenuTree", fields: [parentCode], references: [code])
+  children    Menu[]               @relation("MenuTree")
+  permissions RoleMenuPermission[]
+
+  @@index([parentCode])
+  @@index([isActive])
+  @@map("menus")
+}
+
+/// Permission pivot: what a role can do with a menu.
+/// canView gates visibility in sidebar. canCreate/canEdit/canDelete gate action buttons.
+model RoleMenuPermission {
+  id        String   @id @default(cuid())
+  roleCode  String
+  menuCode  String
+  canView   Boolean  @default(false)
+  canCreate Boolean  @default(false)
+  canEdit   Boolean  @default(false)
+  canDelete Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+  menu      Menu     @relation(fields: [menuCode], references: [code])
+  role      Role     @relation(fields: [roleCode], references: [code])
+
+  @@unique([roleCode, menuCode])
+  @@index([roleCode])
+  @@index([menuCode])
+  @@map("role_menu_permissions")
+}
+
+model User {
+  id                  String         @id @default(cuid())
+  email               String         @unique
+  password            String?
+  name                String
+  roleCode            String         @default("ATTENDEE")
+  provider            String         @default("local")
+  providerId          String?
+  avatar              String?
+  isActive            Boolean        @default(true)
+  emailVerified       Boolean        @default(false)
+  failedLoginAttempts Int            @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  lastFailedLoginAt   DateTime?
+  passwordChangedAt   DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  bookings            Booking[]
+  oauthAccounts       OAuthAccount[]
+  securityLogs        SecurityLog[]
+  profile             UserProfile?
+  role                Role           @relation(fields: [roleCode], references: [code])
+
+  @@index([email])
+  @@index([provider, providerId])
+  @@index([lockedUntil])
+  @@index([roleCode])
+  @@map("users")
+}
+
+model UserProfile {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone       String?
+  dateOfBirth DateTime?
+  gender      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+/// Audit log for security events
+model SecurityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model OAuthAccount {
+  id         String   @id @default(cuid())
+  userId     String
+  provider   String
+  providerId String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+}
+
+model Venue {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  country     String
+  capacity    Int
+  seatMap     Json
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  events      Event[]
+  seats       Seat[]
+
+  @@index([city])
+}
+
+model Event {
+  id            String      @id @default(cuid())
+  title         String
+  description   String
+  venueId       String
+  startDateTime DateTime
+  endDateTime   DateTime
+  status        EventStatus @default(DRAFT)
+  imageUrl      String?
+  basePrice     Decimal     @db.Decimal(10, 2)
+  currency      String      @default("USD")
+  organizerId   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  subtitle      String?
+  eventDate     DateTime    @default(now())
+  bookings      Booking[]
+  venue         Venue       @relation(fields: [venueId], references: [id])
+  seats         Seat[]
+
+  @@index([venueId])
+  @@index([status])
+  @@index([startDateTime])
+}
+
+model Seat {
+  id        String     @id @default(cuid())
+  eventId   String
+  venueId   String
+  row       String
+  number    Int
+  type      SeatType   @default(REGULAR)
+  status    SeatStatus @default(AVAILABLE)
+  price     Decimal    @db.Decimal(10, 2)
+  bookingId String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  booking   Booking?   @relation(fields: [bookingId], references: [id])
+  event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venue     Venue      @relation(fields: [venueId], references: [id])
+
+  @@unique([eventId, row, number])
+  @@index([eventId])
+  @@index([status])
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  userId      String
+  eventId     String
+  bookingCode String        @unique
+  totalPrice  Decimal       @db.Decimal(10, 2)
+  currency    String        @default("USD")
+  status      BookingStatus @default(PENDING)
+  expiresAt   DateTime?
+  bookedAt    DateTime      @default(now())
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  
+  guestName   String?
+  guestEmail  String?
+  guestPhone  String?
+
+  event       Event         @relation(fields: [eventId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+  payment     Payment?
+  seats       Seat[]
+  tickets     Ticket[]
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([status])
+  @@index([bookingCode])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  bookingId    String        @unique
+  amount       Decimal       @db.Decimal(10, 2)
+  currency     String        @default("USD")
+  provider     String
+  providerTxId String?       @unique
+  status       PaymentStatus @default(PENDING)
+  paymentUrl   String?
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  booking      Booking       @relation(fields: [bookingId], references: [id])
+
+  @@index([provider, providerTxId])
+}
+
+model Ticket {
+  id          String    @id @default(cuid())
+  bookingId   String
+  seatId      String
+  qrCode      String    @unique
+  isCheckedIn Boolean   @default(false)
+  checkedInAt DateTime?
+  createdAt   DateTime  @default(now())
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([qrCode])
+  @@index([bookingId])
+}
+
+/// Ticket tier configuration (multiplier + ratio for seat distribution).
+/// id is the SeatType enum value (VIP/PREMIUM/REGULAR).
+model TicketTierSetting {
+  id         String   @id
+  ratio      Float
+  multiplier Float
+  status     String   @default("ACTIVE")
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("ticket_tier_settings")
+}
+
+/// Tax (PPN/VAT) configuration. Single row with id='default'.
+model TaxSetting {
+  id         String   @id
+  ppnPercent Float
+  status     String   @default("ACTIVE")
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("tax_settings")
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -45,344 +385,4 @@ enum PaymentStatus {
 enum PageStatus {
   DRAFT
   PUBLISHED
-}
-
-// ============================================================
-// CMS (Phase 1)
-// ============================================================
-
-/// Uploaded asset (image/file) managed via the admin Media library.
-/// The binary lives on disk (see StorageService); this row is metadata only.
-model Media {
-  id           String   @id @default(cuid())
-  filename     String   @unique                 // stored name on disk, e.g. "a1b2.webp"
-  originalName String                           // name as uploaded by the user
-  url          String                           // public path, e.g. "/uploads/a1b2.webp"
-  mimeType     String
-  size         Int                              // bytes
-  width        Int?
-  height       Int?
-  alt          String?                          // accessibility / SEO alt text
-  folder       String?  @default("general")     // logical grouping in the library
-  uploadedBy   String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  ogPages      Page[]   @relation("PageOgImage")
-
-  @@index([folder])
-  @@index([mimeType])
-  @@map("media")
-}
-
-/// CMS page — editable static content (About, FAQ, Terms, ...) served publicly
-/// by slug. `content` holds SANITIZED HTML produced by the rich-text editor.
-model Page {
-  id             String     @id @default(cuid())
-  slug           String     @unique             // URL key, e.g. "about"
-  title          String
-  excerpt        String?                         // short summary for listings
-  content        String     @db.Text             // sanitized HTML body
-  status         PageStatus @default(DRAFT)
-  seoTitle       String?
-  seoDescription String?
-  ogImageId      String?
-  publishedAt    DateTime?
-  createdBy      String?
-  updatedBy      String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  ogImage        Media?     @relation("PageOgImage", fields: [ogImageId], references: [id])
-
-  @@index([status])
-  @@index([slug])
-  @@map("pages")
-}
-
-/// RBAC role. System roles (ADMIN, ORGANIZER, ATTENDEE) are seeded with isSystem=true
-/// and cannot be deleted. Custom roles can be created via admin UI.
-model Role {
-  id           String   @id @default(cuid())
-  code         String   @unique                          // "ADMIN", "ORGANIZER", or custom "CASHIER"
-  name         String                                    // "Administrator" (display name)
-  nameEn       String?                                   // i18n fallback
-  description  String?
-  isSystem     Boolean  @default(false)                  // system roles cannot be deleted
-  isActive     Boolean  @default(true)                   // soft delete / deactivate
-  sortOrder    Int      @default(0)
-  createdBy    String?
-  createdAt    DateTime @default(now())
-  updatedBy    String?
-  updatedAt    DateTime @updatedAt
-
-  users        User[]
-  permissions  RoleMenuPermission[]
-
-  @@index([isActive])
-  @@map("roles")
-}
-
-/// Sidebar menu definition. Tree structure via parentCode (self-reference).
-/// Seeded from frontend navigation config + can be added via admin UI later.
-model Menu {
-  id           String   @id @default(cuid())
-  code         String   @unique                          // "DASHBOARD", "EVENTS", "MNUF..."
-  name         String                                    // "Manage Events" (display)
-  nameEn       String?                                   // i18n fallback
-  parentCode   String?                                   // self-reference for tree builder
-  icon         String?                                   // lucide-react icon name: "Calendar"
-  slug         String?                                   // route: "/dashboard/events"
-  order        Int      @default(0)
-  isNewTab     Boolean  @default(false)
-  isActive     Boolean  @default(true)                   // soft delete
-  createdBy    String?
-  createdAt    DateTime @default(now())
-  updatedBy    String?
-  updatedAt    DateTime @updatedAt
-
-  parent       Menu?              @relation("MenuTree", fields: [parentCode], references: [code])
-  children     Menu[]             @relation("MenuTree")
-  permissions  RoleMenuPermission[]
-
-  @@index([parentCode])
-  @@index([isActive])
-  @@map("menus")
-}
-
-/// Permission pivot: what a role can do with a menu.
-/// canView gates visibility in sidebar. canCreate/canEdit/canDelete gate action buttons.
-model RoleMenuPermission {
-  id          String   @id @default(cuid())
-  roleCode    String
-  menuCode    String
-  canView     Boolean  @default(false)
-  canCreate   Boolean  @default(false)
-  canEdit     Boolean  @default(false)
-  canDelete   Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedBy   String?
-  updatedAt   DateTime @updatedAt
-
-  role        Role     @relation(fields: [roleCode], references: [code])
-  menu        Menu     @relation(fields: [menuCode], references: [code])
-
-  @@unique([roleCode, menuCode])
-  @@index([roleCode])
-  @@index([menuCode])
-  @@map("role_menu_permissions")
-}
-
-model User {
-  id                   String    @id @default(cuid())
-  email                String    @unique
-  password             String?
-  name                 String
-  roleCode             String    @default("ATTENDEE")     // FK to Role.code (RBAC)
-  provider             String    @default("local")
-  providerId           String?
-  avatar               String?
-  isActive             Boolean   @default(true)
-  emailVerified        Boolean   @default(false)
-  failedLoginAttempts  Int       @default(0)
-  lockedUntil          DateTime?
-  lastLoginAt          DateTime?
-  lastFailedLoginAt    DateTime?
-  passwordChangedAt    DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  role                 Role?     @relation(fields: [roleCode], references: [code])
-  bookings             Booking[]
-  oauthAccounts        OAuthAccount[]
-  securityLogs         SecurityLog[]
-
-  @@index([email])
-  @@index([provider, providerId])
-  @@index([lockedUntil])
-  @@index([roleCode])
-  @@map("users")
-}
-
-/// Audit log for security events
-model SecurityLog {
-  id          String   @id @default(cuid())
-  userId      String
-  action      String   // LOGIN, LOGIN_FAILED, LOGOUT, PASSWORD_CHANGE, ACCOUNT_LOCKED, ACCOUNT_UNLOCKED
-  ipAddress   String?
-  userAgent   String?
-  metadata    Json?    // Additional context
-  createdAt   DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
-}
-
-model OAuthAccount {
-  id         String   @id @default(cuid())
-  userId     String
-  provider   String
-  providerId String
-  createdAt  DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerId])
-}
-
-model Venue {
-  id          String   @id @default(cuid())
-  name        String
-  address     String
-  city        String
-  country     String
-  capacity    Int
-  seatMap     Json
-  description String?
-  imageUrl    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  events Event[]
-  seats  Seat[]
-
-  @@index([city])
-}
-
-model Event {
-  id            String      @id @default(cuid())
-  title         String
-  subtitle      String?
-  description   String
-  venueId       String
-  startDateTime DateTime
-  endDateTime   DateTime
-  status        EventStatus @default(DRAFT)
-  imageUrl      String?
-  basePrice     Decimal     @db.Decimal(10, 2)
-  currency      String      @default("USD")
-  organizerId   String
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  venue    Venue     @relation(fields: [venueId], references: [id])
-  seats    Seat[]
-  bookings Booking[]
-
-  @@index([venueId])
-  @@index([status])
-  @@index([startDateTime])
-}
-
-model Seat {
-  id        String     @id @default(cuid())
-  eventId   String
-  venueId   String
-  row       String
-  number    Int
-  type      SeatType   @default(REGULAR)
-  status    SeatStatus @default(AVAILABLE)
-  price     Decimal    @db.Decimal(10, 2)
-  bookingId String?    @unique
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  venue   Venue    @relation(fields: [venueId], references: [id])
-  booking Booking? @relation(fields: [bookingId], references: [id])
-
-  @@unique([eventId, row, number])
-  @@index([eventId])
-  @@index([status])
-}
-
-model Booking {
-  id          String        @id @default(cuid())
-  userId      String
-  eventId     String
-  bookingCode String        @unique
-  totalPrice  Decimal       @db.Decimal(10, 2)
-  currency    String        @default("USD")
-  status      BookingStatus @default(PENDING)
-  expiresAt   DateTime?
-  bookedAt    DateTime      @default(now())
-  confirmedAt DateTime?
-  cancelledAt DateTime?
-
-  user    User     @relation(fields: [userId], references: [id])
-  event   Event    @relation(fields: [eventId], references: [id])
-  seats   Seat[]
-  payment Payment?
-  tickets Ticket[]
-
-  @@index([userId])
-  @@index([eventId])
-  @@index([status])
-  @@index([bookingCode])
-}
-
-model Payment {
-  id           String        @id @default(cuid())
-  bookingId    String        @unique
-  amount       Decimal       @db.Decimal(10, 2)
-  currency     String        @default("USD")
-  provider     String
-  providerTxId String?       @unique
-  status       PaymentStatus @default(PENDING)
-  paymentUrl   String?
-  paidAt       DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  booking Booking @relation(fields: [bookingId], references: [id])
-
-  @@index([provider, providerTxId])
-}
-
-model Ticket {
-  id          String    @id @default(cuid())
-  bookingId   String
-  seatId      String
-  qrCode      String    @unique
-  isCheckedIn Boolean   @default(false)
-  checkedInAt DateTime?
-  createdAt   DateTime  @default(now())
-
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  @@index([qrCode])
-  @@index([bookingId])
-}
-
-/// Ticket tier configuration (multiplier + ratio for seat distribution).
-/// id is the SeatType enum value (VIP/PREMIUM/REGULAR).
-model TicketTierSetting {
-  id         String   @id                     // SeatType enum value
-  ratio      Float                            // 0.0 - 1.0 row distribution
-  multiplier Float                            // price multiplier
-  status     String   @default("ACTIVE")      // ACTIVE | INACTIVE
-  createdBy  String?
-  updatedBy  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@map("ticket_tier_settings")
-}
-
-/// Tax (PPN/VAT) configuration. Single row with id='default'.
-model TaxSetting {
-  id         String   @id                     // always 'default'
-  ppnPercent Float                            // 0 - 100
-  status     String   @default("ACTIVE")
-  createdBy  String?
-  updatedBy  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@map("tax_settings")
 }
