@@ -10,6 +10,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { BookingsService } from './bookings.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CheckoutDto } from './dto/bookings.dto';
+import { Post, Body } from '@nestjs/common';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -17,6 +19,23 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @ApiBearerAuth()
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
+
+  @Post('checkout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Checkout and lock seats for booking' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Seats locked and checkout initiated' })
+  async checkout(
+    @Body() dto: CheckoutDto,
+    @CurrentUser() user: any,
+  ) {
+    const data = await this.bookingsService.checkout(user.id, dto.eventId, dto.seatIds);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      message: data.message,
+    };
+  }
 
   @Get('my-orders')
   @HttpCode(HttpStatus.OK)
