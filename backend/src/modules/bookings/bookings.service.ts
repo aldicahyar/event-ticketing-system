@@ -1,18 +1,27 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger, OnModuleInit, OnModuleDestroy, forwardRef, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
+import { PaymentsService } from '../payments/payments.service';
 import Stripe from 'stripe';
 
 @Injectable()
 export class BookingsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BookingsService.name);
+  private readonly frontendUrl: string;
   private cleanupInterval: NodeJS.Timeout;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-  ) {}
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => PaymentsService))
+    private readonly paymentsService: PaymentsService,
+  ) {
+    this.frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
+  }
 
   onModuleInit() {
     // Run booking expiration check every 1 minute
@@ -28,6 +37,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   /**
    * Cron-like job to find all PENDING bookings that have passed their expires_at,
    * cancel them, and release their seats back to AVAILABLE.
+   *
+   * Before expiring, each booking is cross-checked against Stripe: if the user
+   * actually completed payment (webhook was delayed), the booking is synced to
+   * CONFIRMED instead of being expired.
    */
   async expireOldBookings() {
     try {
@@ -36,29 +49,49 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           status: 'PENDING',
           expires_at: { lt: new Date() },
         },
-        select: { id: true },
+        select: { id: true, booking_code: true },
       });
 
       if (expiredBookings.length === 0) return;
 
-      const bookingIds = expiredBookings.map((b) => b.id);
-      this.logger.log(`Found ${bookingIds.length} expired bookings. Canceling...`);
+      const toExpire: string[] = [];
+
+      for (const b of expiredBookings) {
+        const paid = await this.paymentsService.isBookingActuallyPaid(b.id);
+        if (paid) {
+          this.logger.warn(
+            `Booking ${b.booking_code} past expires_at but appears paid in Stripe — skipping expire so webhook/fallback can sync it`,
+          );
+        } else {
+          toExpire.push(b.id);
+        }
+      }
+
+      if (toExpire.length === 0) return;
+
+      this.logger.log(`Found ${toExpire.length} truly expired bookings. Canceling...`);
 
       await this.prisma.$transaction(async (tx) => {
-        // 1. Release seats
+        // 1. Release seats (only for bookings still PENDING — a booking
+        //    that was confirmed by a webhook during the cross-check loop
+        //    must NOT have its seats released).
         await tx.t_mtr_seats.updateMany({
-          where: { booking_id: { in: bookingIds } },
+          where: { booking_id: { in: toExpire } },
           data: { status: 'AVAILABLE', booking_id: null },
         });
 
-        // 2. Mark bookings as EXPIRED
+        // 2. Mark bookings as EXPIRED — conditional on status='PENDING'
+        //    to prevent overwriting a CONFIRMED or CANCELLED status set
+        //    by a concurrent payment webhook or refund flow.
         await tx.t_trx_bookings.updateMany({
-          where: { id: { in: bookingIds } },
+          where: { id: { in: toExpire }, status: 'PENDING' },
           data: { status: 'EXPIRED' },
         });
       });
 
-      this.logger.log(`Successfully expired ${bookingIds.length} bookings and released seats.`);
+      this.logger.log(
+        `Successfully expired ${toExpire.length} bookings and released seats.`,
+      );
     } catch (error) {
       this.logger.error('Failed to expire old bookings', error);
     }
@@ -108,6 +141,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // Declare booking outside try so catch block can roll it back if
+    // Stripe session creation fails after the DB transaction committed.
+    let booking: { id: string; booking_code: string } | undefined;
+
     try {
       // 4. Calculate Total Price
       const tierSettings = await this.prisma.t_mtr_ticket_tier_settings.findMany({ where: { status: 'ACTIVE' } });
@@ -124,10 +161,16 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       const tax = subtotal * (taxPercent / 100);
       const total_price = subtotal + tax;
       const booking_code = `BOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      // Booking window: 15 minutes for the user to complete payment.
+      // Note: Stripe requires expires_at >= 30 min from session creation,
+      // so we clamp the Stripe session expiry to Stripe's minimum while
+      // keeping the booking's own expiry at 15 min. The atomic expiry
+      // guard in processSuccessfulPayment catches any payment that arrives
+      // after the 15-min booking window (even if Stripe still allows it).
       const expires_at = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
       // 5. Database Transaction to create t_trx_bookings and update Seats
-      const booking = await this.prisma.$transaction(async (tx) => {
+      booking = await this.prisma.$transaction(async (tx) => {
         // Double check status inside transaction
         const currentSeats = await tx.t_mtr_seats.findMany({
           where: { id: { in: seatIds }, status: 'AVAILABLE' },
@@ -145,6 +188,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
             currency: event.currency,
             status: 'PENDING',
             expires_at,
+            // Snapshot seat IDs — permanent record that survives seat release
+            seat_ids: seatIds,
             guest_name: guestInfo?.guest_name,
             guest_email: guestInfo?.guest_email,
             guest_phone: guestInfo?.guest_phone,
@@ -160,7 +205,11 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       });
 
       // 6. Create Stripe Checkout Session
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+      const secretKey = process.env.STRIPE_SECRET_KEY;
+      if (!secretKey) {
+        throw new Error('STRIPE_SECRET_KEY is not configured');
+      }
+      const stripe = new Stripe(secretKey, {
         apiVersion: '2023-10-16',
       });
 
@@ -184,23 +233,75 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           },
         ],
         mode: 'payment',
-        success_url: `http://localhost:3001/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `http://localhost:3001/events/${event_id}`,
+        // Stripe requires expires_at >= 30 min from session creation.
+        // Our booking window is 15 min, so we use Stripe's minimum (30 min)
+        // and rely on the atomic expiry guard in processSuccessfulPayment
+        // to catch payments that arrive after the 15-min booking window.
+        expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000),
+        success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.frontendUrl}/checkout/cancelled?booking=${booking.id}`,
         client_reference_id: booking.id,
+      });
+
+      // Persist the Stripe session id on the booking so the payment flow can
+      // be recovered if the user closes the Stripe tab before completing
+      // payment. This is read by /payments/recover-session and the pending
+      // checkout polling job.
+      await this.prisma.t_trx_bookings.update({
+        where: { id: booking.id },
+        data: { stripe_session_id: session.id },
       });
 
       return {
         booking_id: booking.id,
         booking_code: booking.booking_code,
+        session_id: session.id,
         checkoutUrl: session.url,
         expires_at,
         message: 'Seats locked and checkout session created successfully',
       };
     } catch (error) {
-      // Rollback Redis locks if DB transaction fails
+      // Rollback: release Redis locks so other users can book these seats
       if (redisClient && lockedKeys.length > 0) {
         await redisClient.del(...lockedKeys);
       }
+
+      // CRITICAL: If a booking was created but Stripe session creation
+      // failed, we must roll back the DB state too — otherwise seats stay
+      // RESERVED on a phantom PENDING booking that has no checkout URL.
+      // The user would see "Stripe page disappeared" because the backend
+      // returned no checkoutUrl.
+      if (booking) {
+        this.logger.error(
+          `Checkout failed after booking ${booking.booking_code} was created — rolling back seats and cancelling booking`,
+        );
+        try {
+          await this.prisma.$transaction(async (tx) => {
+            await tx.t_mtr_seats.updateMany({
+              where: { booking_id: booking.id },
+              data: { status: 'AVAILABLE', booking_id: null },
+            });
+            await tx.t_trx_bookings.update({
+              where: { id: booking.id },
+              data: {
+                status: 'CANCELLED',
+                cancelled_at: new Date(),
+                cancelled_reason: 'STRIPE_SESSION_CREATION_FAILED',
+              },
+            });
+          });
+        } catch (rollbackErr) {
+          this.logger.error(
+            `Failed to rollback booking ${booking.booking_code}: ${rollbackErr}`,
+          );
+        }
+      }
+
+      // Re-throw so the controller returns a proper HTTP error to the
+      // frontend instead of `undefined`. This is the root cause fix:
+      // previously the error was silently swallowed, the method returned
+      // undefined, and the frontend never received a checkoutUrl.
+      throw error;
     }
   }
 

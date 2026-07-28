@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Ticket, Calendar, CreditCard, Download,
-  Search, Eye, ArrowRight
+  Search, Eye, ArrowRight, Clock
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { OrderRowSkeleton } from '@/components/ui/skeleton';
+import { useResumablePayments } from '@/hooks/useResumablePayments';
 
 // Shape mirrors the Prisma booking payload returned by /bookings/my-orders
 interface OrderSeat {
@@ -50,6 +51,7 @@ interface Order {
   booked_at: string;
   confirmed_at: string | null;
   cancelled_at: string | null;
+  expires_at: string | null;
   event: OrderEvent;
   seats: OrderSeat[];
   payment: OrderPayment | null;
@@ -58,12 +60,60 @@ interface Order {
 
 type FilterKey = 'all' | 'upcoming' | 'completed' | 'cancelled';
 
+function formatDateTimeLocal(iso?: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatCountdown(ms: number) {
+  if (ms <= 0) return '0m 0s';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [, setTick] = useState(0);
+
+  // Reload orders once a minute for PENDING bookings (auto-transition to EXPIRED).
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const hasPending = orders.some((o) => o.status === 'PENDING');
+  useEffect(() => {
+    if (!hasPending) return;
+    // When countdown ticks past zero, trigger an actual reload so API
+    // (and its Prisma state) is consulted again (booking may be EXPIRED now).
+    const expiries = orders
+      .filter((o) => o.status === 'PENDING' && o.expires_at)
+      .map((o) => new Date(o.expires_at!).getTime());
+    const nextExpiry = expiries.length > 0 ? Math.min(...expiries) : Infinity;
+    if (!isFinite(nextExpiry)) return;
+    const msUntil = Math.max(0, nextExpiry - Date.now() + 1500);
+    const handle = window.setTimeout(() => {
+      loadOrders();
+    }, msUntil);
+    return () => window.clearTimeout(handle);
+  }, [orders, hasPending]);
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true);
@@ -82,8 +132,18 @@ export default function OrdersPage() {
     loadOrders();
   }, [loadOrders]);
 
-  const deriveStatus = (order: Order): 'upcoming' | 'completed' | 'cancelled' => {
+  // Surface server-validated resumable Stripe sessions so each PENDING order
+  // can show a "Continue Payment" button. When a session resolves (paid
+  // or expired) we reload orders so the button hides in near real-time.
+  const { getByBookingId } = useResumablePayments({
+    intervalMs: 20000,
+    onResolved: () => loadOrders(),
+  });
+
+  const deriveStatus = (order: Order): 'upcoming' | 'completed' | 'cancelled' | 'expired' | 'pending' => {
     if (order.status === 'CANCELLED') return 'cancelled';
+    if (order.status === 'EXPIRED') return 'expired';
+    if (order.status === 'PENDING') return 'pending';
     const event_date = order.event?.start_date_time ? new Date(order.event.start_date_time) : null;
     const now = new Date();
     if (event_date && event_date < now) return 'completed';
@@ -92,7 +152,10 @@ export default function OrdersPage() {
 
   const filteredOrders = orders.filter((order) => {
     const derived = deriveStatus(order);
-    const matchesFilter = filter === 'all' || derived === filter;
+    const matchesFilter =
+      filter === 'all' ||
+      derived === filter ||
+      (filter === 'completed' && (derived === 'completed' || derived === 'expired' || derived === 'cancelled'));
     const needle = searchQuery.trim().toLowerCase();
     const matchesSearch =
       !needle ||
@@ -104,8 +167,10 @@ export default function OrdersPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'upcoming': return 'bg-green-500 text-black';
+      case 'pending': return 'bg-yellow-500 text-black';
+      case 'expired': return 'bg-red-500 text-white';
       case 'completed': return 'bg-[#666] text-white';
-      case 'cancelled': return 'bg-red-500 text-white';
+      case 'cancelled': return 'bg-mono-dark-grey text-white';
       default: return 'bg-mono-dark-grey text-white';
     }
   };
@@ -288,14 +353,121 @@ export default function OrdersPage() {
                       <div className="text-xs text-mono-light-grey">
                         {order.seats.length} ticket{order.seats.length > 1 ? 's' : ''} • {paymentLabel(order.payment)}
                       </div>
+
+                      {/* Expiry / countdown / cancellation info specific to the booking status */}
+                      <div className="mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs">
+                        {order.status === 'PENDING' &&
+                          (() => {
+                            const expMs = order.expires_at
+                              ? new Date(order.expires_at).getTime()
+                              : NaN;
+                            const remaining = isNaN(expMs) ? -1 : expMs - Date.now();
+                            const expStr = formatDateTimeLocal(order.expires_at);
+                            const isUrgent = remaining >= 0 && remaining < 5 * 60 * 1000;
+                            return (
+                              <>
+                                <span
+                                  className={`uppercase font-bold inline-flex items-center gap-1 ${
+                                    remaining < 0
+                                      ? 'text-red-400'
+                                      : isUrgent
+                                      ? 'text-yellow-400'
+                                      : 'text-yellow-300'
+                                  }`}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  {remaining < 0
+                                    ? 'Payment window closed'
+                                    : `Complete in ${formatCountdown(remaining)}`}
+                                </span>
+                                {expStr && (
+                                  <span className="text-mono-light-grey">
+                                    (deadline: <span className="text-white">{expStr}</span>)
+                                  </span>
+                                )}
+                                {remaining >= 0 && (
+                                  <span className="block w-full text-[11px] text-[#999]">
+                                    Past the deadline → seats are released automatically and the booking becomes Expired.
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()}
+
+                        {order.status === 'EXPIRED' && (
+                          <>
+                            <span className="uppercase font-bold text-red-400 inline-flex items-center gap-1">
+                              • Expired
+                            </span>
+                            {formatDateTimeLocal(order.expires_at) && (
+                              <span className="text-mono-light-grey">
+                                on:{' '}
+                                <span className="text-white">
+                                  {formatDateTimeLocal(order.expires_at)}
+                                </span>
+                              </span>
+                            )}
+                            <span className="block w-full text-[11px] text-[#999]">
+                              Payment was not received within the 15-minute window → no e-ticket was issued and seats have been released.
+                            </span>
+                          </>
+                        )}
+
+                        {order.status === 'CANCELLED' && (
+                          <>
+                            <span className="uppercase font-bold text-[#999] inline-flex items-center gap-1">
+                              • Cancelled
+                            </span>
+                            {formatDateTimeLocal(order.cancelled_at) && (
+                              <span className="text-mono-light-grey">
+                                on:{' '}
+                                <span className="text-white">
+                                  {formatDateTimeLocal(order.cancelled_at)}
+                                </span>
+                              </span>
+                            )}
+                          </>
+                        )}
+
+                        {order.status === 'CONFIRMED' && order.confirmed_at && (
+                          <span className="uppercase font-bold text-green-400 text-[11px] inline-flex items-center gap-1">
+                            ✓ Confirmed on {formatDateTimeLocal(order.confirmed_at)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-2 justify-end">
-                      {derived === 'upcoming' && (
+                      {order.status === 'CONFIRMED' && derived === 'upcoming' && (
                         <Link
                           href={`/dashboard/my-tickets?order=${order.id}`}
                           className="px-4 py-2 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center gap-2"
                         >
                           View Tickets <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      )}
+                      {order.status === 'EXPIRED' && (
+                        <Link
+                          href={`/events/${order.event?.id ?? ''}`}
+                          className="px-4 py-2 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center gap-2"
+                        >
+                          Book Again <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      )}
+                      {order.status === 'PENDING' && getByBookingId(order.id) && (
+                        <a
+                          href={getByBookingId(order.id)!.checkout_url}
+                          className="px-4 py-2 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center gap-2"
+                        >
+                          <CreditCard className="w-3 h-3" />
+                          Continue Payment <ArrowRight className="w-3 h-3" />
+                        </a>
+                      )}
+                      {order.status === 'PENDING' && (
+                        <Link
+                          href={`/dashboard/my-tickets?order=${order.id}`}
+                          className="px-4 py-2 border border-mono-dark-grey text-[#CCCCCC] text-xs font-bold uppercase hover:border-white hover:text-white transition-all flex items-center gap-2"
+                        >
+                          Check Status <ArrowRight className="w-3 h-3" />
                         </Link>
                       )}
                       <button

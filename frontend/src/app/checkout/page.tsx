@@ -62,7 +62,8 @@ function CheckoutContent() {
 
   React.useEffect(() => {
     if (event_id) {
-      fetch(`http://localhost:3000/events/${event_id}`)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      fetch(`${apiUrl}/events/${event_id}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -147,7 +148,8 @@ function CheckoutContent() {
       }
 
       // 2. Call backend API
-      const response = await fetch('http://localhost:3000/bookings/checkout', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      const response = await fetch(`${apiUrl}/bookings/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -165,16 +167,44 @@ function CheckoutContent() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Checkout failed');
+        throw new Error(data?.message || 'Checkout failed. Please try again.');
       }
 
-      // 3. Redirect to Stripe
-      if (data.data?.checkoutUrl) {
-        window.location.href = data.data.checkoutUrl;
-      } else {
-        throw new Error('Checkout URL not found from backend');
+      // 3. Persist checkout context to localStorage BEFORE redirecting to
+      // Stripe. If the user closes the Stripe tab without paying (intentional
+      // or due to a browser crash / connection drop), the /checkout/pending
+      // page reads this entry to display a "Continue Payment" button and
+      // poll the backend for the live session status.
+      const checkoutData = data.data;
+      if (!checkoutData?.checkoutUrl) {
+        // Backend returned success but no checkout URL — this means the
+        // Stripe session was not created. Show a clear error instead of
+        // silently failing (which made it appear as if Stripe "disappeared").
+        throw new Error(
+          'Payment session could not be created. Please try again or contact support if the problem persists.'
+        );
       }
-      
+      try {
+        const pendingCheckout = {
+          booking_id: checkoutData.booking_id,
+          booking_code: checkoutData.booking_code,
+          session_id: checkoutData.session_id,
+          checkout_url: checkoutData.checkoutUrl,
+          expires_at: checkoutData.expires_at,
+          event_id: event_id,
+          event_title: eventData?.title ?? '',
+          total: finalTotal,
+          currency: 'IDR',
+          created_at: new Date().toISOString(),
+        };
+        localStorage.setItem('pendingCheckout', JSON.stringify(pendingCheckout));
+      } catch (e) {
+        console.error('Failed to persist pending checkout context', e);
+      }
+
+      // 4. Redirect to Stripe Hosted Checkout
+      window.location.href = checkoutData.checkoutUrl;
+
     } catch (error: any) {
       setErrorMsg(error.message || "An error occurred during checkout.");
       setLoading(false);

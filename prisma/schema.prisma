@@ -10,322 +10,308 @@ datasource db {
 /// Uploaded asset (image/file) managed via the admin Media library.
 /// The binary lives on disk (see StorageService); this row is metadata only.
 model t_mtr_media {
-  id           String   @id @default(cuid())
-  filename     String   @unique
-  original_name    String 
-  url          String
-  mime_type        String 
-  size         Int
-  width        Int?
-  height       Int?
-  alt          String?
-  folder       String?  @default("general")
-  uploaded_by      String? 
-  created_at       DateTime   @default(now())
-  updated_at       DateTime   @updatedAt
-  og_pages      t_mtr_pages[]   @relation("PageOgImage")
+  id            String        @id @default(cuid())
+  filename      String        @unique
+  original_name String
+  url           String
+  mime_type     String
+  size          Int
+  width         Int?
+  height        Int?
+  alt           String?
+  folder        String?       @default("general")
+  uploaded_by   String?
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+  og_pages      t_mtr_pages[] @relation("PageOgImage")
 
   @@index([folder])
   @@index([mime_type])
-
 }
 
 /// CMS page — editable static content (About, FAQ, Terms, ...) served publicly
 /// by slug. `content` holds SANITIZED HTML produced by the rich-text editor.
 model t_mtr_pages {
-  id             String     @id @default(cuid())
-  slug           String     @unique
-  title          String
-  excerpt        String?
-  content        String
-  status         PageStatus @default(DRAFT)
-  seo_title        String? 
-  seo_description  String? 
-  og_image_id       String? 
-  published_at     DateTime? 
-  created_by       String? 
-  updated_by       String? 
-  created_at       DateTime     @default(now())
-  updated_at       DateTime     @updatedAt
-  og_image        t_mtr_media?     @relation("PageOgImage", fields: [og_image_id], references: [id])
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  title           String
+  excerpt         String?
+  content         String
+  status          PageStatus   @default(DRAFT)
+  seo_title       String?
+  seo_description String?
+  og_image_id     String?
+  published_at    DateTime?
+  created_by      String?
+  updated_by      String?
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+  og_image        t_mtr_media? @relation("PageOgImage", fields: [og_image_id], references: [id])
 
   @@index([status])
   @@index([slug])
-
 }
 
 /// RBAC role. System roles (ADMIN, ORGANIZER, ATTENDEE) are seeded with is_system=true
 /// and cannot be deleted. Custom roles can be created via admin UI.
 model t_mtr_roles {
-  id          String               @id @default(cuid())
-  code        String               @unique
+  id          String                        @id @default(cuid())
+  code        String                        @unique
   name        String
-  name_en          String? 
+  name_en     String?
   description String?
-  is_system        Boolean                @default(false)
-  is_active        Boolean                @default(true)
-  sort_order       Int                    @default(0)
-  created_by       String? 
-  created_at       DateTime               @default(now())
-  updated_by       String? 
-  updated_at       DateTime               @updatedAt
+  is_system   Boolean                       @default(false)
+  is_active   Boolean                       @default(true)
+  sort_order  Int                           @default(0)
+  created_by  String?
+  created_at  DateTime                      @default(now())
+  updated_by  String?
+  updated_at  DateTime                      @updatedAt
   permissions t_mtr_role_menu_permissions[]
   users       t_mtr_users[]
 
   @@index([is_active])
-
 }
 
 /// Sidebar menu definition. Tree structure via parent_code (self-reference).
 /// Seeded from frontend navigation config + can be added via admin UI later.
 model t_mtr_menus {
-  id          String               @id @default(cuid())
-  code        String               @unique
+  id          String                        @id @default(cuid())
+  code        String                        @unique
   name        String
-  name_en          String? 
-  parent_code      String? 
+  name_en     String?
+  parent_code String?
   icon        String?
   slug        String?
-  order       Int                  @default(0)
-  is_new_tab        Boolean                @default(false)
-  is_active        Boolean                @default(true)
-  created_by       String? 
-  created_at       DateTime               @default(now())
-  updated_by       String? 
-  updated_at       DateTime               @updatedAt
-  parent      t_mtr_menus?                @relation("MenuTree", fields: [parent_code], references: [code])
-  children    t_mtr_menus[]               @relation("MenuTree")
+  order       Int                           @default(0)
+  is_new_tab  Boolean                       @default(false)
+  is_active   Boolean                       @default(true)
+  created_by  String?
+  created_at  DateTime                      @default(now())
+  updated_by  String?
+  updated_at  DateTime                      @updatedAt
+  parent      t_mtr_menus?                  @relation("MenuTree", fields: [parent_code], references: [code])
+  children    t_mtr_menus[]                 @relation("MenuTree")
   permissions t_mtr_role_menu_permissions[]
 
   @@index([parent_code])
   @@index([is_active])
-
 }
 
 /// Permission pivot: what a role can do with a menu.
 /// can_view gates visibility in sidebar. can_create/can_edit/can_delete gate action buttons.
 model t_mtr_role_menu_permissions {
-  id        String   @id @default(cuid())
-  role_code        String 
-  menu_code        String 
-  can_view         Boolean    @default(false)
-  can_create       Boolean    @default(false)
-  can_edit         Boolean    @default(false)
-  can_delete       Boolean    @default(false)
-  is_active        Boolean    @default(true)
-  created_by       String? 
-  created_at       DateTime   @default(now())
-  updated_by       String? 
-  updated_at       DateTime   @updatedAt
-  menu      t_mtr_menus     @relation(fields: [menu_code], references: [code])
-  role      t_mtr_roles     @relation(fields: [role_code], references: [code])
+  id         String      @id @default(cuid())
+  role_code  String
+  menu_code  String
+  can_view   Boolean     @default(false)
+  can_create Boolean     @default(false)
+  can_edit   Boolean     @default(false)
+  can_delete Boolean     @default(false)
+  is_active  Boolean     @default(true)
+  created_by String?
+  created_at DateTime    @default(now())
+  updated_by String?
+  updated_at DateTime    @updatedAt
+  menu       t_mtr_menus @relation(fields: [menu_code], references: [code])
+  role       t_mtr_roles @relation(fields: [role_code], references: [code])
 
   @@unique([role_code, menu_code])
   @@index([role_code])
   @@index([menu_code])
-
 }
 
 model t_mtr_users {
-  id                  String         @id @default(cuid())
-  email               String         @unique
-  password            String?
-  name                String
-  role_code        String           @default("ATTENDEE")
-  provider            String         @default("local")
-  provider_id      String? 
-  avatar              String?
-  is_active        Boolean          @default(true)
-  email_verified   Boolean          @default(false)
-  failed_login_attempts Int              @default(0)
-  locked_until     DateTime? 
-  last_login_at     DateTime? 
-  last_failed_login_at DateTime? 
-  password_changed_at DateTime? 
-  created_at       DateTime         @default(now())
-  updated_at       DateTime         @updatedAt
-  bookings            t_trx_bookings[]
-  oauth_accounts       t_trx_oauth_accounts[]
-  security_logs        t_trx_security_logs[]
-  profile             t_mtr_user_profiles?
-  role                t_mtr_roles           @relation(fields: [role_code], references: [code])
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  password              String?
+  name                  String
+  role_code             String                 @default("ATTENDEE")
+  provider              String                 @default("local")
+  provider_id           String?
+  avatar                String?
+  is_active             Boolean                @default(true)
+  email_verified        Boolean                @default(false)
+  failed_login_attempts Int                    @default(0)
+  locked_until          DateTime?
+  last_login_at         DateTime?
+  last_failed_login_at  DateTime?
+  password_changed_at   DateTime?
+  created_at            DateTime               @default(now())
+  updated_at            DateTime               @updatedAt
+  profile               t_mtr_user_profiles?
+  role                  t_mtr_roles            @relation(fields: [role_code], references: [code])
+  bookings              t_trx_bookings[]
+  oauth_accounts        t_trx_oauth_accounts[]
+  security_logs         t_trx_security_logs[]
 
   @@index([email])
   @@index([provider, provider_id])
   @@index([locked_until])
   @@index([role_code])
-
 }
 
 model t_mtr_user_profiles {
-  id          String    @id @default(uuid())
-  user_id          String      @unique
-  user        t_mtr_users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  phone       String?
-  date_of_birth     DateTime? 
-  gender      String?
-  created_at       DateTime    @default(now())
-  updated_at       DateTime    @updatedAt
-
+  id            String      @id @default(uuid())
+  user_id       String      @unique
+  phone         String?
+  date_of_birth DateTime?
+  gender        String?
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+  user          t_mtr_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 /// Audit log for security events
 model t_trx_security_logs {
-  id        String   @id @default(cuid())
-  user_id          String 
-  action    String
-  ip_address       String? 
-  user_agent       String? 
-  metadata  Json?
-  created_at       DateTime   @default(now())
-  user      t_mtr_users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id         String      @id @default(cuid())
+  user_id    String
+  action     String
+  ip_address String?
+  user_agent String?
+  metadata   Json?
+  created_at DateTime    @default(now())
+  user       t_mtr_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
   @@index([action])
   @@index([created_at])
-
 }
 
 model t_trx_oauth_accounts {
-  id         String   @id @default(cuid())
-  user_id          String 
-  provider   String
-  provider_id      String 
-  created_at       DateTime   @default(now())
-  user       t_mtr_users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id          String      @id @default(cuid())
+  user_id     String
+  provider    String
+  provider_id String
+  created_at  DateTime    @default(now())
+  user        t_mtr_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([provider, provider_id])
-
 }
 
 model t_mtr_venues {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   name        String
   address     String
   city        String
   country     String
   capacity    Int
-  seat_map         Json 
+  seat_map    Json
   description String?
-  image_url        String? 
-  created_at       DateTime   @default(now())
-  updated_at       DateTime   @updatedAt
-  events      t_trx_events[]
+  image_url   String?
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
   seats       t_mtr_seats[]
+  events      t_trx_events[]
 
   @@index([city])
-
 }
 
 model t_trx_events {
-  id            String      @id @default(cuid())
-  title         String
-  description   String
-  venue_id         String 
-  start_date_time   DateTime 
-  end_date_time     DateTime 
-  status        EventStatus @default(DRAFT)
-  image_url        String? 
-  base_price       Decimal       @db.Decimal(10, 2)
-  currency      String      @default("USD")
-  organizer_id     String 
-  created_at       DateTime      @default(now())
-  updated_at       DateTime      @updatedAt
-  subtitle      String?
-  event_date       DateTime      @default(now())
-  bookings      t_trx_bookings[]
-  venue         t_mtr_venues       @relation(fields: [venue_id], references: [id])
-  seats         t_mtr_seats[]
+  id              String           @id @default(cuid())
+  title           String
+  description     String
+  venue_id        String
+  start_date_time DateTime
+  end_date_time   DateTime
+  status          EventStatus      @default(DRAFT)
+  image_url       String?
+  base_price      Decimal          @db.Decimal(10, 2)
+  currency        String           @default("USD")
+  organizer_id    String
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+  subtitle        String?
+  event_date      DateTime         @default(now())
+  seats           t_mtr_seats[]
+  bookings        t_trx_bookings[]
+  venue           t_mtr_venues     @relation(fields: [venue_id], references: [id])
 
   @@index([venue_id])
   @@index([status])
   @@index([start_date_time])
-
 }
 
 model t_mtr_seats {
-  id        String     @id @default(cuid())
-  event_id         String 
-  venue_id         String 
-  row       String
-  number    Int
-  type      SeatType   @default(REGULAR)
-  status    SeatStatus @default(AVAILABLE)
-  price     Decimal    @db.Decimal(10, 2)
-  booking_id       String? 
-  created_at       DateTime     @default(now())
-  updated_at       DateTime     @updatedAt
-  booking   t_trx_bookings?   @relation(fields: [booking_id], references: [id])
-  event     t_trx_events      @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  venue     t_mtr_venues      @relation(fields: [venue_id], references: [id])
+  id         String          @id @default(cuid())
+  event_id   String
+  venue_id   String
+  row        String
+  number     Int
+  type       SeatType        @default(REGULAR)
+  status     SeatStatus      @default(AVAILABLE)
+  price      Decimal         @db.Decimal(10, 2)
+  booking_id String?
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
+  booking    t_trx_bookings? @relation(fields: [booking_id], references: [id])
+  event      t_trx_events    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  venue      t_mtr_venues    @relation(fields: [venue_id], references: [id])
 
   @@unique([event_id, row, number])
   @@index([event_id])
   @@index([status])
-
 }
 
 model t_trx_bookings {
-  id          String        @id @default(cuid())
-  user_id          String 
-  event_id         String 
-  booking_code     String          @unique
-  total_price      Decimal         @db.Decimal(10, 2)
-  currency    String        @default("USD")
-  status      BookingStatus @default(PENDING)
-  expires_at       DateTime? 
-  booked_at        DateTime        @default(now())
-  confirmed_at     DateTime? 
-  cancelled_at     DateTime? 
-  
-  guest_name       String? 
-  guest_email      String? 
-  guest_phone      String? 
-
-  event       t_trx_events         @relation(fields: [event_id], references: [id])
-  user        t_mtr_users          @relation(fields: [user_id], references: [id])
-  payment     t_trx_payments?
-  seats       t_mtr_seats[]
-  tickets     t_trx_tickets[]
+  id                String          @id @default(cuid())
+  user_id           String
+  event_id          String
+  booking_code      String          @unique
+  total_price       Decimal         @db.Decimal(10, 2)
+  currency          String          @default("USD")
+  status            BookingStatus   @default(PENDING)
+  expires_at        DateTime?
+  booked_at         DateTime        @default(now())
+  confirmed_at      DateTime?
+  cancelled_at      DateTime?
+  guest_name        String?
+  guest_email       String?
+  guest_phone       String?
+  cancelled_reason  String?
+  seat_ids          String[]        @default([])
+  stripe_session_id String?
+  seats             t_mtr_seats[]
+  event             t_trx_events    @relation(fields: [event_id], references: [id])
+  user              t_mtr_users     @relation(fields: [user_id], references: [id])
+  payment           t_trx_payments?
+  tickets           t_trx_tickets[]
 
   @@index([user_id])
   @@index([event_id])
   @@index([status])
   @@index([booking_code])
-
 }
 
 model t_trx_payments {
-  id           String        @id @default(cuid())
-  booking_id       String          @unique
-  amount       Decimal       @db.Decimal(10, 2)
-  currency     String        @default("USD")
-  provider     String
-  provider_tx_id    String?         @unique
-  status       PaymentStatus @default(PENDING)
-  payment_url      String? 
-  paid_at          DateTime? 
-  created_at       DateTime        @default(now())
-  updated_at       DateTime        @updatedAt
-  booking      t_trx_bookings       @relation(fields: [booking_id], references: [id])
+  id             String         @id @default(cuid())
+  booking_id     String         @unique
+  amount         Decimal        @db.Decimal(10, 2)
+  currency       String         @default("USD")
+  provider       String
+  provider_tx_id String?        @unique
+  status         PaymentStatus  @default(PENDING)
+  payment_url    String?
+  paid_at        DateTime?
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+  booking        t_trx_bookings @relation(fields: [booking_id], references: [id])
 
   @@index([provider, provider_tx_id])
-
 }
 
 model t_trx_tickets {
-  id          String    @id @default(cuid())
-  booking_id       String 
-  seat_id          String 
-  qr_code          String      @unique
-  is_checked_in     Boolean     @default(false)
-  checked_in_at     DateTime? 
-  created_at       DateTime    @default(now())
-  booking     t_trx_bookings   @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  booking_id    String
+  seat_id       String
+  qr_code       String         @unique
+  is_checked_in Boolean        @default(false)
+  checked_in_at DateTime?
+  created_at    DateTime       @default(now())
+  booking       t_trx_bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade)
 
   @@index([qr_code])
   @@index([booking_id])
-
 }
 
 /// Ticket tier configuration (multiplier + ratio for seat distribution).
@@ -335,23 +321,21 @@ model t_mtr_ticket_tier_settings {
   ratio      Float
   multiplier Float
   status     String   @default("ACTIVE")
-  created_by       String? 
-  updated_by       String? 
-  created_at       DateTime   @default(now())
-  updated_at       DateTime   @updatedAt
-
+  created_by String?
+  updated_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 /// Tax (PPN/VAT) configuration. Single row with id='default'.
 model t_mtr_tax_settings {
-  id         String   @id
-  ppn_percent      Float 
-  status     String   @default("ACTIVE")
-  created_by       String? 
-  updated_by       String? 
-  created_at       DateTime   @default(now())
-  updated_at       DateTime   @updatedAt
-
+  id          String   @id
+  ppn_percent Float
+  status      String   @default("ACTIVE")
+  created_by  String?
+  updated_by  String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 }
 
 enum EventStatus {

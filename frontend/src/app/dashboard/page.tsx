@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { ResumePaymentBanner } from '@/components/payments/ResumePaymentBanner';
 
 interface OrderEvent {
   id: string;
@@ -168,6 +169,12 @@ export default function DashboardPage() {
           {'// WELCOME_BACK'}
         </p>
       </motion.div>
+
+      {/* Resume unfinished payments — surfaces any active Stripe checkout
+          session for this user (survives cache clears; server-backed). */}
+      {isAttendeeOrOrganizer && (
+        <ResumePaymentBanner onResolved={loadDashboardData} />
+      )}
 
       {/* Stats Cards - attendee stats for ATTENDEE/ORGANIZER, quick actions for ADMIN */}
       {isAttendeeOrOrganizer ? (
