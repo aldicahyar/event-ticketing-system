@@ -28,22 +28,14 @@ function CancelledContent() {
     setMounted(true);
   }, []);
 
-  // If we have a pending checkout in localStorage for this booking, redirect
-  // to /checkout/pending which provides the full "Continue Payment" flow.
+  // Always redirect to /checkout/pending when we have a booking id. The
+  // pending page calls /payments/recover-session to validate the live status
+  // and shows the appropriate state (Continue Payment / Expired / Confirmed).
+  // This ensures that any path leading here (Stripe cancel_url, old bookmarks,
+  // browser history) consistently lands on the "Payment Incomplete" page.
   useEffect(() => {
     if (!mounted || !bookingId) return;
-    try {
-      const raw = localStorage.getItem('pendingCheckout');
-      if (raw) {
-        const pending = JSON.parse(raw);
-        if (pending?.booking_id === bookingId) {
-          router.replace('/checkout/pending');
-          return;
-        }
-      }
-    } catch {
-      // ignore parse error — stay on cancelled page
-    }
+    router.replace(`/checkout/pending?booking=${encodeURIComponent(bookingId)}`);
   }, [mounted, bookingId, router]);
 
   useEffect(() => {

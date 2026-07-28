@@ -239,7 +239,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         // to catch payments that arrive after the 15-min booking window.
         expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000),
         success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.frontendUrl}/checkout/cancelled?booking=${booking.id}`,
+        cancel_url: `${this.frontendUrl}/checkout/pending?booking=${booking.id}`,
         client_reference_id: booking.id,
       });
 

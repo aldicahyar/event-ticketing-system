@@ -487,7 +487,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       expires_at: expiresAtSec,
       // Fix #4: use configurable frontend URL instead of hardcoded localhost
       success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${this.frontendUrl}/checkout/cancelled?booking=${booking.id}`,
+      cancel_url: `${this.frontendUrl}/checkout/pending?booking=${booking.id}`,
       client_reference_id: booking.id,
     });
 

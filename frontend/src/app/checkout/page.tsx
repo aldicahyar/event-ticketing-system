@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle, CreditCard, Smartphone, 
   Lock, Shield, User, Mail, Phone, MapPin,
-  Ticket, Calendar, ChevronRight
+  Ticket, Calendar, ChevronRight, AlertTriangle, Loader2
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
+import { apiClient } from '@/lib/api-client';
 import 'react-phone-number-input/style.css';
 import PhoneInput from 'react-phone-number-input';
 
@@ -59,6 +60,91 @@ function CheckoutContent() {
   const finalTotal = total;
 
   const [eventData, setEventData] = useState<any>(null);
+  const router = useRouter();
+
+  // ── Pending-checkout guard ──────────────────────────────────────
+  // Detects when a user returns to this page via the browser back button
+  // from Stripe Hosted Checkout. When a `pendingCheckout` entry exists in
+  // localStorage, it means the user was redirected to Stripe but came back
+  // without completing payment. We validate the session status server-side
+  // via /payments/recover-session and redirect to /checkout/pending so the
+  // user lands on the "Payment Incomplete" page instead of seeing the
+  // checkout form again (which would be confusing and could create a
+  // duplicate booking).
+  //
+  // Flow:
+  //   1. Read pendingCheckout from localStorage
+  //   2. Call recover-session to check live status
+  //   3. If pending/new_session → redirect to /checkout/pending
+  //   4. If confirmed → redirect to /checkout/success
+  //   5. If expired → clear stale localStorage, let user start fresh
+  type GuardState =
+    | { state: 'idle' }
+    | { state: 'checking' }
+    | { state: 'redirecting'; message: string };
+  const [pendingGuard, setPendingGuard] = useState<GuardState>({ state: 'idle' });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkPendingCheckout() {
+      let bookingId: string | null = null;
+      try {
+        const raw = localStorage.getItem('pendingCheckout');
+        if (raw) {
+          const pending = JSON.parse(raw);
+          if (pending?.booking_id) bookingId = pending.booking_id;
+        }
+      } catch {
+        // Corrupt localStorage entry — clear it so it doesn't interfere.
+        try { localStorage.removeItem('pendingCheckout'); } catch { /* noop */ }
+      }
+
+      if (!bookingId) {
+        if (!cancelled) setPendingGuard({ state: 'idle' });
+        return;
+      }
+
+      if (!cancelled) setPendingGuard({ state: 'checking' });
+
+      try {
+        const res = await apiClient.post<{
+          status: 'confirmed' | 'expired' | 'pending' | 'new_session';
+        }>('/payments/recover-session', { booking_id: bookingId });
+
+        if (cancelled) return;
+
+        const status = res?.status;
+        if (status === 'pending' || status === 'new_session') {
+          // Session is still active — redirect to the "Payment Incomplete" page.
+          if (!cancelled) {
+            setPendingGuard({
+              state: 'redirecting',
+              message: 'An unfinished payment was detected. Redirecting you to resume checkout…',
+            });
+            window.setTimeout(() => {
+              if (!cancelled) router.replace(`/checkout/pending?booking=${bookingId}`);
+            }, 1500);
+          }
+        } else if (status === 'confirmed') {
+          // Payment already succeeded — redirect to success page.
+          if (!cancelled) {
+            router.replace(`/checkout/success?session_id=${bookingId}`);
+          }
+        } else {
+          // expired — clear stale localStorage so the user can start fresh.
+          try { localStorage.removeItem('pendingCheckout'); } catch { /* noop */ }
+          if (!cancelled) setPendingGuard({ state: 'idle' });
+        }
+      } catch {
+        // API call failed (network error, 401, etc.) — don't block the user
+        // from using the checkout page. Clear stale entry and proceed.
+        try { localStorage.removeItem('pendingCheckout'); } catch { /* noop */ }
+        if (!cancelled) setPendingGuard({ state: 'idle' });
+      }
+    }
+    checkPendingCheckout();
+    return () => { cancelled = true; };
+  }, [router]);
 
   React.useEffect(() => {
     if (event_id) {
@@ -220,6 +306,54 @@ function CheckoutContent() {
           <Link href="/events" className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide min-h-touch inline-flex items-center focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
             Browse Events
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Pending-checkout guard overlay — shown while we validate whether the user
+  // has an unfinished Stripe session (e.g. they pressed the browser back button
+  // from Stripe). Keeps the checkout form hidden until the check completes.
+  if (pendingGuard.state === 'checking' || pendingGuard.state === 'redirecting') {
+    return (
+      <div className="min-h-screen bg-black text-white font-mono flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          {pendingGuard.state === 'checking' ? (
+            <>
+              <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-6" aria-hidden="true" />
+              <h2 className="font-display font-bold text-xl uppercase mb-3">
+                Checking for unfinished payments…
+              </h2>
+              <p className="text-mono-light-grey text-sm">
+                Verifying if you have a pending checkout session.
+              </p>
+            </>
+          ) : (
+            <>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 300 }}
+                className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mx-auto mb-6"
+              >
+                <AlertTriangle className="w-8 h-8 text-black" aria-hidden="true" />
+              </motion.div>
+              <h2 className="font-display font-bold text-xl uppercase mb-3">
+                Payment Incomplete
+              </h2>
+              <p className="text-mono-light-grey text-sm mb-4">
+                {pendingGuard.message}
+              </p>
+              <div className="w-32 h-1 bg-mono-dark-grey mx-auto overflow-hidden">
+                <motion.div
+                  className="h-full bg-yellow-500"
+                  initial={{ x: '-100%' }}
+                  animate={{ x: '100%' }}
+                  transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
