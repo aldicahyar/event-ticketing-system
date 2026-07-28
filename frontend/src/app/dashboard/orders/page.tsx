@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { OrderRowSkeleton } from '@/components/ui/skeleton';
-import { useResumablePayments } from '@/hooks/useResumablePayments';
 
 // Shape mirrors the Prisma booking payload returned by /bookings/my-orders
 interface OrderSeat {
@@ -91,6 +90,46 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [, setTick] = useState(0);
+  // Re-entry guard so the expiry timer and the resumable-payments poll can't
+  // fire overlapping silent refreshes (which would cause duplicate requests
+  // and skeleton flicker during the PENDING -> EXPIRED transition).
+  const refreshingRef = useRef(false);
+
+  const hasPending = orders.some((o) => o.status === 'PENDING');
+
+  const loadOrders = useCallback(
+    async (opts: { silent?: boolean } = {}) => {
+      // Silent refresh keeps the existing order rows mounted (no skeleton
+      // flash) during automatic status updates (expiry transition, polling).
+      if (!opts.silent) setIsLoading(true);
+      setError(null);
+      try {
+        const data = await apiClient.get<Order[]>('/bookings/my-orders');
+        setOrders(data ?? []);
+      } catch (err) {
+        setError(apiClient.getErrorMessage(err));
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
+
+  // Silent, guarded refresh shared by the expiry timer and the
+  // resumable-payments poll. Concurrent triggers collapse into one request.
+  const refreshSilently = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    try {
+      await loadOrders({ silent: true });
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [loadOrders]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   // Reload orders once a minute for PENDING bookings (auto-transition to EXPIRED).
   useEffect(() => {
@@ -98,7 +137,6 @@ export default function OrdersPage() {
     return () => window.clearInterval(id);
   }, []);
 
-  const hasPending = orders.some((o) => o.status === 'PENDING');
   useEffect(() => {
     if (!hasPending) return;
     // When countdown ticks past zero, trigger an actual reload so API
@@ -110,35 +148,12 @@ export default function OrdersPage() {
     if (!isFinite(nextExpiry)) return;
     const msUntil = Math.max(0, nextExpiry - Date.now() + 1500);
     const handle = window.setTimeout(() => {
-      loadOrders();
+      // Silent refresh: swap PENDING -> EXPIRED rows in place without
+      // flashing the skeleton loader.
+      void refreshSilently();
     }, msUntil);
     return () => window.clearTimeout(handle);
-  }, [orders, hasPending]);
-
-  const loadOrders = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await apiClient.get<Order[]>('/bookings/my-orders');
-      setOrders(data ?? []);
-    } catch (err) {
-      setError(apiClient.getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
-
-  // Surface server-validated resumable Stripe sessions so each PENDING order
-  // can show a "Continue Payment" button. When a session resolves (paid
-  // or expired) we reload orders so the button hides in near real-time.
-  const { getByBookingId } = useResumablePayments({
-    intervalMs: 20000,
-    onResolved: () => loadOrders(),
-  });
+  }, [orders, hasPending, refreshSilently]);
 
   const deriveStatus = (order: Order): 'upcoming' | 'completed' | 'cancelled' | 'expired' | 'pending' => {
     if (order.status === 'CANCELLED') return 'cancelled';
@@ -256,7 +271,7 @@ export default function OrdersPage() {
           <p className="text-red-400 text-sm uppercase tracking-widest mb-2">Failed to load orders</p>
           <p className="text-mono-light-grey text-sm mb-4">{error}</p>
           <button
-            onClick={loadOrders}
+            onClick={() => loadOrders()}
             className="inline-block px-6 py-3 bg-white text-black font-bold uppercase tracking-wide"
           >
             Retry
@@ -378,7 +393,7 @@ export default function OrdersPage() {
                                   <Clock className="w-3 h-3" />
                                   {remaining < 0
                                     ? 'Payment window closed'
-                                    : `Complete in ${formatCountdown(remaining)}`}
+                                    : `Expired in ${formatCountdown(remaining)}`}
                                 </span>
                                 {expStr && (
                                   <span className="text-mono-light-grey">
@@ -452,15 +467,6 @@ export default function OrdersPage() {
                         >
                           Book Again <ArrowRight className="w-3 h-3" />
                         </Link>
-                      )}
-                      {order.status === 'PENDING' && getByBookingId(order.id) && (
-                        <a
-                          href={getByBookingId(order.id)!.checkout_url}
-                          className="px-4 py-2 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center gap-2"
-                        >
-                          <CreditCard className="w-3 h-3" />
-                          Continue Payment <ArrowRight className="w-3 h-3" />
-                        </a>
                       )}
                       {order.status === 'PENDING' && (
                         <Link

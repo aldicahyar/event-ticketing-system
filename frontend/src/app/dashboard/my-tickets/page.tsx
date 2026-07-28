@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -96,23 +96,35 @@ function TicketsContent() {
   const [filter, setFilter] = useState<'upcoming' | 'past'>('upcoming');
   const [focused, setFocused] = useState<FocusedStatus>({ state: 'absent' });
   const [, setTick] = useState(0);
+  // Re-entry guard so the 1s expiry ticker + the resumable-payments poll can't
+  // fire overlapping silent refreshes (which would otherwise cause duplicate
+  // concurrent requests and re-render churn during the PENDING -> EXPIRED window).
+  const refreshingRef = useRef(false);
 
-  const loadTickets = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await apiClient.get<TicketBooking[]>('/bookings/my-tickets');
-      setBookings(data ?? []);
-    } catch (err) {
-      setError(apiClient.getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const loadTickets = useCallback(
+    async (opts: { silent?: boolean } = {}) => {
+      // Silent refresh keeps the existing list mounted (no skeleton flash) —
+      // used for automatic status updates (expiry transition, polling).
+      if (!opts.silent) setIsLoading(true);
+      setError(null);
+      try {
+        const data = await apiClient.get<TicketBooking[]>('/bookings/my-tickets');
+        setBookings(data ?? []);
+      } catch (err) {
+        setError(apiClient.getErrorMessage(err));
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   const loadFocusedOrder = useCallback(
-    async (orderId: string) => {
-      setFocused({ state: 'loading' });
+    async (orderId: string, opts: { silent?: boolean } = {}) => {
+      // Silent refresh keeps the existing PENDING banner mounted until the
+      // fresh (EXPIRED) data arrives, so the banner swaps state in place
+      // instead of flashing a loading spinner — this fixes the expiry blink.
+      if (!opts.silent) setFocused({ state: 'loading' });
       try {
         const order = await apiClient.get<TicketBooking>(
           `/bookings/my-orders/${encodeURIComponent(orderId)}`,
@@ -134,15 +146,32 @@ function TicketsContent() {
     [],
   );
 
+  // Shared silent refresh used by both the expiry ticker and the
+  // resumable-payments poll. It is guarded by refreshingRef so concurrent
+  // triggers collapse into a single in-flight request.
+  const refreshSilently = useCallback(
+    async (bookingId?: string) => {
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      try {
+        const tasks: Promise<unknown>[] = [loadTickets({ silent: true })];
+        if (bookingId) tasks.push(loadFocusedOrder(bookingId, { silent: true }));
+        await Promise.all(tasks);
+      } finally {
+        refreshingRef.current = false;
+      }
+    },
+    [loadTickets, loadFocusedOrder],
+  );
+
   // Surface server-validated resumable Stripe sessions so a PENDING focused
   // order can show a "Continue Payment" button in the action menu. When a
-  // session resolves (paid/expired) we reload tickets + focused order so the
-  // button hides automatically.
+  // session resolves (paid/expired) we silently reload so the button hides
+  // without flickering the UI.
   const { getByBookingId } = useResumablePayments({
     intervalMs: 20000,
     onResolved: (booking_id) => {
-      loadTickets();
-      if (booking_id === focusOrderId) loadFocusedOrder(booking_id);
+      void refreshSilently(booking_id === focusOrderId ? booking_id : undefined);
     },
   });
 
@@ -170,9 +199,10 @@ function TicketsContent() {
           ? new Date(focused.booking.expires_at).getTime()
           : NaN;
         if (!isNaN(exp) && Date.now() >= exp && focusOrderId) {
-          // Reload focused order and tickets so latest status (EXPIRED) renders
-          loadFocusedOrder(focusOrderId);
-          loadTickets();
+          // Silent refresh so the banner swaps PENDING -> EXPIRED in place
+          // (no loading-spinner flash). Guarded so the 1s ticker can't stack
+          // duplicate requests while the refresh is in flight.
+          void refreshSilently(focusOrderId);
         }
       }
     }, 1000);
@@ -180,7 +210,7 @@ function TicketsContent() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [focused, focusOrderId, loadFocusedOrder, loadTickets]);
+  }, [focused, focusOrderId, refreshSilently]);
 
   const isUpcoming = (b: TicketBooking) => {
     const start = b.event?.start_date_time ? new Date(b.event.start_date_time) : null;
@@ -537,7 +567,7 @@ function TicketsContent() {
           <p className="text-red-400 text-sm uppercase tracking-widest mb-2">Failed to load tickets</p>
           <p className="text-mono-light-grey text-sm mb-4">{error}</p>
           <button
-            onClick={loadTickets}
+            onClick={() => loadTickets()}
             className="inline-block px-6 py-3 bg-white text-black font-bold uppercase tracking-wide"
           >
             Retry
