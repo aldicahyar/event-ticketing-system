@@ -10,6 +10,7 @@ import { BookingsService } from './bookings.service';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { PaymentsService } from '../payments/payments.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // ── Mock factories ────────────────────────────────────────────────
 
@@ -104,6 +105,14 @@ describe('BookingsService — cancelBooking', () => {
         { provide: RedisService, useValue: redisMock },
         { provide: PaymentsService, useValue: paymentsMock },
         { provide: ConfigService, useValue: { get: jest.fn() } },
+        {
+          provide: NotificationsService,
+          useValue: {
+            sendPaymentSuccess: jest.fn().mockResolvedValue(undefined),
+            sendPaymentRefunded: jest.fn().mockResolvedValue(undefined),
+            sendBookingCancelled: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 

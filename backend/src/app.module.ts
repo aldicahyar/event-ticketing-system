@@ -12,6 +12,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { MediaModule } from './modules/media/media.module';
 import { PagesModule } from './modules/pages/pages.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DatabaseModule } from './common/database/database.module';
 import { StorageModule } from './common/storage/storage.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -36,6 +37,7 @@ import { HealthModule } from './common/modules/health/health.module';
     RedisModule,
     WebSocketModule,
     HealthModule,
+    NotificationsModule,
     AuthModule,
     EventsModule,
     BookingsModule,

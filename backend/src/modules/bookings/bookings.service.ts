@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { PaymentsService } from '../payments/payments.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CancelReasonCode } from './dto/bookings.dto';
 import Stripe from 'stripe';
 
@@ -19,6 +20,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => PaymentsService))
     private readonly paymentsService: PaymentsService,
+    private readonly notificationsService: NotificationsService,
   ) {
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
@@ -443,11 +445,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Emit a structured audit log containing all cancellation details plus
-   * an email-ready notification payload. Follows the same pattern as
-   * PaymentsService.notifyUserOfExpiredPayment — the log is the audit
-   * record and can be consumed by log-based alerting / email transport
-   * when one is wired in.
+   * Emit a structured audit log and send a cancellation email via the
+   * NotificationsService. The audit log is the compliance record; the
+   * email is the customer-facing notification.
    */
   private async notifyCancellation(
     booking: any,
@@ -461,18 +461,6 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       select: { email: true, name: true },
     });
 
-    const subject = `Booking ${booking.booking_code} cancelled`;
-    const emailBody =
-      `Hello ${user?.name ?? 'Customer'},\n\n` +
-      `Your booking ${booking.booking_code} for "${booking.event?.title ?? 'Event'}" ` +
-      `has been cancelled.\n\n` +
-      `Reason: ${reason}\n` +
-      `Details: ${description}\n` +
-      `Cancelled by: ${isAdmin ? `Admin (${cancelledBy.email})` : 'You'}\n` +
-      `Cancelled at: ${booking.cancelled_at?.toISOString()}\n\n` +
-      `Your seats have been released. No payment was processed.\n\n` +
-      `If you believe this is an error, please contact support.`;
-
     // Structured audit log — the single source of truth for compliance.
     this.logger.log(
       `[AUDIT] BOOKING_CANCELLED | booking=${booking.booking_code} | ` +
@@ -482,11 +470,19 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         `(${cancelledBy.email}) | cancelled_at=${booking.cancelled_at?.toISOString()}`,
     );
 
-    // Email notification payload — ready for a transport (Resend/SendGrid)
-    // when one is configured. Currently logged as the delivery record.
-    this.logger.log(
-      `[NOTIFICATION] To: ${user?.email ?? booking.user_id} | Subject: ${subject} | ${emailBody}`,
-    );
+    // Send the cancellation email (non-blocking — errors are caught internally).
+    if (user?.email) {
+      await this.notificationsService.sendBookingCancelled(user.email, {
+        bookingCode: booking.booking_code,
+        eventName: booking.event?.title ?? 'Event',
+        customerName: user.name ?? 'Customer',
+        reason,
+        description,
+        cancelledByAdmin: isAdmin,
+        adminEmail: isAdmin ? cancelledBy.email : null,
+        cancelledAt: booking.cancelled_at?.toISOString() ?? new Date().toISOString(),
+      });
+    }
   }
 
   /**

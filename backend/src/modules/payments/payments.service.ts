@@ -12,6 +12,7 @@ import { Request } from 'express';
 import Stripe from 'stripe';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { v4 as uuidv4 } from 'uuid';
 
 // ── Prisma payload type aliases (Fix #5) ─────────────────────────
@@ -67,6 +68,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService, // Fix #3: inject ConfigService
+    private readonly notificationsService: NotificationsService,
   ) {
     // Fix #2: validate STRIPE_SECRET_KEY at startup instead of unsafe `as string`
     const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -858,6 +860,10 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Successfully processed payment for Booking ${booking.booking_code} (was ${booking.status} → now CONFIRMED)`,
     );
+
+    // Send payment-success confirmation email (non-blocking).
+    await this.notifyPaymentSuccess(booking, amountPaid, session);
+
     return 'confirmed';
   }
 
@@ -998,13 +1004,65 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Send a payment-success confirmation email via the NotificationsService.
+   * Fetches event and user details needed to populate the template.
+   * Non-blocking — errors are logged but never crash the payment flow.
+   */
+  private async notifyPaymentSuccess(
+    booking: BookingWithSeats,
+    amountPaid: number,
+    session: Stripe.Checkout.Session,
+  ): Promise<void> {
+    try {
+      const user = await this.prisma.t_mtr_users.findUnique({
+        where: { id: booking.user_id },
+        select: { email: true, name: true },
+      });
+
+      if (!user?.email) return;
+
+      const event = await this.prisma.t_trx_events.findUnique({
+        where: { id: booking.event_id },
+        select: {
+          title: true,
+          start_date_time: true,
+          venue: { select: { name: true, city: true } },
+        },
+      });
+
+      // Format seats as human-readable labels (e.g. "A1, A2, B3")
+      // using the seats relation, NOT the raw seat_ids UUIDs.
+      const seatLabels = (booking.seats ?? []).map(
+        (s: { row: string; number: number }) => `${s.row}${s.number}`,
+      );
+
+      await this.notificationsService.sendPaymentSuccess(user.email, {
+        bookingCode: booking.booking_code,
+        eventName: event?.title ?? 'Event',
+        customerName: user.name ?? 'Customer',
+        // amountPaid is already in the main currency unit (converted from
+        // cents at line 670), so pass it directly — do NOT divide by 100 again.
+        totalAmount: amountPaid,
+        currency: session.currency ?? 'usd',
+        seatCount: seatLabels.length,
+        seats: seatLabels,
+        eventDate: event?.start_date_time?.toISOString() ?? null,
+        venueName: event?.venue?.name ?? null,
+        venueCity: event?.venue?.city ?? null,
+        ticketUrl: `${this.frontendUrl}/dashboard/my-tickets?order=${booking.id}`,
+      });
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed to send payment-success email for booking ${booking.booking_code}: ${this.getErrorMessage(err)}`,
+      );
+    }
+  }
+
+  /**
    * Send the user a notification that their payment was received after the
    * reservation window expired and has been automatically refunded.
-   * Uses the user's email if available; falls back to logging if no
-   * notification transport is configured.
    */
   // Fix #5: replace `booking: any` with BookingWithSeats
-  // Fix #13: only select `email` (name was selected but never used)
   private async notifyUserOfExpiredPayment(
     booking: BookingWithSeats,
     refundId: string | null,
@@ -1012,23 +1070,25 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const user = await this.prisma.t_mtr_users.findUnique({
       where: { id: booking.user_id },
-      select: { email: true },
+      select: { email: true, name: true },
     });
 
-    const message =
-      `Your payment for booking ${booking.booking_code} was received after the ` +
-      `15-minute reservation window expired. Your seats were released and the ` +
-      `payment has been automatically refunded (refund ID: ${refundId ?? 'N/A'}, ` +
-      `status: ${refundStatus}). Please place a new booking if you still wish ` +
-      `to attend the event.`;
+    if (!user?.email) {
+      this.logger.warn(
+        `No email on file for user ${booking.user_id} — cannot send refund notification for booking ${booking.booking_code}`,
+      );
+      return;
+    }
 
-    this.logger.log(
-      `[NOTIFICATION] To: ${user?.email ?? booking.user_id} | Subject: ` +
-        `Payment refunded — booking ${booking.booking_code} expired | ${message}`,
-    );
-
-    // TODO (future): integrate email service (e.g. Resend / SendGrid) or
-    // in-app notification table once available. For now, the structured log
-    // above is the audit record and can be picked up by log-based alerting.
+    await this.notificationsService.sendPaymentRefunded(user.email, {
+      bookingCode: booking.booking_code,
+      eventName: 'Event',
+      customerName: user.name ?? 'Customer',
+      refundAmount: Number(booking.total_price ?? 0),
+      currency: booking.currency ?? 'usd',
+      refundId,
+      refundStatus,
+      reason: 'Payment received after the 15-minute reservation window expired',
+    });
   }
 }
