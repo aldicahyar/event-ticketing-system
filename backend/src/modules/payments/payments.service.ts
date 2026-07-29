@@ -602,6 +602,41 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Best-effort expiry of a Stripe Checkout Session linked to a booking.
+   * Called when a user (or admin) cancels a PENDING booking — ensures the
+   * user can no longer complete payment on the now-cancelled session.
+   *
+   * This is non-fatal: if the session is already expired/paid, or the Stripe
+   * API call fails, the cancellation still proceeds (the DB status change is
+   * the source of truth). Any error is logged and swallowed.
+   */
+  async expireStripeSession(
+    stripe_session_id: string,
+    booking_code: string,
+  ): Promise<void> {
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(
+        stripe_session_id,
+      );
+
+      // Only expire sessions that are still open (user could still pay).
+      if (session.status === 'open') {
+        await this.stripe.checkout.sessions.expire(stripe_session_id);
+        this.logger.log(
+          `Expired Stripe session ${stripe_session_id} for cancelled booking ${booking_code}`,
+        );
+      }
+    } catch (err: unknown) {
+      // Non-fatal: the booking is already CANCELLED in the DB; this just
+      // prevents the user from paying on a dead session.
+      this.logger.warn(
+        `expireStripeSession: could not expire session ${stripe_session_id} ` +
+          `for booking ${booking_code}: ${this.getErrorMessage(err)}`,
+      );
+    }
+  }
+
   // Fix #8: explicit return type
   private async processSuccessfulPayment(
     session: Stripe.Checkout.Session,

@@ -6,10 +6,19 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle, Clock, ArrowRight, Loader2, CheckCircle,
-  CreditCard, RefreshCw, Ticket,
+  CreditCard, RefreshCw, Ticket, Ban,
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
+
+const CANCEL_REASONS: { value: string; label: string }[] = [
+  { value: 'CHANGE_OF_PLANS', label: 'Change of Plans' },
+  { value: 'SCHEDULE_CONFLICT', label: 'Schedule Conflict' },
+  { value: 'FOUND_ALTERNATIVE', label: 'Found Alternative' },
+  { value: 'NO_LONGER_INTERESTED', label: 'No Longer Interested' },
+  { value: 'PAYMENT_ISSUE', label: 'Payment Issue' },
+  { value: 'OTHER', label: 'Other' },
+];
 
 interface PendingCheckoutContext {
   booking_id: string;
@@ -55,6 +64,13 @@ function PendingContent() {
   const [recover, setRecover] = useState<RecoverStatus>({ state: 'loading' });
   const [, setTick] = useState(0);
   const [showNotification, setShowNotification] = useState(true);
+
+  // ── Cancel booking state ──────────────────────────────────────────
+  const [showCancelForm, setShowCancelForm] = useState(false);
+  const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0].value);
+  const [cancelDescription, setCancelDescription] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   // Load pending checkout context from localStorage or URL param
   useEffect(() => {
@@ -155,6 +171,35 @@ function PendingContent() {
       // ignore
     }
     router.push('/dashboard/orders');
+  };
+
+  /**
+   * Cancel the booking via the real API, then clean up localStorage
+   * and redirect to orders. Requires a reason + description.
+   */
+  const handleConfirmCancel = async () => {
+    if (!ctx?.booking_id) return;
+    if (cancelDescription.trim().length < 5) {
+      setCancelError('Description must be at least 5 characters.');
+      return;
+    }
+
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await apiClient.post(`/bookings/${ctx.booking_id}/cancel`, {
+        reason: cancelReason,
+        description: cancelDescription.trim(),
+      });
+      handleClearPending();
+    } catch (err: any) {
+      setCancelError(
+        apiClient.getErrorMessage(err) ||
+          'Failed to cancel booking. Please try again.',
+      );
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const expiresMs =
@@ -360,33 +405,126 @@ function PendingContent() {
                   <div className="text-sm text-[#CCCCCC]">{recover.message}</div>
                 </div>
 
-                {/* Continue Payment button */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
-                    type="button"
-                    onClick={handleContinuePayment}
-                    disabled={!recover.checkout_url}
-                    className="px-8 py-3 bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white border-2 border-white transition-all min-h-touch inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    Continue Payment
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => ctx?.booking_id && checkStatus(ctx.booking_id)}
-                    className="px-8 py-3 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold uppercase tracking-wide hover:border-white hover:text-white transition-all min-h-touch inline-flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Check Again
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearPending}
-                    className="px-8 py-3 bg-transparent border-2 border-mono-dark-grey text-mono-light-grey font-bold uppercase tracking-wide hover:border-red-500 hover:text-red-400 transition-all min-h-touch inline-flex items-center justify-center"
-                  >
-                    Cancel Booking
-                  </button>
-                </div>
+                {/* Continue Payment / Check Again / Cancel Booking */}
+                {!showCancelForm ? (
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                      type="button"
+                      onClick={handleContinuePayment}
+                      disabled={!recover.checkout_url}
+                      className="px-8 py-3 bg-white text-black font-bold uppercase tracking-wide hover:bg-transparent hover:text-white border-2 border-white transition-all min-h-touch inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      Continue Payment
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => ctx?.booking_id && checkStatus(ctx.booking_id)}
+                      className="px-8 py-3 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold uppercase tracking-wide hover:border-white hover:text-white transition-all min-h-touch inline-flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Check Again
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelForm(true)}
+                      className="px-8 py-3 bg-transparent border-2 border-mono-dark-grey text-mono-light-grey font-bold uppercase tracking-wide hover:border-red-500 hover:text-red-400 transition-all min-h-touch inline-flex items-center justify-center gap-2"
+                    >
+                      <Ban className="w-4 h-4" />
+                      Cancel Booking
+                    </button>
+                  </div>
+                ) : (
+                  /* Inline cancel confirmation form */
+                  <div className="border border-red-500/50 bg-red-500/5 p-5 text-left">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Ban className="w-5 h-5 text-red-400" />
+                      <span className="text-xs uppercase tracking-widest text-red-400 font-bold">
+                        Cancel Booking
+                      </span>
+                    </div>
+                    <p className="text-sm text-[#CCCCCC] mb-4">
+                      This will permanently cancel your booking and release your seats.
+                    </p>
+
+                    {/* Reason dropdown */}
+                    <div className="mb-3">
+                      <label
+                        htmlFor="pending-cancel-reason"
+                        className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2"
+                      >
+                        Reason
+                      </label>
+                      <select
+                        id="pending-cancel-reason"
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        className="w-full bg-black border border-white text-white px-3 py-2 focus:outline-none focus:border-red-500"
+                      >
+                        {CANCEL_REASONS.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Description */}
+                    <div className="mb-4">
+                      <label
+                        htmlFor="pending-cancel-desc"
+                        className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2"
+                      >
+                        Description <span className="text-red-400">*</span>
+                      </label>
+                      <textarea
+                        id="pending-cancel-desc"
+                        value={cancelDescription}
+                        onChange={(e) => setCancelDescription(e.target.value)}
+                        required
+                        minLength={5}
+                        maxLength={500}
+                        rows={2}
+                        placeholder="Please tell us why you are cancelling…"
+                        className="w-full bg-black border border-white text-white px-3 py-2 resize-none focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+
+                    {cancelError && (
+                      <p className="text-xs text-red-400 mb-3">{cancelError}</p>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCancelForm(false);
+                          setCancelDescription('');
+                          setCancelError(null);
+                        }}
+                        disabled={cancelling}
+                        className="flex-1 px-4 py-3 border border-mono-dark-grey text-[#CCCCCC] hover:border-white hover:text-white uppercase text-xs font-bold tracking-wide transition-all disabled:opacity-30"
+                      >
+                        Keep Booking
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmCancel}
+                        disabled={cancelling || cancelDescription.trim().length < 5}
+                        className="flex-1 px-4 py-3 bg-red-500 text-white border border-red-500 hover:bg-red-600 uppercase text-xs font-bold tracking-wide transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {cancelling ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Cancelling…
+                          </>
+                        ) : (
+                          'Confirm Cancel'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             ))}
 

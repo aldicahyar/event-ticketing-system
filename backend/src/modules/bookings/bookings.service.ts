@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger, OnModuleInit, OnModuleDestroy, forwardRef, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Logger, OnModuleInit, OnModuleDestroy, forwardRef, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { PaymentsService } from '../payments/payments.service';
+import { CancelReasonCode } from './dto/bookings.dto';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -303,6 +304,189 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       // undefined, and the frontend never received a checkoutUrl.
       throw error;
     }
+  }
+
+  /**
+   * Cancel a PENDING booking.
+   *
+   * Business rules (confirmed via brainstorming):
+   *   - Only PENDING bookings can be cancelled (CONFIRMED refund is a future feature).
+   *   - The booking owner OR an admin may cancel.
+   *   - A reason code + description are required for the audit trail.
+   *
+   * Side effects:
+   *   1. Seats are released back to AVAILABLE (inside a DB transaction).
+   *   2. Redis seat locks are removed so other users can immediately book.
+   *   3. The linked Stripe Checkout Session is expired (best-effort) so the
+   *      user can no longer pay on the cancelled session.
+   *   4. A structured audit log + email-ready notification payload is emitted.
+   *
+   * @throws NotFoundException  — booking does not exist.
+   * @throws ForbiddenException — caller is neither the owner nor an admin.
+   * @throws BadRequestException — booking is not in PENDING status.
+   * @throws ConflictException   — another process already changed the status.
+   */
+  async cancelBooking(
+    booking_id: string,
+    user: { id: string; role: string; email: string },
+    reason: CancelReasonCode,
+    description: string,
+  ) {
+    // ── 1. Fetch the booking ──────────────────────────────────────────
+    const booking = await this.prisma.t_trx_bookings.findUnique({
+      where: { id: booking_id },
+      include: {
+        event: { select: { title: true, start_date_time: true } },
+        seats: { select: { id: true } },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${booking_id} not found`);
+    }
+
+    // ── 2. Authorization: owner or admin ──────────────────────────────
+    const isOwner = booking.user_id === user.id;
+    const isAdmin = user.role === 'ADMIN';
+
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException(
+        'You do not have permission to cancel this booking',
+      );
+    }
+
+    // ── 3. Validate status — only PENDING can be cancelled ───────────
+    if (booking.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Booking cannot be cancelled because its status is ${booking.status}. ` +
+          'Only PENDING bookings can be cancelled.',
+      );
+    }
+
+    // ── 4. Atomically cancel the booking and release seats ───────────
+    // The conditional updateMany (status = 'PENDING') prevents a race
+    // where a payment webhook confirmed the booking between our read
+    // and this write.
+    const now = new Date();
+    const cancelledBy = isAdmin && !isOwner ? `admin:${user.email}` : `user:${user.email}`;
+    const cancelledReason =
+      `USER_CANCELLED | reason=${reason} | desc="${description}" | by=${cancelledBy}`;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Release seats back to AVAILABLE
+      await tx.t_mtr_seats.updateMany({
+        where: { booking_id: booking.id },
+        data: { status: 'AVAILABLE', booking_id: null },
+      });
+
+      // Conditionally update the booking — prevents overwriting a
+      // concurrent CONFIRMED/EXPIRED/CANCELLED status change.
+      const updated = await tx.t_trx_bookings.updateMany({
+        where: { id: booking.id, status: 'PENDING' },
+        data: {
+          status: 'CANCELLED',
+          cancelled_at: now,
+          cancelled_reason: cancelledReason,
+        },
+      });
+
+      if (updated.count === 0) {
+        // Another process changed the status between our validation
+        // read and this transaction.
+        throw new ConflictException(
+          'This booking was modified by another process and could not be cancelled. ' +
+            'Please refresh and try again.',
+        );
+      }
+
+      return tx.t_trx_bookings.findUnique({
+        where: { id: booking.id },
+        include: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+              start_date_time: true,
+              venue: { select: { name: true, city: true } },
+            },
+          },
+          seats: {
+            orderBy: [{ row: 'asc' }, { number: 'asc' }],
+          },
+        },
+      });
+    });
+
+    // ── 5. Release Redis seat locks ──────────────────────────────────
+    const redisClient = this.redis.getClient();
+    if (redisClient && booking.seat_ids && booking.seat_ids.length > 0) {
+      const lockKeys = booking.seat_ids.map((sid) => `seat_lock:${sid}`);
+      await redisClient.del(...lockKeys).catch((err: unknown) => {
+        this.logger.warn(
+          `Failed to release Redis locks for booking ${booking.booking_code}: ${err}`,
+        );
+      });
+    }
+
+    // ── 6. Expire the Stripe Checkout Session (best-effort) ──────────
+    if (booking.stripe_session_id) {
+      await this.paymentsService.expireStripeSession(
+        booking.stripe_session_id,
+        booking.booking_code,
+      );
+    }
+
+    // ── 7. Audit log + email notification payload ────────────────────
+    await this.notifyCancellation(result!, user, reason, description, isAdmin);
+
+    return result;
+  }
+
+  /**
+   * Emit a structured audit log containing all cancellation details plus
+   * an email-ready notification payload. Follows the same pattern as
+   * PaymentsService.notifyUserOfExpiredPayment — the log is the audit
+   * record and can be consumed by log-based alerting / email transport
+   * when one is wired in.
+   */
+  private async notifyCancellation(
+    booking: any,
+    cancelledBy: { id: string; email: string },
+    reason: CancelReasonCode,
+    description: string,
+    isAdmin: boolean,
+  ): Promise<void> {
+    const user = await this.prisma.t_mtr_users.findUnique({
+      where: { id: booking.user_id },
+      select: { email: true, name: true },
+    });
+
+    const subject = `Booking ${booking.booking_code} cancelled`;
+    const emailBody =
+      `Hello ${user?.name ?? 'Customer'},\n\n` +
+      `Your booking ${booking.booking_code} for "${booking.event?.title ?? 'Event'}" ` +
+      `has been cancelled.\n\n` +
+      `Reason: ${reason}\n` +
+      `Details: ${description}\n` +
+      `Cancelled by: ${isAdmin ? `Admin (${cancelledBy.email})` : 'You'}\n` +
+      `Cancelled at: ${booking.cancelled_at?.toISOString()}\n\n` +
+      `Your seats have been released. No payment was processed.\n\n` +
+      `If you believe this is an error, please contact support.`;
+
+    // Structured audit log — the single source of truth for compliance.
+    this.logger.log(
+      `[AUDIT] BOOKING_CANCELLED | booking=${booking.booking_code} | ` +
+        `booking_id=${booking.id} | user=${user?.email ?? booking.user_id} | ` +
+        `event="${booking.event?.title ?? 'N/A'}" | reason=${reason} | ` +
+        `desc="${description}" | cancelled_by=${isAdmin ? 'ADMIN' : 'OWNER'} ` +
+        `(${cancelledBy.email}) | cancelled_at=${booking.cancelled_at?.toISOString()}`,
+    );
+
+    // Email notification payload — ready for a transport (Resend/SendGrid)
+    // when one is configured. Currently logged as the delivery record.
+    this.logger.log(
+      `[NOTIFICATION] To: ${user?.email ?? booking.user_id} | Subject: ${subject} | ${emailBody}`,
+    );
   }
 
   /**

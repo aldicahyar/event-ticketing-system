@@ -10,7 +10,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { BookingsService } from './bookings.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CheckoutDto } from './dto/bookings.dto';
+import { CheckoutDto, CancelBookingDto } from './dto/bookings.dto';
 import { Post, Body } from '@nestjs/common';
 
 @ApiTags('bookings')
@@ -43,6 +43,33 @@ export class BookingsController {
       statusCode: HttpStatus.OK,
       data,
       message: data.message,
+    };
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel a PENDING booking (releases seats + expires Stripe session)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Booking cancelled successfully' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Booking not found' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Not authorized to cancel this booking' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Booking is not in a cancellable state' })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Booking was modified by another process' })
+  async cancelBooking(
+    @Param('id') id: string,
+    @Body() dto: CancelBookingDto,
+    @CurrentUser() user: any,
+  ) {
+    const data = await this.bookingsService.cancelBooking(
+      id,
+      { id: user.id, role: user.role, email: user.email },
+      dto.reason,
+      dto.description,
+    );
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      message: 'Booking cancelled successfully. Seats have been released.',
     };
   }
 
