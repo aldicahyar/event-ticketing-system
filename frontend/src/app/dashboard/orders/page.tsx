@@ -513,11 +513,11 @@ export default function OrdersPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end flex-wrap sm:flex-nowrap">
                       {order.status === 'CONFIRMED' && derived === 'upcoming' && (
                         <Link
                           href={`/dashboard/my-tickets?order=${order.id}`}
-                          className="px-4 py-2 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center gap-2"
+                          className="h-10 px-4 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                         >
                           View Tickets <ArrowRight className="w-3 h-3" />
                         </Link>
@@ -525,7 +525,7 @@ export default function OrdersPage() {
                       {order.status === 'EXPIRED' && (
                         <Link
                           href={`/events/${order.event?.id ?? ''}`}
-                          className="px-4 py-2 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center gap-2"
+                          className="h-10 px-4 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                         >
                           Book Again <ArrowRight className="w-3 h-3" />
                         </Link>
@@ -534,14 +534,14 @@ export default function OrdersPage() {
                         <>
                           <Link
                             href={`/dashboard/my-tickets?order=${order.id}`}
-                            className="px-4 py-2 border border-mono-dark-grey text-[#CCCCCC] text-xs font-bold uppercase hover:border-white hover:text-white transition-all flex items-center gap-2"
+                            className="h-10 px-4 border border-mono-dark-grey text-[#CCCCCC] text-xs font-bold uppercase hover:border-white hover:text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                           >
                             Check Status <ArrowRight className="w-3 h-3" />
                           </Link>
                           <button
                             type="button"
                             onClick={() => openCancelModal(order)}
-                            className="px-4 py-2 border border-red-500/50 text-red-400 text-xs font-bold uppercase hover:border-red-500 hover:text-red-500 hover:bg-red-500/10 transition-all flex items-center gap-2"
+                            className="h-10 px-4 border border-red-500/50 text-red-400 text-xs font-bold uppercase hover:border-red-500 hover:text-red-500 hover:bg-red-500/10 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                           >
                             <Ban className="w-3 h-3" />
                             Cancel Booking
@@ -549,7 +549,7 @@ export default function OrdersPage() {
                         </>
                       )}
                       <button
-                        className="px-4 py-2 border border-mono-dark-grey text-[#CCCCCC] text-xs font-bold uppercase hover:border-white hover:text-white transition-all flex items-center gap-2"
+                        className="h-10 px-4 border border-mono-dark-grey text-[#CCCCCC] text-xs font-bold uppercase hover:border-white hover:text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                         type="button"
                       >
                         <Download className="w-3 h-3" />

@@ -47,6 +47,11 @@ export interface LoginResponse {
     is_active: boolean;
     email_verified: boolean;
     created_at: string;
+    profile?: {
+      phone?: string;
+      date_of_birth?: string;
+      gender?: string;
+    };
   };
   accessToken: string;
   refreshToken: string;

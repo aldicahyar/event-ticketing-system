@@ -56,7 +56,8 @@ export interface ResumableSession {
 }
 
 // ── Payment processing outcome (race condition fix) ──────────────
-type PaymentOutcome = 'confirmed' | 'skipped' | 'late';
+// Exported so webhook handlers can use the return type.
+export type PaymentOutcome = 'confirmed' | 'skipped' | 'late';
 
 @Injectable()
 export class PaymentsService implements OnModuleInit, OnModuleDestroy {
@@ -639,8 +640,9 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Fix #8: explicit return type
-  private async processSuccessfulPayment(
+  // Made public so webhook handlers (CheckoutCompletedHandler,
+  // AsyncPaymentSucceededHandler) can delegate to this method.
+  async processSuccessfulPayment(
     session: Stripe.Checkout.Session,
   ): Promise<PaymentOutcome> {
     const booking_id = session.client_reference_id;

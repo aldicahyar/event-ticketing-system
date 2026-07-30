@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { PaymentsService } from './payments.service';
+import { WebhookProcessorService } from './webhook/webhook-processor.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -21,7 +22,10 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly webhookProcessor: WebhookProcessorService,
+  ) {}
 
   @Post('stripe/webhook')
   async stripeWebhook(
@@ -31,11 +35,15 @@ export class PaymentsController {
     if (!signature) {
       throw new BadRequestException('Missing stripe-signature header');
     }
+    if (!req.rawBody) {
+      throw new BadRequestException('Missing raw body for signature verification');
+    }
 
     try {
-      return await this.paymentsService.handleWebhook(req, signature);
-    } catch (err: any) {
-      throw new BadRequestException(`Webhook Error: ${err.message}`);
+      return await this.webhookProcessor.process(req.rawBody, signature);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new BadRequestException(`Webhook Error: ${msg}`);
     }
   }
 

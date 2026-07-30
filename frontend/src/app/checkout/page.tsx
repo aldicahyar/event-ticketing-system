@@ -161,6 +161,7 @@ function CheckoutContent() {
   }, [event_id]);
 
   React.useEffect(() => {
+    // 1. Instant fallback from localStorage
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
@@ -175,6 +176,26 @@ function CheckoutContent() {
         console.error("Failed to parse user from localStorage", e);
       }
     }
+
+    // 2. Fetch fresh profile data to get the phone number
+    const fetchFreshProfile = async () => {
+      try {
+        if (apiClient.isAuthenticated()) {
+          const freshUser = await apiClient.getMe();
+          setFormData(prev => ({
+            ...prev,
+            firstName: freshUser.name?.split(' ')[0] || prev.firstName,
+            lastName: freshUser.name?.split(' ').slice(1).join(' ') || prev.lastName,
+            email: freshUser.email || prev.email,
+            phone: freshUser.profile?.phone || prev.phone,
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to fetch fresh user profile", e);
+      }
+    };
+    
+    fetchFreshProfile();
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

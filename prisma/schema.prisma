@@ -300,6 +300,25 @@ model t_trx_payments {
   @@index([provider, provider_tx_id])
 }
 
+/// Webhook event log for idempotency deduplication and audit trail.
+/// Each incoming Stripe webhook event is persisted here to prevent
+/// double-processing of retried events and to maintain a complete
+/// audit trail of all payment-related events.
+model t_trx_webhook_events {
+  id              String             @id @default(cuid())
+  stripe_event_id String             @unique
+  event_type      String
+  status          WebhookEventStatus @default(RECEIVED)
+  payload         Json?
+  error_message   String?
+  received_at     DateTime           @default(now())
+  processed_at    DateTime?
+
+  @@index([event_type])
+  @@index([status])
+  @@index([received_at])
+}
+
 model t_trx_tickets {
   id            String         @id @default(cuid())
   booking_id    String
@@ -363,6 +382,7 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
   EXPIRED
+  DISPUTED
 }
 
 enum PaymentStatus {
@@ -370,6 +390,15 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+  DISPUTED
+}
+
+/// Status of a webhook event processing lifecycle.
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  SKIPPED
 }
 
 /// Publish state for CMS content (pages).
