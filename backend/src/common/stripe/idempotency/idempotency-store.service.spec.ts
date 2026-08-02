@@ -16,6 +16,7 @@ function createPrismaMock() {
       create: jest.fn(),
       findUnique: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
   };
 }
@@ -93,5 +94,24 @@ describe('IdempotencyStoreService', () => {
         data: expect.objectContaining({ status: 'FAILED', error_message: 'boom' }),
       }),
     );
+  });
+
+  it('cleanupExpired deletes records past their TTL', async () => {
+    prisma.t_trx_idempotency_keys.deleteMany.mockResolvedValue({ count: 3 });
+    const removed = await service.cleanupExpired();
+    expect(removed).toBe(3);
+    expect(prisma.t_trx_idempotency_keys.deleteMany).toHaveBeenCalledWith({
+      where: { expires_at: { lt: expect.any(Date) } },
+    });
+  });
+
+  it('cleanupExpired never throws when the purge fails', async () => {
+    prisma.t_trx_idempotency_keys.deleteMany.mockRejectedValue(new Error('db down'));
+    await expect(service.cleanupExpired()).resolves.toBe(0);
+  });
+
+  it('onModuleDestroy stops the cleanup timer', () => {
+    service.onModuleInit();
+    expect(() => service.onModuleDestroy()).not.toThrow();
   });
 });

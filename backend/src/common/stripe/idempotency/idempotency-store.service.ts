@@ -1,9 +1,16 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   DEFAULT_IDEMPOTENCY_TTL_HOURS,
+  IDEMPOTENCY_CLEANUP_INTERVAL_MS,
   IDEMPOTENCY_TTL_CONFIG_KEY,
 } from './idempotency.constants';
 
@@ -26,9 +33,10 @@ export interface IdempotencyRecord {
  *    roll back a financial operation that already succeeded at Stripe.
  */
 @Injectable()
-export class IdempotencyStoreService {
+export class IdempotencyStoreService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(IdempotencyStoreService.name);
   private readonly ttlHours: number;
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -37,6 +45,45 @@ export class IdempotencyStoreService {
     this.ttlHours =
       Number(this.configService.get<string>(IDEMPOTENCY_TTL_CONFIG_KEY)) ||
       DEFAULT_IDEMPOTENCY_TTL_HOURS;
+  }
+
+  /**
+   * Start the periodic purge of expired records. Keys are only meaningful for
+   * Stripe's 24h window, so keeping them forever would grow the table without
+   * bound (risk logged in the Phase 3 plan).
+   */
+  onModuleInit(): void {
+    this.cleanupInterval = setInterval(
+      () => void this.cleanupExpired(),
+      IDEMPOTENCY_CLEANUP_INTERVAL_MS,
+    );
+    // Do not hold the event loop open just for the purge timer.
+    this.cleanupInterval.unref();
+  }
+
+  onModuleDestroy(): void {
+    if (this.cleanupInterval) clearInterval(this.cleanupInterval);
+  }
+
+  /**
+   * Delete records whose TTL has lapsed. Never throws: a failed purge must not
+   * affect payment traffic.
+   */
+  async cleanupExpired(): Promise<number> {
+    try {
+      const { count } = await this.prisma.t_trx_idempotency_keys.deleteMany({
+        where: { expires_at: { lt: new Date() } },
+      });
+      if (count > 0) {
+        this.logger.log(`Purged ${count} expired idempotency key record(s)`);
+      }
+      return count;
+    } catch (err) {
+      this.logger.error(
+        `cleanupExpired: purge failed: ${this.getErrorMessage(err)}`,
+      );
+      return 0;
+    }
   }
 
   /**

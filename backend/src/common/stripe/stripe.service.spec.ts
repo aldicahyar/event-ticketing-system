@@ -100,4 +100,31 @@ describe('StripeService', () => {
     ).rejects.toThrow('stripe down');
     expect(store.fail).toHaveBeenCalled();
   });
+
+  it('bypasses idempotency entirely when IDEMPOTENCY_ENABLED=false', async () => {
+    const disabledConfig = {
+      get: jest.fn((key: string) => {
+        if (key === 'STRIPE_SECRET_KEY') return 'sk_test_mock';
+        if (key === 'IDEMPOTENCY_ENABLED') return 'false';
+        return undefined;
+      }),
+    } as unknown as ConfigService;
+    const disabled = new StripeService(
+      disabledConfig,
+      new IdempotencyKeyService(),
+      store,
+    );
+    const createSpy = jest
+      .spyOn(disabled.client.checkout.sessions, 'create')
+      .mockResolvedValue({ id: 'cs_2' } as any);
+
+    await disabled.createCheckoutSession({} as any, {
+      operation: 'checkout',
+      entityId: 'b1',
+    });
+
+    expect(createSpy).toHaveBeenCalledWith({}, {});
+    expect(store.reserve).not.toHaveBeenCalled();
+    expect(store.complete).not.toHaveBeenCalled();
+  });
 });

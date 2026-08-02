@@ -24,3 +24,12 @@ export const DEFAULT_IDEMPOTENCY_TTL_HOURS = 24;
 
 /** Config key for overriding the record TTL. */
 export const IDEMPOTENCY_TTL_CONFIG_KEY = 'IDEMPOTENCY_KEY_TTL_HOURS';
+
+/**
+ * Config key for the rollback switch. Set to `"false"` to bypass idempotency
+ * keys entirely (emergency rollback path) without redeploying.
+ */
+export const IDEMPOTENCY_ENABLED_CONFIG_KEY = 'IDEMPOTENCY_ENABLED';
+
+/** How often expired key records are purged. */
+export const IDEMPOTENCY_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour

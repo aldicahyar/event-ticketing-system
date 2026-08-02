@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { IdempotencyContext } from './interfaces/idempotency.interface';
 import { IdempotencyKeyService } from './idempotency/idempotency-key.service';
 import { IdempotencyStoreService } from './idempotency/idempotency-store.service';
+import { IDEMPOTENCY_ENABLED_CONFIG_KEY } from './idempotency/idempotency.constants';
 
 /**
  * Central owner of the Stripe SDK client and the single place where write
@@ -21,6 +22,8 @@ import { IdempotencyStoreService } from './idempotency/idempotency-store.service
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
   private readonly stripe: Stripe;
+  /** Rollback switch: when false, Stripe calls run without idempotency keys. */
+  private readonly idempotencyEnabled: boolean;
 
   constructor(
     private readonly configService: ConfigService,
@@ -36,6 +39,13 @@ export class StripeService {
     const apiVersion = (this.configService.get<string>('STRIPE_API_VERSION') ??
       '2023-10-16') as Stripe.LatestApiVersion;
     this.stripe = new Stripe(secretKey, { apiVersion });
+    this.idempotencyEnabled =
+      this.configService.get<string>(IDEMPOTENCY_ENABLED_CONFIG_KEY) !== 'false';
+    if (!this.idempotencyEnabled) {
+      this.logger.warn(
+        'Idempotency is DISABLED via IDEMPOTENCY_ENABLED=false — Stripe writes run without keys',
+      );
+    }
   }
 
   /** Raw client for read-only operations that need the full SDK surface. */
@@ -52,8 +62,8 @@ export class StripeService {
     params: Stripe.Checkout.SessionCreateParams,
     ctx: IdempotencyContext,
   ): Promise<Stripe.Checkout.Session> {
-    return this.runIdempotent(ctx, (key) =>
-      this.stripe.checkout.sessions.create(params, { idempotencyKey: key }),
+    return this.runIdempotent(ctx, (options) =>
+      this.stripe.checkout.sessions.create(params, options),
       (resourceId) => this.stripe.checkout.sessions.retrieve(resourceId),
     );
   }
@@ -66,8 +76,8 @@ export class StripeService {
     params: Stripe.RefundCreateParams,
     ctx: IdempotencyContext,
   ): Promise<Stripe.Refund> {
-    return this.runIdempotent(ctx, (key) =>
-      this.stripe.refunds.create(params, { idempotencyKey: key }),
+    return this.runIdempotent(ctx, (options) =>
+      this.stripe.refunds.create(params, options),
       (resourceId) => this.stripe.refunds.retrieve(resourceId),
     );
   }
@@ -77,8 +87,8 @@ export class StripeService {
     sessionId: string,
     ctx: IdempotencyContext,
   ): Promise<Stripe.Checkout.Session> {
-    return this.runIdempotent(ctx, (key) =>
-      this.stripe.checkout.sessions.expire(sessionId, { idempotencyKey: key }),
+    return this.runIdempotent(ctx, (options) =>
+      this.stripe.checkout.sessions.expire(sessionId, options),
       (resourceId) => this.stripe.checkout.sessions.retrieve(resourceId),
     );
   }
@@ -104,12 +114,19 @@ export class StripeService {
    *  2. Reserve it (INSERT-first). If a COMPLETED record exists, replay it.
    *     If another request is in-flight, `reserve` throws 409.
    *  3. Execute the Stripe call; on success mark COMPLETED, on error FAILED.
+   *
+   * When the rollback switch is off, the Stripe call runs untouched (no key,
+   * no bookkeeping) so a faulty key generator can never block payments.
    */
   private async runIdempotent<T extends { id: string }>(
     ctx: IdempotencyContext,
-    execute: (key: string) => Promise<T>,
+    execute: (options: Stripe.RequestOptions) => Promise<T>,
     replay: (resourceId: string) => Promise<T>,
   ): Promise<T> {
+    if (!this.idempotencyEnabled) {
+      return execute({});
+    }
+
     const key = this.keyService.generate(ctx);
     const existing = await this.store.reserve(
       key,
@@ -124,7 +141,7 @@ export class StripeService {
     }
 
     try {
-      const result = await execute(key);
+      const result = await execute({ idempotencyKey: key });
       await this.store.complete(key, result.id);
       return result;
     } catch (err) {

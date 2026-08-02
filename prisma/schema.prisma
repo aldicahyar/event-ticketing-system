@@ -24,6 +24,7 @@ model t_mtr_media {
   created_at    DateTime      @default(now())
   updated_at    DateTime      @updatedAt
   og_pages      t_mtr_pages[] @relation("PageOgImage")
+  uploader      t_mtr_users?  @relation("MediaUploader", fields: [uploaded_by], references: [id], onDelete: SetNull)
 
   @@index([folder])
   @@index([mime_type])
@@ -48,8 +49,9 @@ model t_mtr_pages {
   updated_at      DateTime     @updatedAt
   og_image        t_mtr_media? @relation("PageOgImage", fields: [og_image_id], references: [id])
 
+  // slug @unique already creates an index — no separate @@index([slug]) needed
   @@index([status])
-  @@index([slug])
+  @@index([published_at])
 }
 
 /// RBAC role. System roles (ADMIN, ORGANIZER, ATTENDEE) are seeded with is_system=true
@@ -144,11 +146,14 @@ model t_mtr_users {
   bookings              t_trx_bookings[]
   oauth_accounts        t_trx_oauth_accounts[]
   security_logs         t_trx_security_logs[]
+  organized_events      t_trx_events[]         @relation("EventOrganizer")
+  uploaded_media        t_mtr_media[]          @relation("MediaUploader")
 
-  @@index([email])
+  // email @unique already creates an index — no separate @@index([email]) needed
   @@index([provider, provider_id])
   @@index([locked_until])
   @@index([role_code])
+  @@index([is_active])
 }
 
 model t_mtr_user_profiles {
@@ -205,6 +210,7 @@ model t_mtr_venues {
   events      t_trx_events[]
 
   @@index([city])
+  @@index([name])
 }
 
 model t_trx_events {
@@ -226,10 +232,14 @@ model t_trx_events {
   seats           t_mtr_seats[]
   bookings        t_trx_bookings[]
   venue           t_mtr_venues     @relation(fields: [venue_id], references: [id])
+  organizer       t_mtr_users      @relation("EventOrganizer", fields: [organizer_id], references: [id])
 
   @@index([venue_id])
   @@index([status])
   @@index([start_date_time])
+  @@index([organizer_id])
+  // Composite: optimize "upcoming published events" listing query
+  @@index([status, start_date_time])
 }
 
 model t_mtr_seats {
@@ -247,10 +257,15 @@ model t_mtr_seats {
   booking    t_trx_bookings? @relation(fields: [booking_id], references: [id])
   event      t_trx_events    @relation(fields: [event_id], references: [id], onDelete: Cascade)
   venue      t_mtr_venues    @relation(fields: [venue_id], references: [id])
+  tickets    t_trx_tickets[]
 
   @@unique([event_id, row, number])
   @@index([event_id])
   @@index([status])
+  // Composite: optimize "available seats for event" query
+  @@index([event_id, status])
+  // FK join index: seats linked to a booking
+  @@index([booking_id])
 }
 
 model t_trx_bookings {
@@ -277,10 +292,14 @@ model t_trx_bookings {
   payment           t_trx_payments?
   tickets           t_trx_tickets[]
 
+  // booking_code @unique already creates an index — no separate @@index([booking_code]) needed
   @@index([user_id])
   @@index([event_id])
   @@index([status])
-  @@index([booking_code])
+  // Composite: optimize "my bookings by status" (user dashboard)
+  @@index([user_id, status])
+  // Composite: optimize "bookings for event by status" (organizer view)
+  @@index([event_id, status])
 }
 
 model t_trx_payments {
@@ -297,7 +316,9 @@ model t_trx_payments {
   updated_at     DateTime       @updatedAt
   booking        t_trx_bookings @relation(fields: [booking_id], references: [id])
 
-  @@index([provider, provider_tx_id])
+  // provider_tx_id @unique already creates an index — removed redundant @@index([provider, provider_tx_id])
+  @@index([status])
+  @@index([paid_at])
 }
 
 /// Webhook event log for idempotency deduplication and audit trail.
@@ -317,6 +338,8 @@ model t_trx_webhook_events {
   @@index([event_type])
   @@index([status])
   @@index([received_at])
+  // Composite: optimize admin monitoring "pending/failed webhooks by type"
+  @@index([event_type, status])
 }
 
 /// Idempotency key tracking for Stripe write operations (create/refund/expire).
@@ -339,6 +362,8 @@ model t_trx_idempotency_keys {
   @@index([entity_id])
   @@index([operation])
   @@index([expires_at])
+  // Composite: optimize lookup by operation+entity (e.g. "create_payment for booking X")
+  @@index([operation, entity_id])
 }
 
 model t_trx_tickets {
@@ -350,9 +375,13 @@ model t_trx_tickets {
   checked_in_at DateTime?
   created_at    DateTime       @default(now())
   booking       t_trx_bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  seat          t_mtr_seats    @relation(fields: [seat_id], references: [id], onDelete: Restrict)
 
-  @@index([qr_code])
+  // seat_id unique: one ticket per seat (prevents double-booking at DB level)
+  @@unique([seat_id])
+  // qr_code @unique already creates an index — no separate @@index([qr_code]) needed
   @@index([booking_id])
+  @@index([is_checked_in])
 }
 
 /// Ticket tier configuration (multiplier + ratio for seat distribution).

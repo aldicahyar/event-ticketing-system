@@ -28,7 +28,9 @@ function createPrismaMock() {
     t_trx_bookings: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
     },
+    t_trx_events: { findUnique: jest.fn() },
     t_mtr_seats: { findMany: jest.fn() },
     t_mtr_users: { findUnique: jest.fn().mockResolvedValue(null) },
     // $transaction executes the callback with `txMocks` as the tx client
@@ -279,5 +281,78 @@ describe('BookingsService — cancelBooking', () => {
     await expect(
       service.cancelBooking('booking-1', ownerUser, 'OTHER', 'test reason'),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('BookingsService — duplicate checkout guard', () => {
+  let service: BookingsService;
+  let prismaMock: ReturnType<typeof createPrismaMock>;
+
+  const EVENT = {
+    id: 'event-1',
+    title: 'Concert',
+    currency: 'USD',
+    base_price: 50,
+    venue: { id: 'venue-1' },
+  };
+  const SEATS = [
+    { id: 'seat-a', event_id: 'event-1', status: 'AVAILABLE', type: 'REGULAR' },
+    { id: 'seat-b', event_id: 'event-1', status: 'AVAILABLE', type: 'REGULAR' },
+  ];
+
+  beforeEach(async () => {
+    prismaMock = createPrismaMock();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        BookingsService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: RedisService, useValue: createRedisMock() },
+        { provide: PaymentsService, useValue: createPaymentsMock() },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+        {
+          provide: StripeService,
+          useValue: { createCheckoutSession: jest.fn(), client: {} },
+        },
+        {
+          provide: NotificationsService,
+          useValue: { sendPaymentSuccess: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<BookingsService>(BookingsService);
+    prismaMock.t_trx_events.findUnique.mockResolvedValue(EVENT);
+    prismaMock.t_mtr_seats.findMany.mockResolvedValue(SEATS);
+  });
+
+  it('rejects a second checkout for an identical live PENDING selection', async () => {
+    prismaMock.t_trx_bookings.findFirst.mockResolvedValue({
+      id: 'booking-1',
+      booking_code: 'BOK-123',
+      seat_ids: ['seat-a', 'seat-b'],
+    });
+
+    await expect(
+      service.checkout('user-1', 'event-1', ['seat-a', 'seat-b']),
+    ).rejects.toThrow(/already in progress/);
+  });
+
+  it('allows checkout when the pending booking covers a larger selection', async () => {
+    // hasEvery matches supersets too — a booking for 3 seats must not block a
+    // fresh 2-seat checkout, so the guard compares the exact seat count.
+    prismaMock.t_trx_bookings.findFirst.mockResolvedValue({
+      id: 'booking-1',
+      booking_code: 'BOK-123',
+      seat_ids: ['seat-a', 'seat-b', 'seat-c'],
+    });
+    prismaMock.t_mtr_seats.findMany.mockResolvedValue([
+      { ...SEATS[0], status: 'RESERVED' },
+      SEATS[1],
+    ]);
+
+    await expect(
+      service.checkout('user-1', 'event-1', ['seat-a', 'seat-b']),
+    ).rejects.toThrow(/no longer available/);
   });
 });

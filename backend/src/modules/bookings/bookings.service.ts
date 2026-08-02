@@ -101,6 +101,38 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Throw 409 when the user already has a live PENDING booking for the very
+   * same event and seat selection. Prevents the double-submit duplicate that
+   * Stripe's Idempotency-Key cannot catch (see Phase 3 plan, T-05).
+   */
+  private async assertNoDuplicatePendingBooking(
+    user_id: string,
+    event_id: string,
+    seatIds: string[],
+  ): Promise<void> {
+    const activePending = await this.prisma.t_trx_bookings.findFirst({
+      where: {
+        user_id,
+        event_id,
+        status: 'PENDING',
+        expires_at: { gt: new Date() },
+        seat_ids: { hasEvery: seatIds },
+      },
+      select: { id: true, booking_code: true, seat_ids: true },
+    });
+
+    if (!activePending) return;
+    if (activePending.seat_ids.length !== seatIds.length) return;
+
+    this.logger.warn(
+      `Duplicate checkout blocked for user ${user_id}: booking ${activePending.booking_code} is still pending`,
+    );
+    throw new ConflictException(
+      'A checkout for these seats is already in progress. Please finish or cancel it before starting a new one.',
+    );
+  }
+
   async checkout(user_id: string, event_id: string, seatIds: string[], guestInfo?: { guest_name?: string, guest_email?: string, guest_phone?: string }) {
     // 1. Verify t_trx_events
     const event = await this.prisma.t_trx_events.findUnique({
@@ -120,6 +152,13 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     if (seats.length !== seatIds.length) {
       throw new BadRequestException('Some seats do not exist or do not belong to this event');
     }
+
+    // 2b. Reject a duplicate in-flight checkout for the exact same selection.
+    // Checked before the availability test so a double-submit gets an accurate
+    // message instead of "seats no longer available" (the user's own pending
+    // booking is what reserved them). Stripe idempotency cannot catch this:
+    // each submit creates a distinct booking *before* Stripe is called.
+    await this.assertNoDuplicatePendingBooking(user_id, event_id, seatIds);
 
     const unavailableSeats = seats.filter((s) => s.status !== 'AVAILABLE');
     if (unavailableSeats.length > 0) {

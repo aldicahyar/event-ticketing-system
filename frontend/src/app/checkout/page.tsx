@@ -31,6 +31,10 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
+  // Set when the backend answers 409 (a checkout for this selection is already
+  // in flight). Shown as an informational notice, not an error, while we poll
+  // for the existing session instead of creating a second one.
+  const [conflictNotice, setConflictNotice] = useState('');
 
   // Form data
   const [errorMsg, setErrorMsg] = useState('');
@@ -241,10 +245,49 @@ function CheckoutContent() {
     }
   };
 
+  /**
+   * Handle an HTTP 409 from /bookings/checkout. A conflict means an identical
+   * checkout is already in flight (double-submit or a concurrent tab), so
+   * creating another one would risk a duplicate charge. Instead of surfacing a
+   * raw error we poll the server for the existing resumable session and send
+   * the user there once it appears.
+   */
+  const resolveCheckoutConflict = async (message: string) => {
+    setConflictNotice(
+      message || 'Your payment is already being processed. Please wait a moment…'
+    );
+
+    const MAX_ATTEMPTS = 5;
+    const DELAY_MS = 2000;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      try {
+        const sessions = await apiClient.get<
+          Array<{ booking_id: string; event_id: string }>
+        >('/payments/pending-sessions');
+        const match = sessions?.find((s) => s.event_id === event_id);
+        if (match) {
+          router.replace(`/checkout/pending?booking=${match.booking_id}`);
+          return;
+        }
+      } catch {
+        // Polling failure is not fatal — keep trying until attempts run out.
+      }
+    }
+
+    setConflictNotice('');
+    setErrorMsg(
+      'A previous checkout for these seats is still being processed. Please check your orders before trying again.'
+    );
+    setLoading(false);
+  };
+
   const handlePayment = async () => {
     setLoading(true);
     setErrorMsg('');
-    
+    setConflictNotice('');
+
     try {
       // 1. Get Token from local storage (assuming auth is stored here)
       const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
@@ -272,6 +315,13 @@ function CheckoutContent() {
       });
 
       const data = await response.json();
+
+      if (response.status === 409) {
+        // Duplicate in-flight checkout — resume the existing one instead of
+        // creating a second booking/session.
+        await resolveCheckoutConflict(data?.message ?? '');
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data?.message || 'Checkout failed. Please try again.');
@@ -631,6 +681,23 @@ function CheckoutContent() {
                 </motion.div>
               )}
 
+            </AnimatePresence>
+
+            {/* In-flight duplicate notice (HTTP 409) — informational, not an error */}
+            <AnimatePresence>
+              {conflictNotice && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mt-6 p-4 border-l-4 border-yellow-500 bg-yellow-500/10 text-yellow-100 text-sm font-bold tracking-wide flex items-center gap-3"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+                  {conflictNotice}
+                </motion.div>
+              )}
             </AnimatePresence>
 
             {/* Error Message */}
