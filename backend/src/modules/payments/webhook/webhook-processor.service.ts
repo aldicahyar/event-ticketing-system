@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { IWebhookEventHandler, WebhookHandlerResult } from '../interfaces/webhook-handler.interface';
 import { WebhookEventLogService } from './webhook-event-log.service';
+import { StripeService } from '../../../common/stripe/stripe.service';
 
 /**
  * Central webhook processor that orchestrates the entire lifecycle
@@ -35,16 +36,15 @@ export class WebhookProcessorService {
   constructor(
     private readonly configService: ConfigService,
     private readonly eventLogService: WebhookEventLogService,
+    private readonly stripeService: StripeService,
     handlers: IWebhookEventHandler[],
   ) {
-    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     this.webhookSecret =
       this.configService.get<string>('STRIPE_WEBHOOK_SECRET') ?? '';
 
-    this.stripe = new Stripe(secretKey ?? '', {
-      apiVersion: (this.configService.get<string>('STRIPE_API_VERSION') ??
-        '2023-10-16') as Stripe.LatestApiVersion,
-    });
+    // Reuse the single Stripe client owned by StripeService for signature
+    // verification (no writes here, so no idempotency key needed).
+    this.stripe = this.stripeService.client;
 
     // Build a lookup map from event type → handler for O(1) dispatch.
     // This is built once at construction, not per-request.

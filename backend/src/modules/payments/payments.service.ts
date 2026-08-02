@@ -1,18 +1,17 @@
 import {
   Injectable,
   Logger,
-  RawBodyRequest,
   NotFoundException,
   BadRequestException,
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Request } from 'express';
 import Stripe from 'stripe';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StripeService } from '../../common/stripe/stripe.service';
 import { v4 as uuidv4 } from 'uuid';
 
 // ── Prisma payload type aliases (Fix #5) ─────────────────────────
@@ -70,22 +69,11 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService, // Fix #3: inject ConfigService
     private readonly notificationsService: NotificationsService,
+    private readonly stripeService: StripeService,
   ) {
-    // Fix #2: validate STRIPE_SECRET_KEY at startup instead of unsafe `as string`
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    if (!secretKey) {
-      throw new Error(
-        'STRIPE_SECRET_KEY environment variable is required to start the payments service',
-      );
-    }
-
-    // Fix #3: use ConfigService for apiVersion with a sensible fallback
-    const apiVersion = (this.configService.get<string>('STRIPE_API_VERSION') ??
-      '2023-10-16') as Stripe.LatestApiVersion;
-
-    this.stripe = new Stripe(secretKey, {
-      apiVersion,
-    });
+    // The unified StripeService owns the single Stripe client. Reads reuse it;
+    // writes go through StripeService so they get an Idempotency-Key (GAP-05).
+    this.stripe = this.stripeService.client;
 
     // Fix #4: frontend URL from config with fallback for local dev
     this.frontendUrl =
@@ -108,51 +96,6 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   private getErrorMessage(err: unknown): string {
     if (err instanceof Error) return err.message;
     return String(err);
-  }
-
-  async handleWebhook(
-    req: RawBodyRequest<Request>,
-    signature: string,
-  ): Promise<{ received: boolean }> {
-    let event: Stripe.Event;
-
-    try {
-      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-      if (!webhookSecret) {
-        throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
-      }
-
-      if (!req.rawBody) {
-        throw new Error('Missing raw body for Stripe signature validation');
-      }
-
-      event = this.stripe.webhooks.constructEvent(
-        req.rawBody,
-        signature,
-        webhookSecret,
-      );
-    } catch (err: unknown) {
-      // Fix #7: use `unknown` instead of `any`
-      this.logger.error(
-        `Webhook signature verification failed. ${this.getErrorMessage(err)}`,
-      );
-      throw err;
-    }
-
-    this.logger.log(`Received Stripe Webhook Event: ${event.type}`);
-
-    // Fix #12: handle additional event types beyond just `checkout.session.completed`
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      await this.processSuccessfulPayment(session);
-    } else if (event.type === 'checkout.session.expired') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      this.logger.log(
-        `Stripe checkout session expired: ${session.id} (booking: ${session.client_reference_id ?? 'N/A'})`,
-      );
-    }
-
-    return { received: true };
   }
 
   /**
@@ -471,28 +414,47 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    const session = await this.stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: event.currency.toLowerCase(),
-            product_data: {
-              name: `${event.title} - Ticketing`,
-              description: `Booking Code: ${booking.booking_code}`,
-            },
-            unit_amount: unitAmount,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      expires_at: expiresAtSec,
-      // Fix #4: use configurable frontend URL instead of hardcoded localhost
-      success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${this.frontendUrl}/checkout/pending?booking=${booking.id}`,
-      client_reference_id: booking.id,
+    // Count prior checkout keys for this booking to derive the retry attempt.
+    // Bumping the attempt yields a fresh idempotency key so a legitimately new
+    // session (after the previous one expired) is not blocked as a duplicate.
+    const priorAttempts = await this.prisma.t_trx_idempotency_keys.count({
+      where: { operation: 'checkout', entity_id: booking.id },
     });
+    const attempt = String(priorAttempts + 1);
+
+    const session = await this.stripeService.createCheckoutSession(
+      {
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: event.currency.toLowerCase(),
+              product_data: {
+                name: `${event.title} - Ticketing`,
+                description: `Booking Code: ${booking.booking_code}`,
+              },
+              unit_amount: unitAmount,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        expires_at: expiresAtSec,
+        // Fix #4: use configurable frontend URL instead of hardcoded localhost
+        success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.frontendUrl}/checkout/pending?booking=${booking.id}`,
+        client_reference_id: booking.id,
+      },
+      {
+        operation: 'checkout',
+        entityId: booking.id,
+        discriminator: attempt,
+        fingerprint: {
+          amount: unitAmount,
+          currency: event.currency.toLowerCase(),
+        },
+      },
+    );
 
     await this.prisma.t_trx_bookings.update({
       where: { id: booking.id },
@@ -625,7 +587,10 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
       // Only expire sessions that are still open (user could still pay).
       if (session.status === 'open') {
-        await this.stripe.checkout.sessions.expire(stripe_session_id);
+        await this.stripeService.expireCheckoutSession(stripe_session_id, {
+          operation: 'expire',
+          entityId: stripe_session_id,
+        });
         this.logger.log(
           `Expired Stripe session ${stripe_session_id} for cancelled booking ${booking_code}`,
         );
@@ -940,15 +905,22 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     let refundStatus: string = 'FAILED';
     try {
       if (paymentIntentId) {
-        const refund = await this.stripe.refunds.create({
-          payment_intent: paymentIntentId,
-          reason: 'requested_by_customer',
-          metadata: {
-            booking_id: booking.id,
-            booking_code: booking.booking_code,
-            reason: 'PAYMENT_AFTER_EXPIRY',
+        const refund = await this.stripeService.createRefund(
+          {
+            payment_intent: paymentIntentId,
+            reason: 'requested_by_customer',
+            metadata: {
+              booking_id: booking.id,
+              booking_code: booking.booking_code,
+              reason: 'PAYMENT_AFTER_EXPIRY',
+            },
           },
-        });
+          {
+            operation: 'refund',
+            entityId: paymentRecordId ?? booking.id,
+            discriminator: 'PAYMENT_AFTER_EXPIRY',
+          },
+        );
         refundId = refund.id;
         refundStatus = refund.status ?? 'pending';
         this.logger.log(

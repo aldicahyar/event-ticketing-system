@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { WebhookProcessorService } from './webhook-processor.service';
 import { WebhookEventLogService } from './webhook-event-log.service';
+import { StripeService } from '../../../common/stripe/stripe.service';
 import { IWebhookEventHandler, WebhookHandlerResult } from '../interfaces/webhook-handler.interface';
 
 // ── Mock dependencies ──────────────────────────────────────────
@@ -14,6 +15,12 @@ const mockConfigService = {
     return undefined;
   }),
 } as unknown as ConfigService;
+
+// StripeService wrapper exposing a real Stripe client so that
+// constructEvent (signature verification) behaves like production.
+const mockStripeService = {
+  client: new Stripe('sk_test_mock', { apiVersion: '2023-10-16' }),
+} as unknown as StripeService;
 
 const mockEventLogService = {
   isDuplicate: jest.fn(),
@@ -68,6 +75,7 @@ describe('WebhookProcessorService', () => {
     processor = new WebhookProcessorService(
       mockConfigService,
       mockEventLogService,
+      mockStripeService,
       [completedHandler, refundedHandler],
     );
   });
@@ -89,6 +97,7 @@ describe('WebhookProcessorService', () => {
       const badProcessor = new WebhookProcessorService(
         badConfig,
         mockEventLogService,
+        mockStripeService,
         [],
       );
 

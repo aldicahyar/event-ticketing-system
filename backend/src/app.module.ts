@@ -16,6 +16,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { DatabaseModule } from './common/database/database.module';
 import { StorageModule } from './common/storage/storage.module';
 import { RedisModule } from './common/redis/redis.module';
+import { StripeModule } from './common/stripe/stripe.module';
 import { WebSocketModule } from './websocket/websocket.module';
 import { HealthModule } from './common/modules/health/health.module';
 
@@ -35,6 +36,7 @@ import { HealthModule } from './common/modules/health/health.module';
     DatabaseModule,
     StorageModule,
     RedisModule,
+    StripeModule,
     WebSocketModule,
     HealthModule,
     NotificationsModule,

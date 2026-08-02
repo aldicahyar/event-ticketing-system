@@ -6,7 +6,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CancelReasonCode } from './dto/bookings.dto';
-import Stripe from 'stripe';
+import { StripeService } from '../../common/stripe/stripe.service';
 
 @Injectable()
 export class BookingsService implements OnModuleInit, OnModuleDestroy {
@@ -21,6 +21,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     @Inject(forwardRef(() => PaymentsService))
     private readonly paymentsService: PaymentsService,
     private readonly notificationsService: NotificationsService,
+    private readonly stripeService: StripeService,
   ) {
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
@@ -207,44 +208,49 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         return b;
       });
 
-      // 6. Create Stripe Checkout Session
-      const secretKey = process.env.STRIPE_SECRET_KEY;
-      if (!secretKey) {
-        throw new Error('STRIPE_SECRET_KEY is not configured');
-      }
-      const stripe = new Stripe(secretKey, {
-        apiVersion: '2023-10-16',
-      });
-
+      // 6. Create Stripe Checkout Session (idempotency handled by StripeService)
       // Fetch user to get email for Stripe
       const customer = await this.prisma.t_mtr_users.findUnique({ where: { id: user_id } });
 
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        customer_email: customer?.email || undefined,
-        line_items: [
-          {
-            price_data: {
-              currency: event.currency.toLowerCase(),
-              product_data: {
-                name: `${event.title} - Ticketing`,
-                description: `Booking Code: ${booking.booking_code}`,
+      const unitAmount = Math.round(total_price * 100); // Stripe expects cents
+      const session = await this.stripeService.createCheckoutSession(
+        {
+          payment_method_types: ['card'],
+          customer_email: customer?.email || undefined,
+          line_items: [
+            {
+              price_data: {
+                currency: event.currency.toLowerCase(),
+                product_data: {
+                  name: `${event.title} - Ticketing`,
+                  description: `Booking Code: ${booking.booking_code}`,
+                },
+                unit_amount: unitAmount,
               },
-              unit_amount: Math.round(total_price * 100), // Stripe expects cents
+              quantity: 1,
             },
-            quantity: 1,
+          ],
+          mode: 'payment',
+          // Stripe requires expires_at >= 30 min from session creation.
+          // Our booking window is 15 min, so we use Stripe's minimum (30 min)
+          // and rely on the atomic expiry guard in processSuccessfulPayment
+          // to catch payments that arrive after the 15-min booking window.
+          expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000),
+          success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${this.frontendUrl}/checkout/pending?booking=${booking.id}`,
+          client_reference_id: booking.id,
+        },
+        {
+          operation: 'checkout',
+          entityId: booking.id,
+          discriminator: '1',
+          fingerprint: {
+            amount: unitAmount,
+            currency: event.currency.toLowerCase(),
+            seat_ids: seatIds,
           },
-        ],
-        mode: 'payment',
-        // Stripe requires expires_at >= 30 min from session creation.
-        // Our booking window is 15 min, so we use Stripe's minimum (30 min)
-        // and rely on the atomic expiry guard in processSuccessfulPayment
-        // to catch payments that arrive after the 15-min booking window.
-        expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000),
-        success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.frontendUrl}/checkout/pending?booking=${booking.id}`,
-        client_reference_id: booking.id,
-      });
+        },
+      );
 
       // Persist the Stripe session id on the booking so the payment flow can
       // be recovered if the user closes the Stripe tab before completing

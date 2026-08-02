@@ -319,6 +319,28 @@ model t_trx_webhook_events {
   @@index([received_at])
 }
 
+/// Idempotency key tracking for Stripe write operations (create/refund/expire).
+/// Detects in-flight duplicate requests (race condition) and provides replay
+/// of the resulting Stripe resource id for retried requests. Complements the
+/// Idempotency-Key header sent to Stripe (which only lives for 24 hours).
+model t_trx_idempotency_keys {
+  id              String            @id @default(cuid())
+  idempotency_key String            @unique
+  operation       String
+  entity_id       String
+  fingerprint     String?
+  status          IdempotencyStatus @default(IN_FLIGHT)
+  resource_id     String?
+  error_message   String?
+  created_at      DateTime          @default(now())
+  completed_at    DateTime?
+  expires_at      DateTime
+
+  @@index([entity_id])
+  @@index([operation])
+  @@index([expires_at])
+}
+
 model t_trx_tickets {
   id            String         @id @default(cuid())
   booking_id    String
@@ -399,6 +421,13 @@ enum WebhookEventStatus {
   PROCESSED
   FAILED
   SKIPPED
+}
+
+/// Lifecycle status of an idempotency key record.
+enum IdempotencyStatus {
+  IN_FLIGHT
+  COMPLETED
+  FAILED
 }
 
 /// Publish state for CMS content (pages).

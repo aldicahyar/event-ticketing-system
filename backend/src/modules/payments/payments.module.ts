@@ -9,6 +9,7 @@ import { DatabaseModule } from '../../common/database/database.module';
 import { WebhookProcessorService } from './webhook/webhook-processor.service';
 import { WebhookEventLogService } from './webhook/webhook-event-log.service';
 import { PaymentAuditService } from './audit/payment-audit.service';
+import { StripeService } from '../../common/stripe/stripe.service';
 
 // Webhook event handlers
 import { CheckoutCompletedHandler } from './webhook/handlers/checkout-completed.handler';
@@ -73,10 +74,16 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
       inject: [
         ConfigService,
         WebhookEventLogService,
+        StripeService,
         WEBHOOK_HANDLERS,
       ],
-      useFactory: (configService, eventLogService, handlers) =>
-        new WebhookProcessorService(configService, eventLogService, handlers),
+      useFactory: (configService, eventLogService, stripeService, handlers) =>
+        new WebhookProcessorService(
+          configService,
+          eventLogService,
+          stripeService,
+          handlers,
+        ),
     },
   ],
   exports: [PaymentsService],
