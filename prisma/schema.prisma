@@ -223,7 +223,7 @@ model t_trx_events {
   status          EventStatus      @default(DRAFT)
   image_url       String?
   base_price      Decimal          @db.Decimal(10, 2)
-  currency        String           @default("USD")
+  currency        String           @default("IDR")
   organizer_id    String
   created_at      DateTime         @default(now())
   updated_at      DateTime         @updatedAt
@@ -274,7 +274,7 @@ model t_trx_bookings {
   event_id          String
   booking_code      String          @unique
   total_price       Decimal         @db.Decimal(10, 2)
-  currency          String          @default("USD")
+  currency          String          @default("IDR")
   status            BookingStatus   @default(PENDING)
   expires_at        DateTime?
   booked_at         DateTime        @default(now())
@@ -306,7 +306,7 @@ model t_trx_payments {
   id             String         @id @default(cuid())
   booking_id     String         @unique
   amount         Decimal        @db.Decimal(10, 2)
-  currency       String         @default("USD")
+  currency       String         @default("IDR")
   provider       String
   provider_tx_id String?        @unique
   status         PaymentStatus  @default(PENDING)

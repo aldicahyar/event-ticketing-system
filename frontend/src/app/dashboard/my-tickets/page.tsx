@@ -9,6 +9,7 @@ import {
   AlertTriangle, Loader2, ArrowRight, CreditCard
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/currency';
 import { TicketCardSkeleton } from '@/components/ui/skeleton';
 import { useResumablePayments } from '@/hooks/useResumablePayments';
 
@@ -221,11 +222,6 @@ function TicketsContent() {
     filter === 'upcoming' ? isUpcoming(b) : !isUpcoming(b),
   );
 
-  const formatPrice = (val: string | number, currency = 'IDR') => {
-    const num = typeof val === 'number' ? val : Number(val);
-    if (!Number.isFinite(num)) return `${currency} 0`;
-    return `${currency} ${num.toLocaleString()}`;
-  };
 
   const statusBadge = (status?: string) => {
     switch (status) {
@@ -722,7 +718,7 @@ function TicketsContent() {
                 {/* Actions */}
                 <div className="p-4 border-t border-mono-dark-grey flex flex-col sm:flex-row gap-3 justify-between">
                   <div className="flex items-center gap-2 text-sm text-mono-light-grey">
-                    <span>Total: {formatPrice(ticket.total_price, ticket.currency)}</span>
+                    <span>Total: {formatCurrency(ticket.total_price, ticket.currency)}</span>
                   </div>
                   <div className="flex gap-3">
                     <button

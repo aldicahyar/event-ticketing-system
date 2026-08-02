@@ -1,28 +1,5 @@
 import { EmailContent, PaymentSuccessEmailData } from '../interfaces/email-template.interface';
-
-/**
- * Formats a numeric amount with its currency code into a human-readable string.
- * Handles both IDR (Indonesian Rupiah) and international currencies.
- */
-function formatCurrency(amount: number, currency: string): string {
-  const code = currency.toUpperCase();
-  // Indonesian Rupiah: no decimals, use "." as thousand separator
-  // Manual formatting because toLocaleString('id-ID') may fall back to
-  // en-US (commas) when Node.js lacks full ICU data.
-  if (code === 'IDR') {
-    const rounded = Math.round(amount);
-    const formatted = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `Rp ${formatted}`;
-  }
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: code,
-    }).format(amount);
-  } catch {
-    return `${amount} ${code}`;
-  }
-}
+import { formatCurrency } from '../../../common/utils/currency.utils';
 
 /**
  * Formats an ISO date string into a human-readable date.

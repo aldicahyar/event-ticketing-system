@@ -4,6 +4,7 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { SettingsService } from '../settings/settings.service';
+import { DEFAULT_CURRENCY } from '../../common/constants/currency.constants';
 
 // Issue 3 fix: typed interface instead of 'any' for seat_map
 interface SeatMap {
@@ -48,7 +49,7 @@ export class EventsService {
         end_date_time: end,
         status: dto.status || 'DRAFT',
         base_price: dto.base_price,
-        currency: dto.currency || 'IDR',
+        currency: dto.currency || DEFAULT_CURRENCY,
         organizer_id: organizer_id,
         image_url: dto.image_url,
       },

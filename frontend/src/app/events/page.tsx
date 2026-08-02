@@ -10,6 +10,7 @@ import {
 import { IndustrialBadge } from '@/components/ui/industrial-components';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/currency';
 
 interface EventListItem {
   id: string;
@@ -237,7 +238,7 @@ export default function EventsPage() {
                     <div>
                       <span className="text-xs text-mono-light-grey uppercase">From</span>
                       <div className="text-lg font-bold text-white">
-                        IDR {event.price.toLocaleString('id-ID')}
+                        {formatCurrency(event.price)}
                       </div>
                     </div>
                     <Link

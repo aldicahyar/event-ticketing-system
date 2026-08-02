@@ -1,21 +1,5 @@
 import { EmailContent, PaymentRefundedEmailData } from '../interfaces/email-template.interface';
-
-/**
- * Formats a numeric amount with its currency code into a human-readable string.
- */
-function formatCurrency(amount: number, currency: string): string {
-  const code = currency.toUpperCase();
-  if (code === 'IDR') {
-    const rounded = Math.round(amount);
-    const formatted = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `Rp ${formatted}`;
-  }
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(amount);
-  } catch {
-    return `${amount} ${code}`;
-  }
-}
+import { formatCurrency } from '../../../common/utils/currency.utils';
 
 /**
  * Renders the payment-refunded email.

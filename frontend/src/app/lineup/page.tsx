@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, Calendar, MapPin } from 'lucide-react';
 import { IndustrialBadge } from '@/components/ui/industrial-components';
 import { Navbar } from '@/components/layout/Navbar';
+import { formatCurrency } from '@/lib/currency';
 
 const LINEUP = [
   {
@@ -201,7 +202,7 @@ export default function LineupPage() {
                   {/* Price & CTA */}
                   <div className="flex items-center justify-between pt-3 border-t border-mono-dark-grey">
                     <span className="text-sm font-bold text-white">
-                      IDR {artist.price.toLocaleString('id-ID')}
+                      {formatCurrency(artist.price)}
                     </span>
                     <span className="text-xs font-bold uppercase text-white group-hover:underline flex items-center gap-1">
                       Get Tickets <ArrowRight className="w-3 h-3" aria-hidden="true" />

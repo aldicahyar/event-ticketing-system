@@ -9,6 +9,7 @@ import {
   Shield, TrendingUp, Users, Loader2
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
 import { ResumePaymentBanner } from '@/components/payments/ResumePaymentBanner';
 
@@ -110,11 +111,6 @@ export default function DashboardPage() {
     loadDashboardData();
   }, [user, loadDashboardData]);
 
-  const formatPrice = (val: string | number, currency = 'IDR') => {
-    const num = typeof val === 'number' ? val : Number(val);
-    if (!Number.isFinite(num)) return `${currency} 0`;
-    return `${currency} ${num.toLocaleString()}`;
-  };
 
   const isUpcoming = (o: Order) => {
     if (!o.event?.start_date_time) return false;
@@ -142,7 +138,7 @@ export default function DashboardPage() {
     { label: 'Total Orders', value: stats.totalOrders, icon: CreditCard },
     { label: 'Tickets Bought', value: stats.totalTickets, icon: Ticket },
     { label: 'Loyalty Points', value: '0', icon: Users },
-    { label: 'Total Spent', value: `IDR ${(stats.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp },
+    { label: 'Total Spent', value: `Rp ${(stats.totalSpent / 1000000).toFixed(1)}M`, icon: TrendingUp },
   ];
 
   const adminQuickLinks = [
@@ -295,7 +291,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
                   <div className="text-left sm:text-right">
                     <div className="font-bold text-white text-sm">
-                      {formatPrice(order.total_price, order.currency)}
+                      {formatCurrency(order.total_price, order.currency)}
                     </div>
                     <div className="text-xs text-mono-light-grey">
                       {order.seats.length} ticket{order.seats.length > 1 ? 's' : ''}
@@ -387,7 +383,7 @@ export default function DashboardPage() {
           <div>
             <div className="text-xs uppercase tracking-widest mb-1">Total Spent</div>
             <div className="font-display font-bold text-2xl md:text-3xl">
-              IDR {(stats.totalSpent / 1000000).toFixed(1)}M
+              Rp {(stats.totalSpent / 1000000).toFixed(1)}M
             </div>
           </div>
           <div className="text-right">

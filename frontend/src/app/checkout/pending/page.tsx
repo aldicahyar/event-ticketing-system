@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/currency';
 
 const CANCEL_REASONS: { value: string; label: string }[] = [
   { value: 'CHANGE_OF_PLANS', label: 'Change of Plans' },
@@ -281,7 +282,7 @@ function PendingContent() {
               {ctx.total != null && (
                 <div className="text-sm text-mono-light-grey mt-1">
                   Total: <span className="text-white font-bold">
-                    {ctx.currency ?? 'IDR'} {Number(ctx.total).toLocaleString()}
+                    {formatCurrency(ctx.total ?? 0, ctx.currency)}
                   </span>
                 </div>
               )}

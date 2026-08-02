@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency';
 
 // Types for the event and tickets
 interface TicketTier {
@@ -38,6 +39,7 @@ interface Event {
   date: string;
   venue: string;
   price: number;
+  currency: string;
   image: string;
   genre: string;
   description: string;
@@ -145,6 +147,7 @@ export default function EventDetailPage() {
             date: eventData.event_date || eventData.start_date_time,
             venue: eventData.venue?.name?.toUpperCase() || '',
             price: Number(eventData.base_price),
+            currency: eventData.currency || DEFAULT_CURRENCY,
             image: eventData.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
             genre: eventData.genre?.toUpperCase() || 'GENERAL',
             description: eventData.description || '',
@@ -212,7 +215,7 @@ export default function EventDetailPage() {
   const handleCheckout = () => {
     // Navigate to checkout
     const seatIds = selectedSeats.map(s => s.id).join(',');
-    router.push(`/checkout?event=${event_id}&seats=${seatIds}&subtotal=${subtotal}&ppn=${ppn}&total=${total}&ppn_percent=${ppn_percent}`);
+    router.push(`/checkout?event=${event_id}&seats=${seatIds}&subtotal=${subtotal}&ppn=${ppn}&total=${total}&ppn_percent=${ppn_percent}&currency=${encodeURIComponent(event?.currency || DEFAULT_CURRENCY)}`);
   };
 
   if (loading) {
@@ -351,7 +354,7 @@ export default function EventDetailPage() {
                       setShowSeatMap(true);
                     }}
                     aria-pressed={selectedTier === tier.id}
-                    aria-label={`${tier.name} tier - IDR ${tier.price.toLocaleString('id-ID')} per ticket, ${tier.available} available`}
+                    aria-label={`${tier.name} tier - ${formatCurrency(tier.price)} per ticket, ${tier.available} available`}
                     className={`w-full p-4 min-h-touch border-2 text-left transition-all duration-300 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
                       selectedTier === tier.id
                         ? 'border-white bg-white/10'
@@ -379,7 +382,7 @@ export default function EventDetailPage() {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-display font-bold text-white">
-                          IDR {tier.price.toLocaleString('id-ID')}
+                          {formatCurrency(tier.price)}
                         </div>
                         <div className="text-xs text-mono-light-grey uppercase">per ticket</div>
                       </div>
@@ -522,7 +525,7 @@ export default function EventDetailPage() {
                 <div className="pb-4 border-b border-mono-dark-grey mb-4">
                   <div className="text-sm text-mono-light-grey uppercase tracking-widest mb-1">Ticket Type</div>
                   <div className="font-bold uppercase text-white">{selectedTierData.name}</div>
-                  <div className="text-sm text-[#CCCCCC]">IDR {selectedTierData.price.toLocaleString('id-ID')} each</div>
+                  <div className="text-sm text-[#CCCCCC]">{formatCurrency(selectedTierData.price)} each</div>
                 </div>
               )}
 
@@ -550,15 +553,15 @@ export default function EventDetailPage() {
                     <dt className="text-[#CCCCCC]">
                       {selectedSeats.length > 0 ? selectedSeats.length : quantity} x {selectedTierData.name}
                     </dt>
-                    <dd className="text-white">IDR {subtotal.toLocaleString('id-ID')}</dd>
+                    <dd className="text-white">{formatCurrency(subtotal)}</dd>
                   </div>
                   <div className="flex justify-between text-sm">
                     <dt className="text-[#CCCCCC]">PPN ({ppn_percent}%)</dt>
-                    <dd className="text-white">IDR {ppn.toLocaleString('id-ID')}</dd>
+                    <dd className="text-white">{formatCurrency(ppn)}</dd>
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t border-mono-dark-grey">
                     <dt className="text-white">Total</dt>
-                    <dd className="text-white" aria-live="polite">IDR {total.toLocaleString('id-ID')}</dd>
+                    <dd className="text-white" aria-live="polite">{formatCurrency(total)}</dd>
                   </div>
                 </dl>
               )}

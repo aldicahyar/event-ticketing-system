@@ -5,6 +5,7 @@ import { ArrowRight, Calendar, Filter, MapPin } from 'lucide-react';
 import { IndustrialBadge } from '@/components/ui/industrial-components';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/currency';
 
 interface EventItem {
   id: string;
@@ -177,7 +178,7 @@ export const EventList = () => {
                       </span>
                     </div>
 
-                    <p className="text-sm text-white font-bold">IDR {event.price.toLocaleString('id-ID')}</p>
+                    <p className="text-sm text-white font-bold">{formatCurrency(event.price)}</p>
                   </div>
 
                   <Link

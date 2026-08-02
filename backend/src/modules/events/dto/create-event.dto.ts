@@ -4,12 +4,18 @@ import {
   IsOptional,
   IsNumber,
   IsDateString,
+  IsIn,
   Min,
   MinLength,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EventStatus } from '@prisma/client';
+import {
+  SUPPORTED_CURRENCIES,
+  type SupportedCurrency,
+} from '../../../common/constants/currency.constants';
 
 export class CreateEventDto {
   @ApiProperty({ example: 'BMTH Concert Live in Jakarta' })
@@ -49,10 +55,13 @@ export class CreateEventDto {
   @Min(0)
   base_price: number;
 
-  @ApiProperty({ example: 'IDR', default: 'IDR' })
-  @IsString()
+  @ApiProperty({ example: 'IDR', default: 'IDR', enum: SUPPORTED_CURRENCIES })
   @IsOptional()
-  currency?: string;
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
+  @IsIn(SUPPORTED_CURRENCIES, { message: 'Only IDR is currently supported' })
+  currency?: SupportedCurrency;
 
   @ApiPropertyOptional({ enum: EventStatus, default: EventStatus.DRAFT })
   @IsEnum(EventStatus)

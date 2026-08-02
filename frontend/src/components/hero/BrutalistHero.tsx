@@ -6,6 +6,7 @@ import { ArrowRight, Clock, Shield, Ticket, Zap, Calendar, MapPin, ChevronLeft, 
 import Link from 'next/link';
 import { TechnicalMetadata, Crosshair } from './TechnicalMetadata';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/currency';
 
 interface HeroEvent {
   id: string;
@@ -334,7 +335,7 @@ export const BrutalistHero = () => {
                 </div>
                 <div className="flex items-center gap-2 text-white">
                   <Ticket className="w-4 h-4 md:w-5 md:h-5" aria-hidden="true" />
-                  <span className="uppercase text-xs sm:text-sm font-semibold">From IDR {selectedEvent.price.toLocaleString('id-ID')}</span>
+                  <span className="uppercase text-xs sm:text-sm font-semibold">From {formatCurrency(selectedEvent.price)}</span>
                 </div>
               </motion.div>
 

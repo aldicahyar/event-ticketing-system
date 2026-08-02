@@ -9,6 +9,7 @@ import {
   CheckCircle, AlertCircle, X, Loader2, Ban,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/currency';
 import { OrderRowSkeleton } from '@/components/ui/skeleton';
 
 // Shape mirrors the Prisma booking payload returned by /bookings/my-orders
@@ -252,11 +253,6 @@ export default function OrdersPage() {
     }
   };
 
-  const formatPrice = (val: string | number, currency = 'IDR') => {
-    const num = typeof val === 'number' ? val : Number(val);
-    if (!Number.isFinite(num)) return `${currency} 0`;
-    return `${currency} ${num.toLocaleString()}`;
-  };
 
   const paymentLabel = (p: OrderPayment | null) => {
     if (!p) return '—';
@@ -425,7 +421,7 @@ export default function OrdersPage() {
                   <div className="flex flex-col justify-between">
                     <div className="text-right mb-4">
                       <div className="text-xl font-display font-bold text-white">
-                        {formatPrice(order.total_price, order.currency)}
+                        {formatCurrency(order.total_price, order.currency)}
                       </div>
                       <div className="text-xs text-mono-light-grey">
                         {order.seats.length} ticket{order.seats.length > 1 ? 's' : ''} • {paymentLabel(order.payment)}

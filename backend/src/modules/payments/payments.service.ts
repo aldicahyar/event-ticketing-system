@@ -13,6 +13,7 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StripeService } from '../../common/stripe/stripe.service';
 import { v4 as uuidv4 } from 'uuid';
+import { DEFAULT_CURRENCY } from '../../common/constants/currency.constants';
 
 // ── Prisma payload type aliases (Fix #5) ─────────────────────────
 // Replaces `booking: any` in private methods with proper Prisma types
@@ -355,7 +356,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
             event_id: b.event_id,
             event_title: b.event?.title ?? 'Event',
             total_price: Number(b.total_price),
-            currency: b.currency ?? 'USD',
+            currency: b.currency ?? DEFAULT_CURRENCY,
             checkout_url: result.checkout_url,
             session_id: result.session_id,
             expires_at: result.expires_at,
@@ -771,7 +772,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           data: {
             booking_id: booking.id,
             amount: amountPaid,
-            currency: (session.currency || 'usd').toUpperCase(),
+            currency: (session.currency ?? DEFAULT_CURRENCY.toLowerCase()).toUpperCase(),
             provider: 'STRIPE',
             provider_tx_id: session.id,
             status: 'COMPLETED',
@@ -866,7 +867,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     this.logger.warn(
       `[AUDIT] LATE_PAYMENT_DETECTED | booking=${booking.booking_code} | ` +
         `booking_id=${booking.id} | session=${session.id} | ` +
-        `amount=${amountPaid} ${session.currency?.toUpperCase() ?? 'USD'} | ` +
+        `amount=${amountPaid} ${session.currency?.toUpperCase() ?? DEFAULT_CURRENCY} | ` +
         `expires_at=${expiryTime?.toISOString() ?? 'null'} | ` +
         `processed_at=${auditTime.toISOString()} | ` +
         `delay_after_expiry=${delayMs !== null ? `${delayMs}ms` : 'unknown'} | ` +
@@ -890,7 +891,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         data: {
           booking_id: booking.id,
           amount: amountPaid,
-          currency: (session.currency || 'usd').toUpperCase(),
+          currency: (session.currency ?? DEFAULT_CURRENCY.toLowerCase()).toUpperCase(),
           provider: 'STRIPE',
           provider_tx_id: session.id,
           status: 'COMPLETED',
@@ -1017,7 +1018,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         // amountPaid is already in the main currency unit (converted from
         // cents at line 670), so pass it directly — do NOT divide by 100 again.
         totalAmount: amountPaid,
-        currency: session.currency ?? 'usd',
+        currency: session.currency ?? DEFAULT_CURRENCY.toLowerCase(),
         seatCount: seatLabels.length,
         seats: seatLabels,
         eventDate: event?.start_date_time?.toISOString() ?? null,
@@ -1059,7 +1060,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       eventName: 'Event',
       customerName: user.name ?? 'Customer',
       refundAmount: Number(booking.total_price ?? 0),
-      currency: booking.currency ?? 'usd',
+      currency: booking.currency ?? DEFAULT_CURRENCY.toLowerCase(),
       refundId,
       refundStatus,
       reason: 'Payment received after the 15-minute reservation window expired',

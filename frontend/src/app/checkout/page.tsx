@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency';
 import 'react-phone-number-input/style.css';
 import PhoneInput from 'react-phone-number-input';
 
@@ -26,6 +27,7 @@ function CheckoutContent() {
   const subtotalParam = searchParams.get('subtotal');
   const ppnParam = searchParams.get('ppn');
   const ppnPercentParam = searchParams.get('ppn_percent');
+  const currencyParam = searchParams.get('currency');
 
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -62,6 +64,7 @@ function CheckoutContent() {
   const finalSubtotal = hasCalculatedParams ? subtotalVal : total / (1 + ppn_percent / 100);
   const finalPpn = hasCalculatedParams ? ppnVal : total - finalSubtotal;
   const finalTotal = total;
+  const displayCurrency = currencyParam || DEFAULT_CURRENCY;
 
   const [eventData, setEventData] = useState<any>(null);
   const router = useRouter();
@@ -351,7 +354,7 @@ function CheckoutContent() {
           event_id: event_id,
           event_title: eventData?.title ?? '',
           total: finalTotal,
-          currency: 'IDR',
+          currency: displayCurrency,
           created_at: new Date().toISOString(),
         };
         localStorage.setItem('pendingCheckout', JSON.stringify(pendingCheckout));
@@ -661,7 +664,7 @@ function CheckoutContent() {
                       </div>
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Total Paid</div>
-                        <div className="font-bold text-green-500 text-xs md:text-sm">IDR {total.toLocaleString('id-ID')}</div>
+                        <div className="font-bold text-green-500 text-xs md:text-sm">{formatCurrency(total, displayCurrency)}</div>
                       </div>
                     </div>
                   </div>
@@ -741,7 +744,7 @@ function CheckoutContent() {
                     onClick={handlePayment}
                     disabled={loading}
                     className="px-6 md:px-8 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all flex items-center gap-2 disabled:opacity-50 min-h-touch focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-                    aria-label={loading ? 'Processing payment' : `Pay IDR ${total.toLocaleString('id-ID')}`}
+                    aria-label={loading ? 'Processing payment' : `Pay ${formatCurrency(total, displayCurrency)}`}
                   >
                     {loading ? (
                       <>
@@ -751,7 +754,7 @@ function CheckoutContent() {
                     ) : (
                       <>
                         <Lock className="w-4 h-4" aria-hidden="true" />
-                        Pay IDR {total.toLocaleString('id-ID')}
+                        Pay {formatCurrency(total, displayCurrency)}
                       </>
                     )}
                   </button>
@@ -783,7 +786,7 @@ function CheckoutContent() {
                   return (
                     <div key={seat_id} className="flex justify-between text-xs md:text-sm mb-1">
                       <span className="text-[#CCCCCC]">{seatLabel}</span>
-                      <span className="text-white">IDR {(finalSubtotal / seats.length).toLocaleString('id-ID')}</span>
+                      <span className="text-white">{formatCurrency(finalSubtotal / seats.length, displayCurrency)}</span>
                     </div>
                   );
                 })}
@@ -793,18 +796,18 @@ function CheckoutContent() {
               <div className="border-b border-mono-dark-grey pb-4 mb-4 space-y-2 text-xs md:text-sm">
                 <div className="flex justify-between">
                   <span className="text-[#CCCCCC]">Subtotal</span>
-                  <span className="text-white">IDR {finalSubtotal.toLocaleString('id-ID')}</span>
+                  <span className="text-white">{formatCurrency(finalSubtotal, displayCurrency)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#CCCCCC]">PPN ({ppn_percent}%)</span>
-                  <span className="text-white">IDR {finalPpn.toLocaleString('id-ID')}</span>
+                  <span className="text-white">{formatCurrency(finalPpn, displayCurrency)}</span>
                 </div>
               </div>
 
               {/* Total */}
               <div className="flex justify-between text-base md:text-lg font-bold">
                 <span className="text-white uppercase">Total</span>
-                <span className="text-white">IDR {finalTotal.toLocaleString('id-ID')}</span>
+                <span className="text-white">{formatCurrency(finalTotal, displayCurrency)}</span>
               </div>
 
               {/* Trust Badges */}

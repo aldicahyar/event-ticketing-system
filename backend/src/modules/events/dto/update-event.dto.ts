@@ -4,12 +4,18 @@ import {
   IsOptional,
   IsNumber,
   IsDateString,
+  IsIn,
   Min,
   MinLength,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EventStatus } from '@prisma/client';
+import {
+  SUPPORTED_CURRENCIES,
+  type SupportedCurrency,
+} from '../../../common/constants/currency.constants';
 
 export class UpdateEventDto {
   @ApiProperty({ example: 'cmqotgog30005advvy6o3hauf', description: 'ID of the event to update' })
@@ -60,10 +66,13 @@ export class UpdateEventDto {
   @IsOptional()
   base_price?: number;
 
-  @ApiPropertyOptional({ example: 'IDR' })
-  @IsString()
+  @ApiPropertyOptional({ example: 'IDR', enum: SUPPORTED_CURRENCIES })
   @IsOptional()
-  currency?: string;
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
+  @IsIn(SUPPORTED_CURRENCIES, { message: 'Only IDR is currently supported' })
+  currency?: SupportedCurrency;
 
   @ApiPropertyOptional({ enum: EventStatus })
   @IsEnum(EventStatus)

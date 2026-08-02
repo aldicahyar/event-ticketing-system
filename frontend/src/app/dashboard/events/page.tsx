@@ -7,6 +7,7 @@ import {
   Calendar, Plus, Edit2, Trash2, ArrowLeft
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Venue {
@@ -24,6 +25,7 @@ interface Event {
   start_date_time: string;
   end_date_time: string;
   base_price: number;
+  currency: string;
   status: string;
   image_url?: string;
   venue_id?: string;
@@ -42,6 +44,7 @@ const DEFAULT_FORM = {
   start_date_time: '',
   end_date_time: '',
   base_price: 150000,
+  currency: DEFAULT_CURRENCY,
   status: 'DRAFT',
   image_url: ''
 };
@@ -119,6 +122,7 @@ export default function EventsManagementPage() {
       start_date_time: toDatetimeLocal(event.start_date_time),
       end_date_time: toDatetimeLocal(event.end_date_time),
       base_price: event.base_price,
+      currency: event.currency || DEFAULT_CURRENCY,
       status: event.status,
       image_url: event.image_url || ''
     });
@@ -144,6 +148,7 @@ export default function EventsManagementPage() {
       start_date_time: new Date(formData.start_date_time).toISOString(),
       end_date_time: new Date(formData.end_date_time).toISOString(),
       base_price: Number(formData.base_price),
+      currency: formData.currency,
       status: formData.status,
       image_url: formData.image_url || undefined
     };
@@ -239,7 +244,7 @@ export default function EventsManagementPage() {
                 <td className="p-3 border-r border-mono-dark-grey font-bold text-sm">
                   {/* base_price arrives as a Prisma Decimal serialized to a string;
                       coerce to Number so toLocaleString adds thousands separators. */}
-                  IDR {Number(event.base_price).toLocaleString()}
+                  {formatCurrency(event.base_price, event.currency)}
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey">
                   <span className={`px-2 py-0.5 text-[10px] font-bold uppercase ${getStatusBadgeClass(event.status)}`}>
@@ -420,10 +425,10 @@ export default function EventsManagementPage() {
               {/* Base Price */}
               <div>
                 <label htmlFor="event-base_price" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
-                  Base Ticket Price (IDR) *
+                  Base Ticket Price ({DEFAULT_CURRENCY}) *
                 </label>
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey font-bold">IDR</div>
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey font-bold">{DEFAULT_CURRENCY}</div>
                   <input
                     id="event-base_price"
                     type="number"
@@ -434,6 +439,13 @@ export default function EventsManagementPage() {
                     className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                   />
                 </div>
+                {/* Currency is locked to IDR for regulatory compliance (see ADR-001).
+                    The field is rendered read-only so the value is explicit in the
+                    form state and payload, without allowing an unsupported choice. */}
+                <input type="hidden" name="currency" value={formData.currency} />
+                <p className="mt-1 text-[10px] text-mono-light-grey uppercase tracking-widest">
+                  Currency locked to {DEFAULT_CURRENCY}
+                </p>
               </div>
 
               {/* Event Date Time */}
