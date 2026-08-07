@@ -3,7 +3,7 @@ import {
   Calendar, MapPin, Layers, Percent,
   ShieldCheck, Users, Menu as MenuIcon, Lock,
   Image as ImageIcon, FileText, LayoutTemplate,
-  CreditCard, Ticket, User, TrendingUp,
+  CreditCard, Ticket, User, TrendingUp, RotateCcw, SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -46,6 +46,8 @@ export const ADMIN_NAV: NavItem[] = [
   { label: 'Manage Venues', href: '/dashboard/venues', icon: MapPin, requiredRole: 'ADMIN' },
   { label: 'Tier Settings', href: '/dashboard/tier-settings', icon: Layers, requiredRole: 'ADMIN' },
   { label: 'Tax Settings', href: '/dashboard/tax-settings', icon: Percent, requiredRole: 'ADMIN' },
+  { label: 'Refunds', href: '/dashboard/refunds', icon: RotateCcw, requiredRole: 'ADMIN' },
+  { label: 'Refund Policy Settings', href: '/dashboard/admin/refund-policies', icon: SlidersHorizontal, requiredRole: 'ADMIN' },
   {
     // Mirrors the RBAC menu group seeded in prisma/seed.ts.
     // Parent is a container only — /dashboard/admin/rbac has no page of its own.
@@ -81,6 +83,7 @@ export const ORGANIZER_NAV: NavItem[] = [
   { label: 'Profile', href: '/dashboard/profile', icon: User },
   { label: 'Manage Events', href: '/dashboard/events', icon: Calendar },
   { label: 'Manage Venues', href: '/dashboard/venues', icon: MapPin },
+  { label: 'Refunds', href: '/dashboard/refunds', icon: RotateCcw },
 ];
 
 export const ATTENDEE_NAV: NavItem[] = [

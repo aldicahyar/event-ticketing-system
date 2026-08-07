@@ -61,6 +61,13 @@ export class RefundUpdatedHandler implements IWebhookEventHandler {
       }
 
       if (refundStatus === 'succeeded') {
+        // Synchronize the explicit refund request created by RefundsModule.
+        // Redelivered webhooks are safe: updating COMPLETED to COMPLETED is idempotent.
+        await this.prisma.t_trx_refunds.updateMany({
+          where: { stripe_refund_id: refund.id },
+          data: { status: 'COMPLETED', completed_at: new Date(), failure_reason: null },
+        });
+
         // Ensure payment is marked REFUNDED (may already be from charge.refunded)
         if (payment.status !== 'REFUNDED') {
           await this.prisma.t_trx_payments.update({
@@ -87,6 +94,14 @@ export class RefundUpdatedHandler implements IWebhookEventHandler {
       }
 
       if (refundStatus === 'failed' || refundStatus === 'canceled') {
+        await this.prisma.t_trx_refunds.updateMany({
+          where: { stripe_refund_id: refund.id },
+          data: {
+            status: 'FAILED',
+            failure_reason: refund.failure_reason ?? refundStatus,
+          },
+        });
+
         // Refund failed — revert payment to its previous status
         this.logger.error(
           `Refund ${refund.id} failed/canceled — payment ${payment.id} remains COMPLETED`,

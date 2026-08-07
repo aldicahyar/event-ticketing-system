@@ -52,3 +52,14 @@ export interface BookingCancelledEmailData {
   adminEmail: string | null;
   cancelledAt: string;
 }
+
+/** Input for refund request lifecycle notifications. */
+export interface RefundStatusEmailData {
+  bookingCode: string;
+  eventName: string;
+  customerName: string;
+  refundAmount: number;
+  currency: string;
+  status: string;
+  note?: string;
+}

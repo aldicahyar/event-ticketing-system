@@ -148,6 +148,10 @@ model t_mtr_users {
   security_logs         t_trx_security_logs[]
   organized_events      t_trx_events[]         @relation("EventOrganizer")
   uploaded_media        t_mtr_media[]          @relation("MediaUploader")
+  refunds_requested     t_trx_refunds[]        @relation("RefundRequester")
+  refunds_reviewed      t_trx_refunds[]        @relation("RefundReviewer")
+  refund_policies       t_trx_refund_policies[] @relation("RefundPolicyUpdater")
+  refund_policy_audits  t_trx_refund_policy_audit_logs[] @relation("PolicyAuditAuthor")
 
   // email @unique already creates an index — no separate @@index([email]) needed
   @@index([provider, provider_id])
@@ -291,6 +295,7 @@ model t_trx_bookings {
   user              t_mtr_users     @relation(fields: [user_id], references: [id])
   payment           t_trx_payments?
   tickets           t_trx_tickets[]
+  refunds           t_trx_refunds[]
 
   // booking_code @unique already creates an index — no separate @@index([booking_code]) needed
   @@index([user_id])
@@ -315,6 +320,7 @@ model t_trx_payments {
   created_at     DateTime       @default(now())
   updated_at     DateTime       @updatedAt
   booking        t_trx_bookings @relation(fields: [booking_id], references: [id])
+  refunds        t_trx_refunds[]
 
   // provider_tx_id @unique already creates an index — removed redundant @@index([provider, provider_tx_id])
   @@index([status])
@@ -404,8 +410,80 @@ model t_mtr_tax_settings {
   status      String   @default("ACTIVE")
   created_by  String?
   updated_by  String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+/// Refund request raised by a user against a CONFIRMED booking.
+/// Lifecycle: REQUESTED -> PROCESSING -> COMPLETED/FAILED, or REQUESTED -> REJECTED.
+/// The nominal amount is computed server-side from t_trx_refund_policies (never from client).
+model t_trx_refunds {
+  id              String        @id @default(cuid())
+  booking_id      String
+  payment_id      String
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("IDR")
+  percentage      Int
+  reason          String
+  status          RefundStatus  @default(REQUESTED)
+  stripe_refund_id String?      @unique
+  requested_by    String
+  reviewed_by     String?
+  review_note     String?
+  failure_reason  String?
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  completed_at    DateTime?
+
+  booking         t_trx_bookings @relation(fields: [booking_id], references: [id])
+  payment         t_trx_payments @relation(fields: [payment_id], references: [id])
+  requester       t_mtr_users    @relation("RefundRequester", fields: [requested_by], references: [id])
+  reviewer        t_mtr_users?   @relation("RefundReviewer", fields: [reviewed_by], references: [id])
+
+  @@index([booking_id])
+  @@index([payment_id])
+  @@index([status])
+  @@index([requested_by])
+  // Composite: optimize admin queue "pending refunds sorted by date"
+  @@index([status, created_at])
+}
+
+/// Configurable refund percentage per tier. Values are editable by ADMIN via UI
+/// (no redeploy needed). The tier-MATCHING logic lives in code; only the
+/// percentage value and is_active flag are admin-configurable.
+model t_trx_refund_policies {
+  id          String    @id @default(cuid())
+  rule_code   String    @unique
+  label       String
+  percentage  Int
+  priority    Int       @default(0)
+  is_active   Boolean   @default(true)
+  updated_by  String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  updater     t_mtr_users? @relation("RefundPolicyUpdater", fields: [updated_by], references: [id])
+  audit_logs  t_trx_refund_policy_audit_logs[]
+
+  @@index([is_active])
+  @@index([priority])
+}
+
+/// Audit trail for every change to a refund policy (percentage / is_active).
+model t_trx_refund_policy_audit_logs {
+  id         String   @id @default(cuid())
+  policy_id  String
+  field      String
+  old_value  String
+  new_value  String
+  changed_by String
+  changed_at DateTime @default(now())
+
+  policy     t_trx_refund_policies @relation(fields: [policy_id], references: [id], onDelete: Cascade)
+  author     t_mtr_users           @relation("PolicyAuditAuthor", fields: [changed_by], references: [id])
+
+  @@index([policy_id])
+  @@index([changed_by])
+  @@index([changed_at])
 }
 
 enum EventStatus {
@@ -434,6 +512,7 @@ enum BookingStatus {
   CANCELLED
   EXPIRED
   DISPUTED
+  REFUNDED
 }
 
 enum PaymentStatus {
@@ -463,4 +542,13 @@ enum IdempotencyStatus {
 enum PageStatus {
   DRAFT
   PUBLISHED
+}
+
+/// Lifecycle status of a refund request (GAP-03, Fase 5).
+enum RefundStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
 }

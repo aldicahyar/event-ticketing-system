@@ -13,6 +13,7 @@ import { RbacModule } from './modules/rbac/rbac.module';
 import { MediaModule } from './modules/media/media.module';
 import { PagesModule } from './modules/pages/pages.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { RefundsModule } from './modules/refunds/refunds.module';
 import { DatabaseModule } from './common/database/database.module';
 import { StorageModule } from './common/storage/storage.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -44,6 +45,7 @@ import { HealthModule } from './common/modules/health/health.module';
     EventsModule,
     BookingsModule,
     PaymentsModule,
+    RefundsModule,
     UsersModule,
     VenuesModule,
     AnalyticsModule,

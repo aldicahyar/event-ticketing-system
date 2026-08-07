@@ -24,7 +24,7 @@ interface OrderEvent {
 interface Order {
   id: string;
   booking_code: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
   total_price: string | number;
   currency: string;
   booked_at: string;

@@ -86,6 +86,6 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
         ),
     },
   ],
-  exports: [PaymentsService],
+  exports: [PaymentsService, PaymentAuditService],
 })
 export class PaymentsModule {}

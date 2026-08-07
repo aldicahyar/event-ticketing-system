@@ -47,7 +47,7 @@ interface TicketBooking {
   booking_code: string;
   total_price: string | number;
   currency: string;
-  status?: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
+  status?: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
   booked_at?: string;
   confirmed_at?: string | null;
   cancelled_at?: string | null;
@@ -445,6 +445,23 @@ function TicketsContent() {
                         {focused.booking.cancelled_at && (
                           <p className="text-xs text-mono-light-grey uppercase tracking-wider">
                             Cancelled on:{' '}
+                            <span className="text-white">
+                              {formatDateTimeLocal(focused.booking.cancelled_at)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {focused.booking.status === 'REFUNDED' && (
+                      <div className="mb-3 space-y-2">
+                        <p className="text-sm text-[#CCCCCC]">
+                          This booking has been{' '}
+                          <span className="font-bold uppercase text-[#8b5cf6]">refunded</span>.
+                          Seats were released and no e-tickets are available.
+                        </p>
+                        {focused.booking.cancelled_at && (
+                          <p className="text-xs text-mono-light-grey uppercase tracking-wider">
+                            Refunded on:{' '}
                             <span className="text-white">
                               {formatDateTimeLocal(focused.booking.cancelled_at)}
                             </span>

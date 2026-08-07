@@ -127,6 +127,24 @@ const MENUS = [
     slug: '/dashboard/tax-settings',
     order: 5,
   },
+  {
+    code: 'REFUNDS',
+    name: 'Refunds',
+    name_en: 'Refunds',
+    parent_code: null,
+    icon: 'RotateCcw',
+    slug: '/dashboard/refunds',
+    order: 6,
+  },
+  {
+    code: 'REFUND_POLICY_SETTINGS',
+    name: 'Refund Policy Settings',
+    name_en: 'Refund Policy Settings',
+    parent_code: null,
+    icon: 'SlidersHorizontal',
+    slug: '/dashboard/admin/refund-policies',
+    order: 7,
+  },
   // ----- Admin: Access Control group -----
   // Parent has no slug: it is a collapsible container, not a page.
   {
@@ -260,6 +278,8 @@ const PERMISSION_MATRIX: Array<
   ['ADMIN', 'VENUES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'TIER_SETTINGS', { can_view: true, can_edit: true }],
   ['ADMIN', 'TAX_SETTINGS', { can_view: true, can_edit: true }],
+  ['ADMIN', 'REFUNDS', { can_view: true, can_edit: true }],
+  ['ADMIN', 'REFUND_POLICY_SETTINGS', { can_view: true, can_edit: true }],
   ['ADMIN', 'RBAC', { can_view: true }],
   ['ADMIN', 'USERS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'RBAC_ROLES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
@@ -277,6 +297,7 @@ const PERMISSION_MATRIX: Array<
   ['ORGANIZER', 'PROFILE', { can_view: true, can_edit: true }],
   ['ORGANIZER', 'EVENTS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ORGANIZER', 'VENUES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ORGANIZER', 'REFUNDS', { can_view: true, can_edit: true }],
 
   // ----- ATTENDEE: personal area only -----
   ['ATTENDEE', 'OVERVIEW', { can_view: true }],

@@ -46,7 +46,7 @@ interface Order {
   id: string;
   booking_code: string;
   user_id: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
   total_price: string | number;
   currency: string;
   booked_at: string;
@@ -218,7 +218,8 @@ export default function OrdersPage() {
     return () => window.clearTimeout(handle);
   }, [orders, hasPending, refreshSilently]);
 
-  const deriveStatus = (order: Order): 'upcoming' | 'completed' | 'cancelled' | 'expired' | 'pending' => {
+  const deriveStatus = (order: Order): 'upcoming' | 'completed' | 'cancelled' | 'expired' | 'pending' | 'refunded' => {
+    if (order.status === 'REFUNDED') return 'refunded';
     if (order.status === 'CANCELLED') return 'cancelled';
     if (order.status === 'EXPIRED') return 'expired';
     if (order.status === 'PENDING') return 'pending';
@@ -233,7 +234,7 @@ export default function OrdersPage() {
     const matchesFilter =
       filter === 'all' ||
       derived === filter ||
-      (filter === 'completed' && (derived === 'completed' || derived === 'expired' || derived === 'cancelled'));
+      (filter === 'completed' && (derived === 'completed' || derived === 'expired' || derived === 'cancelled' || derived === 'refunded'));
     const needle = searchQuery.trim().toLowerCase();
     const matchesSearch =
       !needle ||
@@ -248,6 +249,7 @@ export default function OrdersPage() {
       case 'pending': return 'bg-yellow-500 text-black';
       case 'expired': return 'bg-red-500 text-white';
       case 'completed': return 'bg-[#666] text-white';
+      case 'refunded': return 'bg-[#8b5cf6] text-white';
       case 'cancelled': return 'bg-mono-dark-grey text-white';
       default: return 'bg-mono-dark-grey text-white';
     }
@@ -516,6 +518,14 @@ export default function OrdersPage() {
                           className="h-10 px-4 bg-white text-black text-xs font-bold uppercase hover:bg-transparent hover:text-white border border-white transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                         >
                           View Tickets <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      )}
+                      {order.status === 'CONFIRMED' && (
+                        <Link
+                          href={`/refund?booking=${encodeURIComponent(order.id)}`}
+                          className="h-10 px-4 border border-yellow-400/70 text-yellow-300 text-xs font-bold uppercase hover:bg-yellow-300 hover:text-black transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+                        >
+                          Request Refund
                         </Link>
                       )}
                       {order.status === 'EXPIRED' && (

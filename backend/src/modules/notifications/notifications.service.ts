@@ -4,10 +4,12 @@ import {
   PaymentSuccessEmailData,
   PaymentRefundedEmailData,
   BookingCancelledEmailData,
+  RefundStatusEmailData,
 } from './interfaces/email-template.interface';
 import { buildPaymentSuccessEmail } from './templates/payment-success.template';
 import { buildPaymentRefundedEmail } from './templates/payment-refunded.template';
 import { buildBookingCancelledEmail } from './templates/booking-cancelled.template';
+import { buildRefundStatusEmail } from './templates/refund-status.template';
 
 /**
  * Central notification orchestration service.
@@ -57,6 +59,12 @@ export class NotificationsService {
   async sendBookingCancelled(to: string, data: BookingCancelledEmailData): Promise<void> {
     const content = buildBookingCancelledEmail(data);
     await this.deliver(to, content, 'BOOKING_CANCELLED', data.bookingCode);
+  }
+
+  /** Send a refund request lifecycle notification (non-blocking by design). */
+  async sendRefundStatus(to: string, data: RefundStatusEmailData): Promise<void> {
+    const content = buildRefundStatusEmail(data);
+    await this.deliver(to, content, 'REFUND_STATUS', data.bookingCode);
   }
 
   /**

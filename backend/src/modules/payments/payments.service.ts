@@ -99,6 +99,17 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return String(err);
   }
 
+  // ── Helper: resolve the PaymentIntent id (pi_...) from a Checkout Session.
+  // `session.payment_intent` is a string by default, or an expanded object.
+  // We store the PI id (not the cs_... session id) so Stripe refunds resolve.
+  private resolvePaymentIntentId(
+    session: Stripe.Checkout.Session,
+  ): string | null {
+    const pi = session.payment_intent;
+    if (typeof pi === 'string') return pi;
+    return (pi as Stripe.PaymentIntent | null)?.id ?? null;
+  }
+
   /**
    * Fallback method: directly verify a Stripe checkout session by ID.
    * Called by the frontend success page when the user returns from Stripe
@@ -764,8 +775,12 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       // ── Confirmation succeeded — create dependent records ───────
       // 1. Create t_trx_payments Record (idempotent: skip if payment already
       //    recorded via provider_tx_id unique index).
+      // Store the PaymentIntent id (pi_...) — Stripe refunds + webhook
+      // handlers match on payment_intent, not the cs_... session id.
+      const paymentIntentId = this.resolvePaymentIntentId(session);
+      const providerTxId = paymentIntentId ?? session.id;
       const existingPayment = await tx.t_trx_payments.findUnique({
-        where: { provider_tx_id: session.id },
+        where: { provider_tx_id: providerTxId },
       });
       if (!existingPayment) {
         await tx.t_trx_payments.create({
@@ -774,7 +789,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
             amount: amountPaid,
             currency: (session.currency ?? DEFAULT_CURRENCY.toLowerCase()).toUpperCase(),
             provider: 'STRIPE',
-            provider_tx_id: session.id,
+            provider_tx_id: providerTxId,
             status: 'COMPLETED',
             paid_at: now,
           },
@@ -879,9 +894,11 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         ? session.payment_intent
         : (session.payment_intent as Stripe.PaymentIntent | null)?.id;
 
-    // 1. Record the payment (for audit) — idempotent on provider_tx_id
+    // 1. Record the payment (for audit) — idempotent on provider_tx_id.
+    // Prefer the PaymentIntent id so a later refund can resolve it.
+    const providerTxId = paymentIntentId ?? session.id;
     const existingPayment = await this.prisma.t_trx_payments.findUnique({
-      where: { provider_tx_id: session.id },
+      where: { provider_tx_id: providerTxId },
     });
 
     let paymentRecordId: string | null = existingPayment?.id ?? null;
@@ -893,7 +910,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           amount: amountPaid,
           currency: (session.currency ?? DEFAULT_CURRENCY.toLowerCase()).toUpperCase(),
           provider: 'STRIPE',
-          provider_tx_id: session.id,
+          provider_tx_id: providerTxId,
           status: 'COMPLETED',
           paid_at: new Date(),
         },

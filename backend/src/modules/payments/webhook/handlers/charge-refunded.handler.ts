@@ -73,12 +73,12 @@ export class ChargeRefundedHandler implements IWebhookEventHandler {
         data: { status: 'REFUNDED' },
       });
 
-      // If booking is still CONFIRMED, cancel it and release seats
+      // If booking is still CONFIRMED, mark it REFUNDED and release seats
       if (payment.booking && payment.booking.status === 'CONFIRMED') {
         await this.prisma.t_trx_bookings.update({
           where: { id: payment.booking.id },
           data: {
-            status: 'CANCELLED',
+            status: 'REFUNDED',
             cancelled_at: new Date(),
             cancelled_reason: `Refunded via Stripe (${isFullRefund ? 'full' : 'partial'})`,
           },
