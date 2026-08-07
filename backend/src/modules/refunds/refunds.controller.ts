@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { QueryRefundDto } from './dto/query-refund.dto';
-import { RejectRefundDto } from './dto/reject-refund.dto';
+import { ReviewRefundDto } from './dto/review-refund.dto';
 import { UpdateRefundPolicyDto } from './dto/update-policy.dto';
 import { RefundsService } from './refunds.service';
 
@@ -92,8 +92,12 @@ export class RefundsController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ORGANIZER')
   @ApiOperation({ summary: 'Approve and execute a refund via Stripe' })
-  approve(@Param('id') id: string, @CurrentUser() user: CurrentActor) {
-    return this.refundsService.approve(id, this.actor(user));
+  approve(
+    @Param('id') id: string,
+    @Body() dto: ReviewRefundDto,
+    @CurrentUser() user: CurrentActor,
+  ) {
+    return this.refundsService.approve(id, this.actor(user), dto.note);
   }
 
   @Patch(':id/reject')
@@ -102,7 +106,7 @@ export class RefundsController {
   @ApiOperation({ summary: 'Reject a refund request' })
   reject(
     @Param('id') id: string,
-    @Body() dto: RejectRefundDto,
+    @Body() dto: ReviewRefundDto,
     @CurrentUser() user: CurrentActor,
   ) {
     return this.refundsService.reject(id, this.actor(user), dto.note);

@@ -8,6 +8,7 @@ const refundInclude = {
     include: {
       event: { select: { id: true, title: true, status: true, start_date_time: true, organizer_id: true } },
       payment: true,
+      seats: { select: { id: true, row: true, number: true, type: true }, orderBy: { row: 'asc' } },
     },
   },
   requester: { select: { id: true, name: true, email: true } },

@@ -97,7 +97,7 @@ export class RefundsService {
     return refund;
   }
 
-  async approve(id: string, actor: RefundActor) {
+  async approve(id: string, actor: RefundActor, note?: string) {
     const refund = await this.getRefund(id);
     this.assertTransition(refund.status, RefundStatus.PROCESSING);
 
@@ -115,6 +115,7 @@ export class RefundsService {
       amount: evaluation.amount,
       percentage: evaluation.percentage,
       reviewed_by: actor.id,
+      review_note: note,
       failure_reason: null,
     });
 
@@ -139,6 +140,7 @@ export class RefundsService {
         stripe_refund_id: stripeRefund.id,
         amount: evaluation.amount,
         percentage: evaluation.percentage,
+        review_note: note ?? null,
       });
       await this.notify(updated, nextStatus);
       return updated;
