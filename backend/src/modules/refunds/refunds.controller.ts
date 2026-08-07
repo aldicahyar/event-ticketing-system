@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -79,7 +70,12 @@ export class RefundsController {
   @Roles('ADMIN', 'ORGANIZER')
   @ApiOperation({ summary: 'List refund requests (admin/organizer)' })
   findAll(@CurrentUser() user: CurrentActor, @Query() query: QueryRefundDto) {
-    return this.refundsService.findAll(this.actor(user), query.status);
+    return this.refundsService.findAll(
+      this.actor(user),
+      query.status,
+      query.page ?? 1,
+      query.limit ?? 20,
+    );
   }
 
   @Get(':id')
@@ -104,11 +100,7 @@ export class RefundsController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ORGANIZER')
   @ApiOperation({ summary: 'Reject a refund request' })
-  reject(
-    @Param('id') id: string,
-    @Body() dto: ReviewRefundDto,
-    @CurrentUser() user: CurrentActor,
-  ) {
+  reject(@Param('id') id: string, @Body() dto: ReviewRefundDto, @CurrentUser() user: CurrentActor) {
     return this.refundsService.reject(id, this.actor(user), dto.note);
   }
 

@@ -54,11 +54,7 @@ function makePaymentsMock() {
 }
 
 /** Build a minimal Stripe.Event mock. */
-function makeEvent(
-  type: string,
-  object: Record<string, unknown>,
-  id = 'evt_test',
-): Stripe.Event {
+function makeEvent(type: string, object: Record<string, unknown>, id = 'evt_test'): Stripe.Event {
   return { id, type, data: { object } } as unknown as Stripe.Event;
 }
 
@@ -262,10 +258,10 @@ describe('ChargeRefundedHandler', () => {
       where: { id: 'pay_123' },
       data: { status: 'REFUNDED' },
     });
-    // Booking cancelled because it was CONFIRMED
+    // Booking is explicitly marked as refunded, distinct from user cancellation
     expect(prisma.t_trx_bookings.update).toHaveBeenCalledWith({
       where: { id: 'bk_1' },
-      data: expect.objectContaining({ status: 'CANCELLED' }),
+      data: expect.objectContaining({ status: 'REFUNDED' }),
     });
     // Seats released + tickets invalidated
     expect(prisma.t_mtr_seats.updateMany).toHaveBeenCalledWith({
@@ -432,11 +428,7 @@ describe('DisputeCreatedHandler', () => {
     expect(prisma.t_trx_tickets.updateMany).not.toHaveBeenCalled();
     expect(prisma.t_mtr_seats.updateMany).not.toHaveBeenCalled();
     // Audit recorded with the 'system' sentinel user
-    expect(audit.record).toHaveBeenCalledWith(
-      'system',
-      'DISPUTE_CREATED',
-      expect.any(Object),
-    );
+    expect(audit.record).toHaveBeenCalledWith('system', 'DISPUTE_CREATED', expect.any(Object));
   });
 
   it('should skip when no matching payment record', async () => {

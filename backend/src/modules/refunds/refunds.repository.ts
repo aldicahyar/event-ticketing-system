@@ -5,9 +5,16 @@ import { DEFAULT_REFUND_POLICIES } from './refunds.constants';
 
 const refundInclude = {
   booking: {
-    include: {
-      event: { select: { id: true, title: true, status: true, start_date_time: true, organizer_id: true } },
-      payment: true,
+    select: {
+      id: true,
+      booking_code: true,
+      total_price: true,
+      currency: true,
+      cancelled_at: true,
+      event: {
+        select: { id: true, title: true, status: true, start_date_time: true, organizer_id: true },
+      },
+      payment: { select: { id: true, status: true, provider_tx_id: true } },
       seats: { select: { id: true, row: true, number: true, type: true }, orderBy: { row: 'asc' } },
     },
   },
@@ -15,17 +22,30 @@ const refundInclude = {
   reviewer: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.t_trx_refundsInclude;
 
+export type RefundWithRelations = Prisma.t_trx_refundsGetPayload<{
+  include: typeof refundInclude;
+}>;
+
 @Injectable()
 export class RefundsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findById(id: string) {
-    return this.prisma.t_trx_refunds.findUnique({ where: { id }, include: refundInclude });
+  async findById(id: string, organizerId?: string) {
+    return this.prisma.t_trx_refunds.findFirst({
+      where: {
+        id,
+        ...(organizerId ? { booking: { event: { organizer_id: organizerId } } } : {}),
+      },
+      include: refundInclude,
+    });
   }
 
   findActiveByBooking(bookingId: string) {
     return this.prisma.t_trx_refunds.findFirst({
-      where: { booking_id: bookingId, status: { in: [RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.COMPLETED] } },
+      where: {
+        booking_id: bookingId,
+        status: { in: [RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.COMPLETED] },
+      },
     });
   }
 
@@ -41,15 +61,37 @@ export class RefundsRepository {
     });
   }
 
-  findAll(status?: RefundStatus, organizerId?: string) {
-    return this.prisma.t_trx_refunds.findMany({
-      where: {
-        ...(status ? { status } : {}),
-        ...(organizerId ? { booking: { event: { organizer_id: organizerId } } } : {}),
+  async findAll(
+    status: RefundStatus | undefined,
+    page: number,
+    limit: number,
+    organizerId?: string,
+  ) {
+    const where: Prisma.t_trx_refundsWhereInput = {
+      ...(status ? { status } : {}),
+      ...(organizerId ? { booking: { event: { organizer_id: organizerId } } } : {}),
+    };
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.t_trx_refunds.count({ where }),
+      this.prisma.t_trx_refunds.findMany({
+        where,
+        include: refundInclude,
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
       },
-      include: refundInclude,
-      orderBy: { created_at: 'desc' },
-    });
+    };
   }
 
   create(data: Prisma.t_trx_refundsUncheckedCreateInput) {
@@ -60,39 +102,75 @@ export class RefundsRepository {
     return this.prisma.t_trx_refunds.update({ where: { id }, data, include: refundInclude });
   }
 
-  /**
-   * Defense in depth: after a refund succeeds, sync the dependent records
-   * (booking → REFUNDED, seats → AVAILABLE, tickets deleted, payment →
-   * REFUNDED). The Stripe `charge.refunded` webhook normally does this;
-   * this covers the case where the webhook is missed/delayed. All writes
-   * are idempotent.
-   */
-  async finalizeRefundedBooking(bookingId: string, paymentId?: string | null) {
-    await this.prisma.$transaction([
-      this.prisma.t_trx_bookings.updateMany({
-        where: { id: bookingId, status: 'CONFIRMED' },
+  async finalizeRefund(refundId: string, stripeRefundId: string, completedReason: string) {
+    const completedAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      const refund = await tx.t_trx_refunds.findUnique({
+        where: { id: refundId },
+        select: {
+          id: true,
+          booking_id: true,
+          payment_id: true,
+          status: true,
+          completed_at: true,
+        },
+      });
+      if (!refund) throw new Error(`Refund ${refundId} not found during finalization`);
+      if (refund.status !== RefundStatus.PROCESSING && refund.status !== RefundStatus.COMPLETED) {
+        throw new Error(`Refund ${refundId} cannot be finalized from status ${refund.status}`);
+      }
+
+      await tx.t_trx_refunds.updateMany({
+        where: { id: refundId, status: { in: [RefundStatus.PROCESSING, RefundStatus.COMPLETED] } },
+        data: {
+          stripe_refund_id: stripeRefundId,
+          status: RefundStatus.COMPLETED,
+          completed_at: refund.completed_at ?? completedAt,
+          failure_reason: null,
+        },
+      });
+      await tx.t_trx_bookings.updateMany({
+        where: { id: refund.booking_id, status: { in: ['CONFIRMED', 'REFUNDED'] } },
         data: {
           status: 'REFUNDED',
-          cancelled_at: new Date(),
-          cancelled_reason: 'Refunded via admin/organizer approval',
+          cancelled_at: completedAt,
+          cancelled_reason: completedReason,
         },
-      }),
-      this.prisma.t_mtr_seats.updateMany({
-        where: { booking_id: bookingId },
+      });
+      await tx.t_trx_payments.updateMany({
+        where: { id: refund.payment_id },
+        data: { status: 'REFUNDED' },
+      });
+      await tx.t_mtr_seats.updateMany({
+        where: { booking_id: refund.booking_id },
         data: { booking_id: null, status: 'AVAILABLE' },
-      }),
-      this.prisma.t_trx_tickets.deleteMany({
-        where: { booking_id: bookingId },
-      }),
-      ...(paymentId
-        ? [
-            this.prisma.t_trx_payments.updateMany({
-              where: { id: paymentId },
-              data: { status: 'REFUNDED' },
-            }),
-          ]
-        : []),
-    ]);
+      });
+      await tx.t_trx_tickets.deleteMany({
+        where: { booking_id: refund.booking_id },
+      });
+    });
+    return this.findById(refundId);
+  }
+
+  async markFailed(refundId: string, failureReason: string) {
+    await this.prisma.t_trx_refunds.updateMany({
+      where: { id: refundId, status: { in: [RefundStatus.PROCESSING, RefundStatus.FAILED] } },
+      data: { status: RefundStatus.FAILED, failure_reason: failureReason },
+    });
+    return this.findById(refundId);
+  }
+
+  findForWebhook(stripeRefundId: string, paymentId?: string) {
+    return this.prisma.t_trx_refunds.findFirst({
+      where: {
+        OR: [
+          { stripe_refund_id: stripeRefundId },
+          ...(paymentId ? [{ payment_id: paymentId, status: RefundStatus.PROCESSING }] : []),
+        ],
+      },
+      include: refundInclude,
+      orderBy: { created_at: 'desc' },
+    });
   }
 
   findBookingForRefund(bookingId: string) {

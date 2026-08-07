@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { RefundStatus } from '@prisma/client';
@@ -13,12 +14,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { UpdateRefundPolicyDto } from './dto/update-policy.dto';
 import { RefundPolicyService } from './refund-policy.service';
-import {
-  REFUND_AUDIT_ACTIONS,
-  REFUND_RULE_CODES,
-  REFUND_TRANSITIONS,
-} from './refunds.constants';
-import { RefundsRepository } from './refunds.repository';
+import { REFUND_AUDIT_ACTIONS, REFUND_RULE_CODES, REFUND_TRANSITIONS } from './refunds.constants';
+import { RefundsRepository, RefundWithRelations } from './refunds.repository';
 
 export interface RefundActor {
   id: string;
@@ -27,6 +24,8 @@ export interface RefundActor {
 
 @Injectable()
 export class RefundsService {
+  private readonly logger = new Logger(RefundsService.name);
+
   constructor(
     private readonly repository: RefundsRepository,
     private readonly policyService: RefundPolicyService,
@@ -40,7 +39,11 @@ export class RefundsService {
     if (!booking || booking.user_id !== userId) {
       throw new NotFoundException('Booking not found');
     }
-    if (booking.status !== 'CONFIRMED' || !booking.payment || booking.payment.status !== 'COMPLETED') {
+    if (
+      booking.status !== 'CONFIRMED' ||
+      !booking.payment ||
+      booking.payment.status !== 'COMPLETED'
+    ) {
       throw new BadRequestException('Only confirmed and paid bookings are eligible for refund');
     }
     if (await this.repository.findActiveByBooking(booking.id)) {
@@ -81,24 +84,22 @@ export class RefundsService {
     return this.repository.findMine(userId);
   }
 
-  findAll(actor: RefundActor, status?: string) {
+  findAll(actor: RefundActor, status: string | undefined, page: number, limit: number) {
     const parsedStatus = this.parseStatus(status);
-    // ADMIN and ORGANIZER both see every refund request. Only ATTENDEE is
-    // scoped to their own requests (served via findMine).
-    return this.repository.findAll(parsedStatus);
+    const organizerId = actor.role === 'ORGANIZER' ? actor.id : undefined;
+    return this.repository.findAll(parsedStatus, page, limit, organizerId);
   }
 
   async findOne(id: string, actor: RefundActor) {
-    const refund = await this.getRefund(id);
-    const canManage = actor.role === 'ADMIN' || actor.role === 'ORGANIZER';
-    if (!canManage && refund.requested_by !== actor.id) {
+    const refund = await this.getRefund(id, actor.role === 'ORGANIZER' ? actor.id : undefined);
+    if (actor.role !== 'ADMIN' && actor.role !== 'ORGANIZER' && refund.requested_by !== actor.id) {
       throw new ForbiddenException('You cannot access this refund');
     }
     return refund;
   }
 
-  async approve(id: string, actor: RefundActor, note?: string) {
-    const refund = await this.getRefund(id);
+  async approve(id: string, actor: RefundActor, note: string) {
+    const refund = await this.getManagedRefund(id, actor);
     this.assertTransition(refund.status, RefundStatus.PROCESSING);
 
     const evaluation = await this.policyService.evaluate(
@@ -121,44 +122,43 @@ export class RefundsService {
 
     try {
       const stripeRefund = await this.executeStripeRefund(processing);
-      const nextStatus = stripeRefund.status === 'succeeded'
-        ? RefundStatus.COMPLETED
-        : RefundStatus.PROCESSING;
-      const updated = await this.repository.update(id, {
-        stripe_refund_id: stripeRefund.id,
-        status: nextStatus,
-        completed_at: nextStatus === RefundStatus.COMPLETED ? new Date() : null,
-      });
-      if (nextStatus === RefundStatus.COMPLETED) {
-        await this.repository.finalizeRefundedBooking(
-          updated.booking_id,
-          updated.payment_id,
-        );
-      }
+      const updated =
+        stripeRefund.status === 'succeeded'
+          ? await this.repository.finalizeRefund(
+              id,
+              stripeRefund.id,
+              'Refunded via admin/organizer approval',
+            )
+          : await this.repository.update(id, {
+              stripe_refund_id: stripeRefund.id,
+              status: RefundStatus.PROCESSING,
+            });
       await this.audit.record(actor.id, REFUND_AUDIT_ACTIONS.APPROVED, {
         refund_id: id,
         stripe_refund_id: stripeRefund.id,
         amount: evaluation.amount,
         percentage: evaluation.percentage,
-        review_note: note ?? null,
+        review_note: note,
       });
-      await this.notify(updated, nextStatus);
+      if (updated) await this.notify(updated, updated.status);
       return updated;
     } catch (error: unknown) {
-      await this.repository.update(id, {
-        status: RefundStatus.FAILED,
-        failure_reason: this.errorMessage(error),
-      });
+      const failureReason = this.errorMessage(error);
+      this.logger.error(
+        `Refund approval failed: refund=${id} actor=${actor.id} error=${failureReason}`,
+      );
+      const failed = await this.repository.markFailed(id, failureReason);
       await this.audit.record(actor.id, REFUND_AUDIT_ACTIONS.FAILED, {
         refund_id: id,
-        reason: this.errorMessage(error),
+        reason: failureReason,
       });
+      if (failed) await this.notify(failed, RefundStatus.FAILED, failureReason);
       throw new BadRequestException('Stripe refund failed; the request can be retried');
     }
   }
 
-  async reject(id: string, actor: RefundActor, note?: string) {
-    const refund = await this.getRefund(id);
+  async reject(id: string, actor: RefundActor, note: string) {
+    const refund = await this.getManagedRefund(id, actor);
     this.assertTransition(refund.status, RefundStatus.REJECTED);
     const updated = await this.repository.update(id, {
       status: RefundStatus.REJECTED,
@@ -174,7 +174,7 @@ export class RefundsService {
   }
 
   async retry(id: string, actor: RefundActor) {
-    const refund = await this.getRefund(id);
+    const refund = await this.getManagedRefund(id, actor);
     this.assertTransition(refund.status, RefundStatus.PROCESSING);
     await this.repository.update(id, {
       status: RefundStatus.PROCESSING,
@@ -196,7 +196,11 @@ export class RefundsService {
     if (dto.percentage === undefined && dto.is_active === undefined) {
       throw new BadRequestException('At least one policy field must be provided');
     }
-    if (!Object.values(REFUND_RULE_CODES).includes(ruleCode as any)) {
+    if (
+      !Object.values(REFUND_RULE_CODES).includes(
+        ruleCode as (typeof REFUND_RULE_CODES)[keyof typeof REFUND_RULE_CODES],
+      )
+    ) {
       throw new NotFoundException('Refund policy rule not found');
     }
     await this.repository.ensureDefaultPolicies();
@@ -211,18 +215,30 @@ export class RefundsService {
 
     const changes: Array<{ field: string; old: string; next: string }> = [];
     if (dto.percentage !== undefined && dto.percentage !== current.percentage) {
-      changes.push({ field: 'percentage', old: String(current.percentage), next: String(dto.percentage) });
+      changes.push({
+        field: 'percentage',
+        old: String(current.percentage),
+        next: String(dto.percentage),
+      });
     }
     if (dto.is_active !== undefined && dto.is_active !== current.is_active) {
-      changes.push({ field: 'is_active', old: String(current.is_active), next: String(dto.is_active) });
+      changes.push({
+        field: 'is_active',
+        old: String(current.is_active),
+        next: String(dto.is_active),
+      });
     }
-    await Promise.all(changes.map((change) => this.repository.createPolicyAudit({
-      policy_id: current.id,
-      field: change.field,
-      old_value: change.old,
-      new_value: change.next,
-      changed_by: adminId,
-    })));
+    await Promise.all(
+      changes.map((change) =>
+        this.repository.createPolicyAudit({
+          policy_id: current.id,
+          field: change.field,
+          old_value: change.old,
+          new_value: change.next,
+          changed_by: adminId,
+        }),
+      ),
+    );
     this.policyService.invalidateCache();
     await this.audit.record(adminId, REFUND_AUDIT_ACTIONS.POLICY_UPDATED, {
       rule_code: ruleCode,
@@ -235,35 +251,36 @@ export class RefundsService {
     const refund = await this.getRefund(id);
     try {
       const stripeRefund = await this.executeStripeRefund(refund);
-      const status = stripeRefund.status === 'succeeded'
-        ? RefundStatus.COMPLETED
-        : RefundStatus.PROCESSING;
-      const updated = await this.repository.update(id, {
-        stripe_refund_id: stripeRefund.id,
-        status,
-        completed_at: status === RefundStatus.COMPLETED ? new Date() : null,
-      });
-      if (status === RefundStatus.COMPLETED) {
-        await this.repository.finalizeRefundedBooking(
-          updated.booking_id,
-          updated.payment_id,
-        );
-      }
+      const updated =
+        stripeRefund.status === 'succeeded'
+          ? await this.repository.finalizeRefund(
+              id,
+              stripeRefund.id,
+              'Refunded via admin/organizer retry',
+            )
+          : await this.repository.update(id, {
+              stripe_refund_id: stripeRefund.id,
+              status: RefundStatus.PROCESSING,
+            });
       await this.audit.record(actor.id, REFUND_AUDIT_ACTIONS.RETRIED, {
         refund_id: id,
         stripe_refund_id: stripeRefund.id,
       });
+      if (updated) await this.notify(updated, updated.status);
       return updated;
     } catch (error: unknown) {
-      await this.repository.update(id, {
-        status: RefundStatus.FAILED,
-        failure_reason: this.errorMessage(error),
+      const failureReason = this.errorMessage(error);
+      const failed = await this.repository.markFailed(id, failureReason);
+      await this.audit.record(actor.id, REFUND_AUDIT_ACTIONS.FAILED, {
+        refund_id: id,
+        reason: failureReason,
       });
+      if (failed) await this.notify(failed, RefundStatus.FAILED, failureReason);
       throw new BadRequestException('Stripe refund retry failed');
     }
   }
 
-  private async executeStripeRefund(refund: any) {
+  private async executeStripeRefund(refund: RefundWithRelations) {
     let paymentIntentId = refund.booking.payment?.provider_tx_id;
     if (!paymentIntentId) {
       throw new BadRequestException('Payment has no Stripe payment intent');
@@ -271,14 +288,10 @@ export class RefundsService {
     // Legacy rows stored the cs_... Checkout Session id instead of the
     // PaymentIntent id. Resolve it so old payments can still be refunded.
     if (paymentIntentId.startsWith('cs_')) {
-      const session = await this.stripeService.retrieveCheckoutSession(
-        paymentIntentId,
-      );
+      const session = await this.stripeService.retrieveCheckoutSession(paymentIntentId);
       paymentIntentId = this.paymentIntentIdFromSession(session);
       if (!paymentIntentId) {
-        throw new BadRequestException(
-          'Checkout session has no Stripe payment intent',
-        );
+        throw new BadRequestException('Checkout session has no Stripe payment intent');
       }
     }
     return this.stripeService.createRefund(
@@ -301,26 +314,23 @@ export class RefundsService {
     );
   }
 
-  private paymentIntentIdFromSession(
-    session: Stripe.Checkout.Session,
-  ): string | null {
+  private paymentIntentIdFromSession(session: Stripe.Checkout.Session): string | null {
     const pi = session.payment_intent;
     if (typeof pi === 'string') return pi;
     return (pi as Stripe.PaymentIntent | null)?.id ?? null;
   }
 
-  private async getRefund(id: string) {
-    const refund = await this.repository.findById(id);
+  private async getRefund(id: string, organizerId?: string) {
+    const refund = await this.repository.findById(id, organizerId);
     if (!refund) throw new NotFoundException('Refund request not found');
     return refund;
   }
 
   private async getManagedRefund(id: string, actor: RefundActor) {
-    const refund = await this.getRefund(id);
     if (actor.role !== 'ADMIN' && actor.role !== 'ORGANIZER') {
       throw new ForbiddenException('You cannot manage refunds');
     }
-    return refund;
+    return this.getRefund(id, actor.role === 'ORGANIZER' ? actor.id : undefined);
   }
 
   private assertTransition(from: RefundStatus, to: RefundStatus): void {
@@ -337,18 +347,23 @@ export class RefundsService {
     return value as RefundStatus;
   }
 
-  private async notify(refund: any, status: string, note?: string): Promise<void> {
-    const email = refund.requester?.email;
-    if (!email) return;
-    await this.notifications.sendRefundStatus(email, {
-      bookingCode: refund.booking.booking_code,
-      eventName: refund.booking.event.title,
-      customerName: refund.requester.name,
-      refundAmount: Number(refund.amount),
-      currency: refund.currency,
-      status,
-      note,
-    });
+  private async notify(refund: RefundWithRelations, status: string, note?: string): Promise<void> {
+    const email = refund.requester.email;
+    try {
+      await this.notifications.sendRefundStatus(email, {
+        bookingCode: refund.booking.booking_code,
+        eventName: refund.booking.event.title,
+        customerName: refund.requester.name,
+        refundAmount: Number(refund.amount),
+        currency: refund.currency,
+        status,
+        note,
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Refund notification failed: refund=${refund.id} status=${status} error=${this.errorMessage(error)}`,
+      );
+    }
   }
 
   private errorMessage(error: unknown): string {
