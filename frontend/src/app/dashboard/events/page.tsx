@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { 
-  Calendar, Plus, Edit2, Trash2, ArrowLeft
+import {
+  Calendar, Plus, Edit2, Trash2, ArrowLeft, RefreshCw, TicketCheck
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency';
@@ -29,10 +29,16 @@ interface Event {
   status: string;
   image_url?: string;
   venue_id?: string;
+  tickets_sold: number;
   venue?: {
     name: string;
   };
 }
+
+const EVENTS_POLL_INTERVAL_MS = 10_000;
+const ticketCountFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const formatTicketCount = (ticketCount: number) =>
+  ticketCountFormatter.format(Number.isFinite(Number(ticketCount)) ? Number(ticketCount) : 0);
 
 const DEFAULT_FORM = {
   id: '',
@@ -70,6 +76,7 @@ export default function EventsManagementPage() {
   const [activeView, setActiveView] = useState<'list' | 'create' | 'edit'>('list');
   const [formData, setFormData] = useState(DEFAULT_FORM);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const eventsRequestIdRef = useRef(0);
 
   // Auth guard
   useEffect(() => {
@@ -78,26 +85,98 @@ export default function EventsManagementPage() {
     }
   }, [authLoading, router]);
 
-  const fetchEventsAndVenues = async () => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const [eventsData, venuesData] = await Promise.all([
-        apiClient.get<Event[]>('/events'),
-        apiClient.get<Venue[]>('/venues')
-      ]);
-      setEvents(eventsData || []);
-      setVenues(venuesData || []);
-    } catch (err) {
-      setError(apiClient.getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchInitialData = async () => {
+      const requestId = ++eventsRequestIdRef.current;
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const [eventsData, venuesData] = await Promise.all([
+          apiClient.get<Event[]>('/events'),
+          apiClient.get<Venue[]>('/venues')
+        ]);
+
+        if (!cancelled) {
+          if (requestId === eventsRequestIdRef.current) {
+            setEvents(eventsData || []);
+          }
+          setVenues(venuesData || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(apiClient.getErrorMessage(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void fetchInitialData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    fetchEventsAndVenues();
-  }, []);
+    if (isLoading || activeView !== 'list') return;
+
+    let cancelled = false;
+    let requestInFlight = false;
+
+    const refreshEvents = async () => {
+      if (requestInFlight || document.visibilityState !== 'visible') return;
+      requestInFlight = true;
+      const requestId = ++eventsRequestIdRef.current;
+
+      try {
+        const eventsData = await apiClient.get<Event[]>('/events');
+        if (!cancelled && requestId === eventsRequestIdRef.current) {
+          setEvents(eventsData || []);
+        }
+      } catch {
+        // Keep the last successful data visible during temporary refresh failures.
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void refreshEvents();
+    }, EVENTS_POLL_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshEvents();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeView, isLoading]);
+
+  const refreshEventsAfterMutation = async () => {
+    const requestId = ++eventsRequestIdRef.current;
+
+    try {
+      const eventsData = await apiClient.get<Event[]>('/events');
+      if (requestId === eventsRequestIdRef.current) {
+        setEvents(eventsData || []);
+      }
+    } catch {
+      // Polling will retry without replacing the current list or mutation feedback.
+    }
+  };
 
   const handleOpenCreate = () => {
     setFormData({
@@ -161,7 +240,7 @@ export default function EventsManagementPage() {
         await apiClient.post('/events/update', { id: formData.id, ...payload });
         setSuccessMessage(`Event "${formData.title}" updated successfully!`);
       }
-      fetchEventsAndVenues();
+      void refreshEventsAfterMutation();
       setActiveView('list');
       setFormData(DEFAULT_FORM);
     } catch (err) {
@@ -175,7 +254,7 @@ export default function EventsManagementPage() {
     try {
       await apiClient.post('/events/delete', { id });
       setSuccessMessage('Event deleted successfully!');
-      fetchEventsAndVenues();
+      void refreshEventsAfterMutation();
       setDeletingId(null);
     } catch (err) {
       setError(apiClient.getErrorMessage(err));
@@ -215,16 +294,17 @@ export default function EventsManagementPage() {
     }
 
     return (
-      <div className="overflow-x-auto border border-mono-dark-grey">
-        <table className="w-full border-collapse text-left">
+      <div className="w-full overflow-x-auto border border-mono-dark-grey" role="region" aria-label="Manage events table" tabIndex={0}>
+        <table className="w-full min-w-[920px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-mono-dark-grey bg-white/5 uppercase text-xs">
-              <th className="p-3 border-r border-mono-dark-grey font-bold">Event</th>
-              <th className="p-3 border-r border-mono-dark-grey font-bold">Venue</th>
-              <th className="p-3 border-r border-mono-dark-grey font-bold">Date & Time</th>
-              <th className="p-3 border-r border-mono-dark-grey font-bold">Price</th>
-              <th className="p-3 border-r border-mono-dark-grey font-bold">Status</th>
-              <th className="p-3 font-bold text-center">Actions</th>
+              <th scope="col" className="p-3 border-r border-mono-dark-grey font-bold">Event</th>
+              <th scope="col" className="p-3 border-r border-mono-dark-grey font-bold">Venue</th>
+              <th scope="col" className="p-3 border-r border-mono-dark-grey font-bold">Date & Time</th>
+              <th scope="col" className="p-3 border-r border-mono-dark-grey font-bold">Price</th>
+              <th scope="col" className="w-[13%] p-3 border-r border-mono-dark-grey font-bold whitespace-nowrap">Tickets Sold</th>
+              <th scope="col" className="p-3 border-r border-mono-dark-grey font-bold">Status</th>
+              <th scope="col" className="p-3 font-bold text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-mono-dark-grey">
@@ -233,6 +313,7 @@ export default function EventsManagementPage() {
                 <td className="p-3 border-r border-mono-dark-grey">
                   <div className="font-bold uppercase text-white leading-tight mb-1">{event.title}</div>
                   <div className="text-[10px] text-mono-light-grey">ID: {event.id}</div>
+
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey text-sm uppercase text-[#CCCCCC]">
                   {event.venue?.name || 'Unassigned Venue'}
@@ -241,10 +322,18 @@ export default function EventsManagementPage() {
                   <div className="font-bold text-white mb-1">{new Date(event.event_date).toLocaleString()}</div>
                   <div className="text-[#888]">Sales: {new Date(event.start_date_time).toLocaleDateString()} - {new Date(event.end_date_time).toLocaleDateString()}</div>
                 </td>
-                <td className="p-3 border-r border-mono-dark-grey font-bold text-sm">
+                <td className="p-3 border-r border-mono-dark-grey font-bold text-sm whitespace-nowrap">
                   {/* base_price arrives as a Prisma Decimal serialized to a string;
                       coerce to Number so toLocaleString adds thousands separators. */}
                   {formatCurrency(event.base_price, event.currency)}
+                </td>
+                <td className="p-3 border-r border-mono-dark-grey bg-white/[0.03] whitespace-nowrap">
+                  <div className="flex items-center gap-2 text-white">
+                    <TicketCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span className="inline-block min-w-[7ch] text-right text-xl font-bold tabular-nums" aria-label={`${formatTicketCount(event.tickets_sold)} tickets sold`}>
+                      {formatTicketCount(event.tickets_sold)}
+                    </span>
+                  </div>
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey">
                   <span className={`px-2 py-0.5 text-[10px] font-bold uppercase ${getStatusBadgeClass(event.status)}`}>
@@ -346,7 +435,22 @@ export default function EventsManagementPage() {
       )}
 
       {/* Tampilan 1: LIST EVENTS */}
-      {activeView === 'list' && renderEventsContent()}
+      {activeView === 'list' && (
+        <section aria-labelledby="events-list-heading" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="events-list-heading" className="text-sm font-bold uppercase text-white">
+              Event inventory
+            </h2>
+            {!isLoading && (
+              <p className="flex items-center gap-2 text-xs uppercase text-[#CCCCCC]" aria-live="polite">
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                Ticket sales update automatically
+              </p>
+            )}
+          </div>
+          {renderEventsContent()}
+        </section>
+      )}
 
       {/* Tampilan 2 & 3: CREATE / EDIT FORM */}
       {(activeView === 'create' || activeView === 'edit') && (

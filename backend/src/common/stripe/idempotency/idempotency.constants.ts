@@ -7,6 +7,9 @@ export const IDEMPOTENCY_PREFIX = {
   checkout: 'chk',
   refund: 'rfd',
   expire: 'exp',
+  dispute_evidence: 'dse',
+  dispute_update: 'dsu',
+  dispute_close: 'dsc',
 } as const;
 
 /**

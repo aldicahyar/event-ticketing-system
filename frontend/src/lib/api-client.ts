@@ -28,6 +28,16 @@ import type {
   ListPagesQuery,
 } from '@/types/page';
 
+import type {
+  DisputeDetail,
+  DisputeListResult,
+  DisputeSummary,
+  DisputeStatus,
+  SaveEvidenceInput,
+  DisputeDocument,
+  DisputeEvidenceType,
+} from '@/types/dispute';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Types
@@ -519,6 +529,70 @@ class ApiClient {
 
   async deletePage(id: string) {
     return this.delete<{ id: string; deleted: boolean }>(`/pages/${id}`);
+  }
+
+  // ============================================================
+  // DISPUTE MANAGEMENT (admin: /disputes)
+  // ============================================================
+
+  async listDisputes(query: {
+    status?: DisputeStatus;
+    page?: number;
+    limit?: number;
+  }): Promise<DisputeListResult> {
+    const response = await this.client.get<ApiResponse<DisputeListResult | DisputeSummary[]>>(
+      '/disputes',
+      { params: this.cleanParams(query) },
+    );
+    const payload = response.data.data;
+    if (Array.isArray(payload)) {
+      return { data: payload };
+    }
+    return payload ?? { data: [] };
+  }
+
+  async getDispute(id: string) {
+    return this.get<DisputeDetail>(`/disputes/${id}`);
+  }
+
+  async syncDispute(id: string) {
+    return this.post<DisputeDetail>(`/disputes/${id}/sync`);
+  }
+
+  async saveDisputeEvidence(id: string, dto: SaveEvidenceInput) {
+    return this.patch<DisputeDetail>(`/disputes/${id}/evidence`, dto);
+  }
+
+  async uploadDisputeDocument(
+    id: string,
+    evidenceType: DisputeEvidenceType,
+    file: File,
+    onProgress?: (percent: number) => void,
+  ): Promise<DisputeDocument> {
+    const form = new FormData();
+    form.append('evidence_type', evidenceType);
+    form.append('file', file);
+    const response = await this.client.post<ApiResponse<DisputeDocument>>(
+      `/disputes/${id}/evidence/documents`,
+      form,
+      {
+        headers: { 'Content-Type': undefined } as any,
+        onUploadProgress: (event) => {
+          if (event.total && onProgress) {
+            onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+          }
+        },
+      },
+    );
+    return response.data.data as DisputeDocument;
+  }
+
+  async submitDisputeEvidence(id: string) {
+    return this.post<DisputeDetail>(`/disputes/${id}/evidence/submit`);
+  }
+
+  async closeDispute(id: string) {
+    return this.post<DisputeDetail>(`/disputes/${id}/close`);
   }
 
   /** Public — published pages only (no auth). */

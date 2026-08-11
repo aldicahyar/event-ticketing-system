@@ -62,7 +62,8 @@ export class EventsService {
   }
 
   async findAll() {
-    return this.prisma.t_trx_events.findMany({
+    // Returns events with a computed available_seats count.
+    const events = await this.prisma.t_trx_events.findMany({
       include: {
         venue: {
           select: {
@@ -72,9 +73,37 @@ export class EventsService {
             capacity: true,
           },
         },
+        bookings: {
+          where: {
+            status: 'CONFIRMED',
+            payment: { status: 'COMPLETED' },
+          },
+          select: {
+            _count: {
+              select: {
+                tickets: {
+                  where: { revoked_at: null },
+                },
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            seats: {
+              where: { status: 'AVAILABLE' },
+            },
+          },
+        },
       },
       orderBy: { start_date_time: 'asc' },
     });
+
+    return events.map(({ _count, bookings, ...event }) => ({
+      ...event,
+      available_seats: _count?.seats ?? 0,
+      tickets_sold: bookings.reduce((total, booking) => total + booking._count.tickets, 0),
+    }));
   }
 
   async findOne(id: string) {
@@ -217,7 +246,7 @@ export class EventsService {
       let multiplier = 1;
 
       const positionRatio = r / rowsCount;
-      const matchedTier = tiers.find(t => positionRatio < t.ratio);
+      const matchedTier = tiers.find((t) => positionRatio < t.ratio);
       if (matchedTier) {
         type = matchedTier.id as 'VIP' | 'PREMIUM' | 'REGULAR';
         multiplier = matchedTier.multiplier;

@@ -2,10 +2,11 @@ import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } fr
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-export interface Response<T> {
+export interface Response<T, M = unknown> {
   success: boolean;
   statusCode: number;
   data: T;
+  meta?: M;
   message?: string;
   timestamp: string;
   path: string;
@@ -20,14 +21,33 @@ export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> 
     const statusCode = context.switchToHttp().getResponse().statusCode;
 
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        statusCode,
-        data: data?.data || data,
-        message: data?.message || 'Success',
-        timestamp: new Date().toISOString(),
-        path: request.url,
-      })),
+      map((data: unknown) => {
+        const payload = this.unwrapPayload(data);
+        return {
+          success: true,
+          statusCode,
+          data: payload.data,
+          ...(payload.meta === undefined ? {} : { meta: payload.meta }),
+          message: payload.message ?? 'Success',
+          timestamp: new Date().toISOString(),
+          path: request.url,
+        };
+      }),
     );
+  }
+
+  private unwrapPayload(data: unknown): { data: T; meta?: unknown; message?: string } {
+    if (!this.isPayload(data)) {
+      return { data: data as T };
+    }
+    return {
+      data: data.data as T,
+      meta: data.meta,
+      message: data.message,
+    };
+  }
+
+  private isPayload(data: unknown): data is { data: unknown; meta?: unknown; message?: string } {
+    return typeof data === 'object' && data !== null && 'data' in data;
   }
 }

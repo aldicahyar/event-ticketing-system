@@ -3,7 +3,10 @@ import Stripe from 'stripe';
 import { WebhookProcessorService } from './webhook-processor.service';
 import { WebhookEventLogService } from './webhook-event-log.service';
 import { StripeService } from '../../../common/stripe/stripe.service';
-import { IWebhookEventHandler, WebhookHandlerResult } from '../interfaces/webhook-handler.interface';
+import {
+  IWebhookEventHandler,
+  WebhookHandlerResult,
+} from '../interfaces/webhook-handler.interface';
 
 // ── Mock dependencies ──────────────────────────────────────────
 
@@ -101,16 +104,14 @@ describe('WebhookProcessorService', () => {
         [],
       );
 
-      await expect(
-        badProcessor.process(Buffer.from('test'), 'sig'),
-      ).rejects.toThrow('STRIPE_WEBHOOK_SECRET');
+      await expect(badProcessor.process(Buffer.from('test'), 'sig')).rejects.toThrow(
+        'STRIPE_WEBHOOK_SECRET',
+      );
     });
 
     it('should throw on invalid signature', async () => {
       // constructEvent will fail with invalid signature
-      await expect(
-        processor.process(Buffer.from('invalid'), 'bad_signature'),
-      ).rejects.toThrow();
+      await expect(processor.process(Buffer.from('invalid'), 'bad_signature')).rejects.toThrow();
     });
   });
 
@@ -126,6 +127,22 @@ describe('WebhookProcessorService', () => {
       // We can't easily get past signature verification without mocking Stripe.
       // The real test for idempotency is in the event log service spec.
       expect(mockEventLogService.isDuplicate).toBeDefined();
+    });
+  });
+
+  describe('process - handler result', () => {
+    it('marks success=false as failed and throws for Stripe retry', async () => {
+      completedHandler.result = { success: false, message: 'transaction failed' };
+      mockEventLogService.isDuplicate = jest.fn().mockResolvedValue(false);
+      const event = makeStripeEvent('checkout.session.completed');
+      jest.spyOn(mockStripeService.client.webhooks, 'constructEvent').mockReturnValue(event);
+
+      await expect(processor.process(Buffer.from('{}'), 'signature')).rejects.toThrow(
+        'transaction failed',
+      );
+
+      expect(mockEventLogService.markFailed).toHaveBeenCalledWith(event.id, 'transaction failed');
+      expect(mockEventLogService.markProcessed).not.toHaveBeenCalled();
     });
   });
 
@@ -151,7 +168,7 @@ describe('WebhookEventLogService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     const result = await service.isDuplicate('evt_new');
     expect(result).toBe(false);
@@ -166,7 +183,7 @@ describe('WebhookEventLogService', () => {
         }),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     const result = await service.isDuplicate('evt_processed');
     expect(result).toBe(true);
@@ -181,7 +198,7 @@ describe('WebhookEventLogService', () => {
         }),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     const result = await service.isDuplicate('evt_received');
     expect(result).toBe(false);
@@ -193,7 +210,7 @@ describe('WebhookEventLogService', () => {
         findUnique: jest.fn().mockRejectedValue(new Error('DB down')),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     const result = await service.isDuplicate('evt_error');
     expect(result).toBe(false);
@@ -205,7 +222,7 @@ describe('WebhookEventLogService', () => {
         create: jest.fn().mockResolvedValue({}),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     await service.logReceived('evt_1', 'charge.refunded', { test: true });
 
@@ -225,7 +242,7 @@ describe('WebhookEventLogService', () => {
         create: jest.fn().mockRejectedValue(new Error('Unique constraint failed')),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     // Should not throw
     await expect(service.logReceived('evt_dup', 'test', {})).resolves.not.toThrow();
@@ -237,7 +254,7 @@ describe('WebhookEventLogService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     await service.markProcessed('evt_1', 'success');
 
@@ -257,7 +274,7 @@ describe('WebhookEventLogService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
-    const service = new (require('./webhook-event-log.service').WebhookEventLogService)(mockPrisma);
+    const service = new WebhookEventLogService(mockPrisma as never);
 
     await service.markFailed('evt_1', 'Something broke');
 

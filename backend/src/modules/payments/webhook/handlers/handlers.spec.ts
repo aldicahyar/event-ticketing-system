@@ -11,7 +11,10 @@ import { CheckoutExpiredHandler } from './checkout-expired.handler';
 import { PaymentFailedHandler } from './payment-failed.handler';
 import { ChargeRefundedHandler } from './charge-refunded.handler';
 import { DisputeCreatedHandler } from './dispute-created.handler';
+import { DisputeClosedHandler } from './dispute-closed.handler';
 import { AsyncPaymentFailedHandler } from './async-payment-failed.handler';
+import { RefundUpdatedHandler } from './refund-updated.handler';
+import { NotificationsService } from '../../../notifications/notifications.service';
 
 // ── jest.mock() for all dependencies ──────────────────────────
 jest.mock('../../../../common/database/prisma.service');
@@ -20,8 +23,17 @@ jest.mock('../../audit/payment-audit.service');
 
 // ── Shared mock factories ─────────────────────────────────────
 
+type PrismaMockTransaction = {
+  t_trx_payments: Record<string, jest.Mock>;
+  t_trx_bookings: Record<string, jest.Mock>;
+  t_mtr_seats: Record<string, jest.Mock>;
+  t_trx_tickets: Record<string, jest.Mock>;
+  t_trx_refunds: Record<string, jest.Mock>;
+  t_trx_security_logs: Record<string, jest.Mock>;
+};
+
 function makePrismaMock() {
-  return {
+  const prisma = {
     t_trx_payments: {
       findFirst: jest.fn(),
       update: jest.fn(),
@@ -33,12 +45,19 @@ function makePrismaMock() {
     },
     t_mtr_seats: { updateMany: jest.fn() },
     t_trx_tickets: { deleteMany: jest.fn(), updateMany: jest.fn() },
-  } as unknown as PrismaService & {
-    t_trx_payments: { findFirst: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
-    t_trx_bookings: { update: jest.Mock; updateMany: jest.Mock };
-    t_mtr_seats: { updateMany: jest.Mock };
-    t_trx_tickets: { deleteMany: jest.Mock; updateMany: jest.Mock };
+    t_trx_refunds: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+      create: jest.fn(),
+    },
+    t_trx_security_logs: { create: jest.fn() },
+    $transaction: jest.fn(
+      async (callback: (tx: PrismaMockTransaction) => Promise<unknown>) =>
+        callback(prisma),
+    ),
   };
+  return prisma as unknown as PrismaService & typeof prisma;
 }
 
 function makeAuditMock() {
@@ -50,6 +69,14 @@ function makeAuditMock() {
 function makePaymentsMock() {
   return { processSuccessfulPayment: jest.fn() } as unknown as PaymentsService & {
     processSuccessfulPayment: jest.Mock;
+  };
+}
+
+function makeNotificationsMock() {
+  return {
+    sendRefundStatus: jest.fn().mockResolvedValue(undefined),
+  } as unknown as NotificationsService & {
+    sendRefundStatus: jest.Mock;
   };
 }
 
@@ -235,76 +262,88 @@ describe('ChargeRefundedHandler', () => {
   });
 
   it('should update payment status to REFUNDED and cancel CONFIRMED booking', async () => {
+    const stripeRefund = {
+      id: 're_test',
+      amount: 10000,
+      currency: 'idr',
+      reason: null,
+    };
     prisma.t_trx_payments.findFirst.mockResolvedValue({
       id: 'pay_123',
-      booking: {
-        id: 'bk_1',
-        user_id: 'user_1',
-        booking_code: 'BC-001',
-        status: 'CONFIRMED',
-      },
+      amount: 100,
+      booking_id: 'bk_1',
+      booking: { id: 'bk_1', user_id: 'user_1', booking_code: 'BC-001' },
     });
+    prisma.t_trx_refunds.findFirst.mockResolvedValue(null);
     const event = makeEvent('charge.refunded', {
       id: 'ch_test',
       payment_intent: 'pi_test',
-      amount: 10000,
-      amount_refunded: 10000,
+      refunds: { data: [stripeRefund] },
     });
 
     const result = await handler.handle(event);
 
     expect(result.success).toBe(true);
-    expect(prisma.t_trx_payments.update).toHaveBeenCalledWith({
-      where: { id: 'pay_123' },
-      data: { status: 'REFUNDED' },
+    expect(prisma.t_trx_refunds.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        stripe_refund_id: 're_test',
+        payment_id: 'pay_123',
+        status: 'PROCESSING',
+      }),
     });
-    // Booking is explicitly marked as refunded, distinct from user cancellation
-    expect(prisma.t_trx_bookings.update).toHaveBeenCalledWith({
-      where: { id: 'bk_1' },
-      data: expect.objectContaining({ status: 'REFUNDED' }),
-    });
-    // Seats released + tickets invalidated
-    expect(prisma.t_mtr_seats.updateMany).toHaveBeenCalledWith({
-      where: { booking_id: 'bk_1' },
-      data: { booking_id: null, status: 'AVAILABLE' },
-    });
-    expect(prisma.t_trx_tickets.deleteMany).toHaveBeenCalledWith({
-      where: { booking_id: 'bk_1' },
-    });
-    // Audit trail recorded
+    expect(prisma.t_trx_payments.update).not.toHaveBeenCalled();
+    expect(prisma.t_trx_bookings.update).not.toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith(
       'user_1',
       'EXTERNAL_REFUND_SYNCED',
-      expect.objectContaining({ payment_id: 'pay_123', charge_id: 'ch_test' }),
+      expect.objectContaining({ charge_id: 'ch_test' }),
     );
-    expect(result.message).toMatch(/refund synced/i);
   });
 
-  it('should only update payment status when booking is not CONFIRMED', async () => {
+  it('should skip when the charge has no expanded refund records', async () => {
     prisma.t_trx_payments.findFirst.mockResolvedValue({
       id: 'pay_123',
-      booking: { id: 'bk_1', user_id: 'user_1', booking_code: 'BC-001', status: 'CANCELLED' },
+      amount: 100,
+      booking_id: 'bk_1',
+      booking: { id: 'bk_1', user_id: 'user_1', booking_code: 'BC-001' },
     });
     const event = makeEvent('charge.refunded', {
       id: 'ch_test',
       payment_intent: 'pi_test',
-      amount: 10000,
-      amount_refunded: 5000,
+      refunds: { data: [] },
     });
 
     const result = await handler.handle(event);
 
-    expect(result.success).toBe(true);
-    expect(prisma.t_trx_payments.update).toHaveBeenCalledWith({
-      where: { id: 'pay_123' },
-      data: { status: 'REFUNDED' },
+    expect(result).toEqual(expect.objectContaining({ success: true, skipped: true }));
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.t_trx_refunds.create).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('should be idempotent when the refund is already linked', async () => {
+    prisma.t_trx_payments.findFirst.mockResolvedValue({
+      id: 'pay_123',
+      amount: 100,
+      booking_id: 'bk_1',
+      booking: { id: 'bk_1', user_id: 'user_1', booking_code: 'BC-001' },
     });
-    // Booking/seats/tickets must NOT be touched for a non-CONFIRMED booking
-    expect(prisma.t_trx_bookings.update).not.toHaveBeenCalled();
-    expect(prisma.t_mtr_seats.updateMany).not.toHaveBeenCalled();
-    expect(prisma.t_trx_tickets.deleteMany).not.toHaveBeenCalled();
-    // Audit still recorded
-    expect(audit.record).toHaveBeenCalledTimes(1);
+    prisma.t_trx_refunds.findFirst.mockResolvedValue({
+      id: 'refund_1',
+      stripe_refund_id: 're_test',
+    });
+    prisma.t_trx_refunds.updateMany.mockResolvedValue({ count: 0 });
+    const event = makeEvent('charge.refunded', {
+      id: 'ch_test',
+      payment_intent: 'pi_test',
+      refunds: { data: [{ id: 're_test', amount: 10000, currency: 'idr', reason: null }] },
+    });
+
+    const result = await handler.handle(event);
+
+    expect(result).toEqual(expect.objectContaining({ success: true, skipped: true }));
+    expect(prisma.t_trx_refunds.create).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
   });
 
   it('should skip when charge has no payment_intent', async () => {
@@ -343,31 +382,116 @@ describe('ChargeRefundedHandler', () => {
   });
 });
 
-describe('DisputeCreatedHandler', () => {
-  let handler: DisputeCreatedHandler;
+describe('RefundUpdatedHandler', () => {
+  let handler: RefundUpdatedHandler;
   let prisma: ReturnType<typeof makePrismaMock>;
-  let audit: ReturnType<typeof makeAuditMock>;
+  let notifications: ReturnType<typeof makeNotificationsMock>;
+
+  const refundRecord = {
+    id: 'refund_1',
+    booking_id: 'bk_1',
+    payment_id: 'pay_1',
+    requested_by: 'user_1',
+    amount: 100,
+    currency: 'IDR',
+    status: 'PROCESSING',
+    completed_at: null,
+    requester: { id: 'user_1', name: 'User', email: 'user@test.com' },
+    booking: { id: 'bk_1', booking_code: 'BC-001', event: { title: 'Concert' } },
+  };
 
   beforeEach(() => {
     prisma = makePrismaMock();
-    audit = makeAuditMock();
-    handler = new DisputeCreatedHandler(prisma, audit);
+    notifications = makeNotificationsMock();
+    handler = new RefundUpdatedHandler(prisma, notifications);
+  });
+
+  it('should finalize refund, booking, payment, seats, tickets, and audit atomically', async () => {
+    prisma.t_trx_refunds.findUnique.mockResolvedValue(refundRecord);
+    prisma.t_trx_refunds.updateMany.mockResolvedValue({ count: 1 });
+    const event = makeEvent('refund.updated', {
+      id: 're_test',
+      status: 'succeeded',
+      amount: 10000,
+    });
+
+    const result = await handler.handle(event);
+
+    expect(result.success).toBe(true);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.t_trx_bookings.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'bk_1' }) }),
+    );
+    expect(prisma.t_trx_payments.updateMany).toHaveBeenCalledWith({
+      where: { id: 'pay_1' },
+      data: { status: 'REFUNDED' },
+    });
+    expect(prisma.t_mtr_seats.updateMany).toHaveBeenCalledWith({
+      where: { booking_id: 'bk_1' },
+      data: { booking_id: null, status: 'AVAILABLE' },
+    });
+    expect(prisma.t_trx_tickets.deleteMany).toHaveBeenCalledWith({
+      where: { booking_id: 'bk_1' },
+    });
+    expect(prisma.t_trx_security_logs.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: 'REFUND_SUCCEEDED', user_id: 'user_1' }),
+    });
+    expect(notifications.sendRefundStatus).toHaveBeenCalledWith(
+      'user@test.com',
+      expect.objectContaining({ status: 'COMPLETED', bookingCode: 'BC-001' }),
+    );
+  });
+
+  it('should not notify when atomic finalization rolls back', async () => {
+    prisma.t_trx_refunds.findUnique.mockResolvedValue(refundRecord);
+    prisma.$transaction.mockRejectedValue(new Error('audit write failed'));
+    const event = makeEvent('refund.updated', {
+      id: 're_test',
+      status: 'succeeded',
+      amount: 10000,
+    });
+
+    const result = await handler.handle(event);
+
+    expect(result.success).toBe(false);
+    expect(notifications.sendRefundStatus).not.toHaveBeenCalled();
+  });
+
+  it('should skip duplicate finalization from an invalid local state', async () => {
+    prisma.t_trx_refunds.findUnique.mockResolvedValue({ ...refundRecord, status: 'REJECTED' });
+    prisma.t_trx_refunds.updateMany.mockResolvedValue({ count: 0 });
+    const event = makeEvent('refund.updated', {
+      id: 're_test',
+      status: 'succeeded',
+      amount: 10000,
+    });
+
+    const result = await handler.handle(event);
+
+    expect(result).toEqual(expect.objectContaining({ success: true, skipped: true }));
+    expect(prisma.t_trx_bookings.updateMany).not.toHaveBeenCalled();
+    expect(notifications.sendRefundStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('DisputeCreatedHandler', () => {
+  let handler: DisputeCreatedHandler;
+  let prisma: ReturnType<typeof makePrismaMock>;
+  let disputes: { opened: jest.Mock };
+
+  beforeEach(() => {
+    prisma = makePrismaMock();
+    disputes = { opened: jest.fn().mockResolvedValue({ id: 'local-dispute' }) };
+    handler = new DisputeCreatedHandler(prisma, disputes as never);
   });
 
   it('should be registered for the charge.dispute.created event type', () => {
     expect(handler.eventType).toBe('charge.dispute.created');
   });
 
-  it('should set booking and payment status to DISPUTED', async () => {
-    prisma.t_trx_payments.findFirst.mockResolvedValue({
-      id: 'pay_123',
-      booking: {
-        id: 'bk_1',
-        user_id: 'user_1',
-        booking_code: 'BC-001',
-        status: 'CONFIRMED',
-      },
-    });
+  it('should delegate atomic opening and retain seats', async () => {
+    prisma.t_trx_payments.findFirst.mockResolvedValue({ id: 'pay_123' });
+    const dueBy = 1_800_000_000;
     const event = makeEvent('charge.dispute.created', {
       id: 'dp_test',
       charge: 'ch_test',
@@ -375,60 +499,40 @@ describe('DisputeCreatedHandler', () => {
       amount: 10000,
       currency: 'usd',
       reason: 'fraudulent',
+      evidence_details: { due_by: dueBy },
     });
 
     const result = await handler.handle(event);
 
     expect(result.success).toBe(true);
-    // Payment → DISPUTED
-    expect(prisma.t_trx_payments.update).toHaveBeenCalledWith({
-      where: { id: 'pay_123' },
-      data: { status: 'DISPUTED' },
+    expect(disputes.opened).toHaveBeenCalledWith({
+      stripe_dispute_id: 'dp_test',
+      paymentId: 'pay_123',
+      amount: 100,
+      currency: 'USD',
+      reason: 'fraudulent',
+      dueBy: new Date(dueBy * 1000),
     });
-    // Booking → DISPUTED, tickets invalidated, seats released
-    expect(prisma.t_trx_bookings.update).toHaveBeenCalledWith({
-      where: { id: 'bk_1' },
-      data: expect.objectContaining({ status: 'DISPUTED' }),
-    });
-    expect(prisma.t_trx_tickets.updateMany).toHaveBeenCalledWith({
-      where: { booking_id: 'bk_1' },
-      data: { is_checked_in: false },
-    });
-    expect(prisma.t_mtr_seats.updateMany).toHaveBeenCalledWith({
-      where: { booking_id: 'bk_1' },
-      data: { status: 'AVAILABLE', booking_id: null },
-    });
-    // Audit trail recorded
-    expect(audit.record).toHaveBeenCalledWith(
-      'user_1',
-      'DISPUTE_CREATED',
-      expect.objectContaining({ dispute_id: 'dp_test', payment_id: 'pay_123' }),
-    );
-    expect(result.message).toContain('DISPUTED');
+    expect(prisma.t_mtr_seats.updateMany).not.toHaveBeenCalled();
   });
 
-  it('should update only the payment when there is no linked booking', async () => {
-    prisma.t_trx_payments.findFirst.mockResolvedValue({ id: 'pay_123', booking: null });
+  it('should fail when atomic lifecycle opening fails', async () => {
+    prisma.t_trx_payments.findFirst.mockResolvedValue({ id: 'pay_123' });
+    disputes.opened.mockRejectedValue(new Error('transaction failed'));
     const event = makeEvent('charge.dispute.created', {
       id: 'dp_test',
       charge: 'ch_test',
       payment_intent: 'pi_test',
       amount: 10000,
+      currency: 'usd',
       reason: 'fraudulent',
+      evidence_details: { due_by: null },
     });
 
     const result = await handler.handle(event);
 
-    expect(result.success).toBe(true);
-    expect(prisma.t_trx_payments.update).toHaveBeenCalledWith({
-      where: { id: 'pay_123' },
-      data: { status: 'DISPUTED' },
-    });
-    expect(prisma.t_trx_bookings.update).not.toHaveBeenCalled();
-    expect(prisma.t_trx_tickets.updateMany).not.toHaveBeenCalled();
-    expect(prisma.t_mtr_seats.updateMany).not.toHaveBeenCalled();
-    // Audit recorded with the 'system' sentinel user
-    expect(audit.record).toHaveBeenCalledWith('system', 'DISPUTE_CREATED', expect.any(Object));
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('transaction failed');
   });
 
   it('should skip when no matching payment record', async () => {
@@ -447,7 +551,7 @@ describe('DisputeCreatedHandler', () => {
     expect(result.skipped).toBe(true);
     expect(prisma.t_trx_payments.update).not.toHaveBeenCalled();
     expect(prisma.t_trx_bookings.update).not.toHaveBeenCalled();
-    expect(audit.record).not.toHaveBeenCalled();
+    expect(disputes.opened).not.toHaveBeenCalled();
     expect(result.message).toContain('dp_test');
   });
 
@@ -463,13 +567,45 @@ describe('DisputeCreatedHandler', () => {
       amount: 10000,
       currency: 'usd',
       reason: 'product_not_received',
+      evidence_details: { due_by: 1_800_000_000 },
     });
 
     const result = await handler.handle(event);
 
     expect(result.success).toBe(true);
-    expect(prisma.t_trx_payments.update).toHaveBeenCalled();
-    expect(prisma.t_trx_bookings.update).toHaveBeenCalled();
+    expect(disputes.opened).toHaveBeenCalled();
+  });
+});
+
+describe('DisputeClosedHandler', () => {
+  it.each([
+    ['won', 'WON'],
+    ['lost', 'LOST'],
+  ])('delegates %s lifecycle outcome', async (stripeStatus, localStatus) => {
+    const disputes = { resolved: jest.fn().mockResolvedValue({}) };
+    const handler = new DisputeClosedHandler(disputes as never);
+    const result = await handler.handle(
+      makeEvent('charge.dispute.closed', {
+        id: 'dp_test',
+        status: stripeStatus,
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(disputes.resolved).toHaveBeenCalledWith('dp_test', localStatus);
+  });
+
+  it('returns success=false when atomic close fails', async () => {
+    const disputes = {
+      resolved: jest.fn().mockRejectedValue(new Error('transaction failed')),
+    };
+    const handler = new DisputeClosedHandler(disputes as never);
+    const result = await handler.handle(
+      makeEvent('charge.dispute.closed', { id: 'dp_test', status: 'lost' }),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('transaction failed');
   });
 });
 
@@ -551,7 +687,9 @@ describe('Handler interface contract', () => {
     new CheckoutExpiredHandler(),
     new PaymentFailedHandler(makePrismaMock()),
     new ChargeRefundedHandler(makePrismaMock(), makeAuditMock()),
-    new DisputeCreatedHandler(makePrismaMock(), makeAuditMock()),
+    new DisputeCreatedHandler(makePrismaMock(), {
+      opened: jest.fn().mockResolvedValue({}),
+    } as never),
     new AsyncPaymentFailedHandler(makePrismaMock()),
   ];
 

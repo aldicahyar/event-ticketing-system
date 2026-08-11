@@ -128,6 +128,15 @@ const MENUS = [
     order: 5,
   },
   {
+    code: 'DISPUTES',
+    name: 'Disputes',
+    name_en: 'Disputes',
+    parent_code: null,
+    icon: 'AlertTriangle',
+    slug: '/dashboard/admin/disputes',
+    order: 7,
+  },
+  {
     code: 'REFUNDS',
     name: 'Refunds',
     name_en: 'Refunds',
@@ -279,6 +288,7 @@ const PERMISSION_MATRIX: Array<
   ['ADMIN', 'TIER_SETTINGS', { can_view: true, can_edit: true }],
   ['ADMIN', 'TAX_SETTINGS', { can_view: true, can_edit: true }],
   ['ADMIN', 'REFUNDS', { can_view: true, can_edit: true }],
+  ['ADMIN', 'DISPUTES', { can_view: true, can_edit: true }],
   ['ADMIN', 'REFUND_POLICY_SETTINGS', { can_view: true, can_edit: true }],
   ['ADMIN', 'RBAC', { can_view: true }],
   ['ADMIN', 'USERS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],

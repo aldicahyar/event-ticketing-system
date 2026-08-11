@@ -30,9 +30,9 @@ describe('StripeService', () => {
 
   it('throws if STRIPE_SECRET_KEY is missing', () => {
     const badConfig = { get: jest.fn().mockReturnValue(undefined) } as unknown as ConfigService;
-    expect(
-      () => new StripeService(badConfig, new IdempotencyKeyService(), store),
-    ).toThrow('STRIPE_SECRET_KEY');
+    expect(() => new StripeService(badConfig, new IdempotencyKeyService(), store)).toThrow(
+      'STRIPE_SECRET_KEY',
+    );
   });
 
   it('passes an idempotency key to checkout.sessions.create', async () => {
@@ -101,6 +101,50 @@ describe('StripeService', () => {
     expect(store.fail).toHaveBeenCalled();
   });
 
+  it('passes typed idempotency options to dispute update, close, and upload', async () => {
+    const updateSpy = jest
+      .spyOn(service.client.disputes, 'update')
+      .mockResolvedValue({ id: 'dp_1' } as never);
+    const closeSpy = jest
+      .spyOn(service.client.disputes, 'close')
+      .mockResolvedValue({ id: 'dp_1' } as never);
+    const uploadSpy = jest
+      .spyOn(service.client.files, 'create')
+      .mockResolvedValue({ id: 'file_1' } as never);
+
+    await service.updateDispute(
+      'dp_1',
+      { evidence: { receipt: 'file_1' }, submit: true },
+      { operation: 'dispute_update', entityId: 'dispute-1' },
+    );
+    await service.closeDispute('dp_1', {
+      operation: 'dispute_close',
+      entityId: 'dispute-1',
+    });
+    await service.uploadDisputeEvidence(
+      {
+        purpose: 'dispute_evidence',
+        file: { data: Buffer.from('%PDF-'), name: 'receipt.pdf' },
+      },
+      { operation: 'dispute_evidence', entityId: 'dispute-1' },
+    );
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      'dp_1',
+      { evidence: { receipt: 'file_1' }, submit: true },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
+    expect(closeSpy).toHaveBeenCalledWith(
+      'dp_1',
+      {},
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
+    expect(uploadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: 'dispute_evidence' }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
+  });
+
   it('bypasses idempotency entirely when IDEMPOTENCY_ENABLED=false', async () => {
     const disabledConfig = {
       get: jest.fn((key: string) => {
@@ -109,11 +153,7 @@ describe('StripeService', () => {
         return undefined;
       }),
     } as unknown as ConfigService;
-    const disabled = new StripeService(
-      disabledConfig,
-      new IdempotencyKeyService(),
-      store,
-    );
+    const disabled = new StripeService(disabledConfig, new IdempotencyKeyService(), store);
     const createSpy = jest
       .spyOn(disabled.client.checkout.sessions, 'create')
       .mockResolvedValue({ id: 'cs_2' } as any);

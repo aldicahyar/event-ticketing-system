@@ -133,23 +133,39 @@ describe('NotificationsService', () => {
     expect(transport.calls).toHaveLength(1);
   });
 
+  it('sends typed dispute details and remains non-blocking on failure', async () => {
+    const data = {
+      disputeId: 'dp_1',
+      bookingCode: 'BOK-1',
+      reason: 'fraudulent',
+      amount: 100,
+      currency: 'USD',
+      deadline: '2026-08-10T00:00:00.000Z',
+      link: '/dashboard/admin/disputes/dispute-1',
+    };
+
+    await service.sendDisputeOpened('admin@test.com', data);
+    expect(transport.calls[0]).toEqual(
+      expect.objectContaining({ to: 'admin@test.com', subject: expect.stringContaining('dp_1') }),
+    );
+
+    transport.send = jest.fn().mockRejectedValue(new Error('mail down'));
+    await expect(service.sendDisputeOpened('admin@test.com', data)).resolves.not.toThrow();
+  });
+
   // ── Error handling ────────────────────────────────────────────
 
   it('should not throw when transport fails (non-blocking)', async () => {
     transport.shouldFail = true;
 
-    await expect(
-      service.sendPaymentSuccess('user@test.com', successData),
-    ).resolves.not.toThrow();
+    await expect(service.sendPaymentSuccess('user@test.com', successData)).resolves.not.toThrow();
   });
 
   it('should not throw when transport throws an exception', async () => {
     // Override send to throw
     transport.send = jest.fn().mockRejectedValue(new Error('Network error'));
 
-    await expect(
-      service.sendPaymentRefunded('user@test.com', refundedData),
-    ).resolves.not.toThrow();
+    await expect(service.sendPaymentRefunded('user@test.com', refundedData)).resolves.not.toThrow();
   });
 
   it('should continue processing after a failed send', async () => {

@@ -1,13 +1,11 @@
-import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { DisputeStatus } from '@prisma/client';
 
-/**
- * Query params for GET /refunds — admin/organizer listing with filters + pagination.
- */
-export class QueryRefundDto {
+export class QueryDisputeDto {
   @IsOptional()
-  @IsString()
-  status?: string;
+  @IsEnum(DisputeStatus)
+  status?: DisputeStatus;
 
   @IsOptional()
   @Transform(({ value }) => (value === undefined || value === null ? undefined : Number(value)))

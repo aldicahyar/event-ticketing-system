@@ -124,34 +124,36 @@ model t_mtr_role_menu_permissions {
 }
 
 model t_mtr_users {
-  id                    String                 @id @default(cuid())
-  email                 String                 @unique
+  id                    String                           @id @default(cuid())
+  email                 String                           @unique
   password              String?
   name                  String
-  role_code             String                 @default("ATTENDEE")
-  provider              String                 @default("local")
+  role_code             String                           @default("ATTENDEE")
+  provider              String                           @default("local")
   provider_id           String?
   avatar                String?
-  is_active             Boolean                @default(true)
-  email_verified        Boolean                @default(false)
-  failed_login_attempts Int                    @default(0)
+  is_active             Boolean                          @default(true)
+  email_verified        Boolean                          @default(false)
+  failed_login_attempts Int                              @default(0)
   locked_until          DateTime?
   last_login_at         DateTime?
   last_failed_login_at  DateTime?
   password_changed_at   DateTime?
-  created_at            DateTime               @default(now())
-  updated_at            DateTime               @updatedAt
+  created_at            DateTime                         @default(now())
+  updated_at            DateTime                         @updatedAt
   profile               t_mtr_user_profiles?
-  role                  t_mtr_roles            @relation(fields: [role_code], references: [code])
+  role                  t_mtr_roles                      @relation(fields: [role_code], references: [code])
   bookings              t_trx_bookings[]
   oauth_accounts        t_trx_oauth_accounts[]
   security_logs         t_trx_security_logs[]
-  organized_events      t_trx_events[]         @relation("EventOrganizer")
-  uploaded_media        t_mtr_media[]          @relation("MediaUploader")
-  refunds_requested     t_trx_refunds[]        @relation("RefundRequester")
-  refunds_reviewed      t_trx_refunds[]        @relation("RefundReviewer")
-  refund_policies       t_trx_refund_policies[] @relation("RefundPolicyUpdater")
+  organized_events      t_trx_events[]                   @relation("EventOrganizer")
+  uploaded_media        t_mtr_media[]                    @relation("MediaUploader")
+  refunds_requested     t_trx_refunds[]                  @relation("RefundRequester")
+  refunds_reviewed      t_trx_refunds[]                  @relation("RefundReviewer")
+  refund_policies       t_trx_refund_policies[]          @relation("RefundPolicyUpdater")
   refund_policy_audits  t_trx_refund_policy_audit_logs[] @relation("PolicyAuditAuthor")
+  disputes_opened       t_trx_disputes[]                 @relation("DisputeUser")
+  dispute_documents     t_trx_dispute_documents[]        @relation("DisputeDocumentUploader")
 
   // email @unique already creates an index — no separate @@index([email]) needed
   @@index([provider, provider_id])
@@ -273,29 +275,30 @@ model t_mtr_seats {
 }
 
 model t_trx_bookings {
-  id                String          @id @default(cuid())
+  id                String           @id @default(cuid())
   user_id           String
   event_id          String
-  booking_code      String          @unique
-  total_price       Decimal         @db.Decimal(10, 2)
-  currency          String          @default("IDR")
-  status            BookingStatus   @default(PENDING)
+  booking_code      String           @unique
+  total_price       Decimal          @db.Decimal(10, 2)
+  currency          String           @default("IDR")
+  status            BookingStatus    @default(PENDING)
   expires_at        DateTime?
-  booked_at         DateTime        @default(now())
+  booked_at         DateTime         @default(now())
   confirmed_at      DateTime?
   cancelled_at      DateTime?
   guest_name        String?
   guest_email       String?
   guest_phone       String?
   cancelled_reason  String?
-  seat_ids          String[]        @default([])
+  seat_ids          String[]         @default([])
   stripe_session_id String?
   seats             t_mtr_seats[]
-  event             t_trx_events    @relation(fields: [event_id], references: [id])
-  user              t_mtr_users     @relation(fields: [user_id], references: [id])
+  event             t_trx_events     @relation(fields: [event_id], references: [id])
+  user              t_mtr_users      @relation(fields: [user_id], references: [id])
   payment           t_trx_payments?
   tickets           t_trx_tickets[]
   refunds           t_trx_refunds[]
+  t_trx_disputes    t_trx_disputes[]
 
   // booking_code @unique already creates an index — no separate @@index([booking_code]) needed
   @@index([user_id])
@@ -308,19 +311,20 @@ model t_trx_bookings {
 }
 
 model t_trx_payments {
-  id             String         @id @default(cuid())
-  booking_id     String         @unique
-  amount         Decimal        @db.Decimal(10, 2)
-  currency       String         @default("IDR")
+  id             String           @id @default(cuid())
+  booking_id     String           @unique
+  amount         Decimal          @db.Decimal(10, 2)
+  currency       String           @default("IDR")
   provider       String
-  provider_tx_id String?        @unique
-  status         PaymentStatus  @default(PENDING)
+  provider_tx_id String?          @unique
+  status         PaymentStatus    @default(PENDING)
   payment_url    String?
   paid_at        DateTime?
-  created_at     DateTime       @default(now())
-  updated_at     DateTime       @updatedAt
-  booking        t_trx_bookings @relation(fields: [booking_id], references: [id])
+  created_at     DateTime         @default(now())
+  updated_at     DateTime         @updatedAt
+  booking        t_trx_bookings   @relation(fields: [booking_id], references: [id])
   refunds        t_trx_refunds[]
+  t_trx_disputes t_trx_disputes[]
 
   // provider_tx_id @unique already creates an index — removed redundant @@index([provider, provider_tx_id])
   @@index([status])
@@ -373,21 +377,25 @@ model t_trx_idempotency_keys {
 }
 
 model t_trx_tickets {
-  id            String         @id @default(cuid())
-  booking_id    String
-  seat_id       String
-  qr_code       String         @unique
-  is_checked_in Boolean        @default(false)
-  checked_in_at DateTime?
-  created_at    DateTime       @default(now())
-  booking       t_trx_bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade)
-  seat          t_mtr_seats    @relation(fields: [seat_id], references: [id], onDelete: Restrict)
+  id             String         @id @default(cuid())
+  booking_id     String
+  seat_id        String
+  qr_code        String         @unique
+  is_checked_in  Boolean        @default(false)
+  checked_in_at  DateTime?
+  revoked_at     DateTime?
+  revoked_reason String?
+  created_at     DateTime       @default(now())
+  booking        t_trx_bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  seat           t_mtr_seats    @relation(fields: [seat_id], references: [id], onDelete: Restrict)
+  // Index tickets by check-in and revocation state
 
   // seat_id unique: one ticket per seat (prevents double-booking at DB level)
   @@unique([seat_id])
   // qr_code @unique already creates an index — no separate @@index([qr_code]) needed
   @@index([booking_id])
   @@index([is_checked_in])
+  @@index([revoked_at])
 }
 
 /// Ticket tier configuration (multiplier + ratio for seat distribution).
@@ -410,35 +418,35 @@ model t_mtr_tax_settings {
   status      String   @default("ACTIVE")
   created_by  String?
   updated_by  String?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 }
 
 /// Refund request raised by a user against a CONFIRMED booking.
 /// Lifecycle: REQUESTED -> PROCESSING -> COMPLETED/FAILED, or REQUESTED -> REJECTED.
 /// The nominal amount is computed server-side from t_trx_refund_policies (never from client).
 model t_trx_refunds {
-  id              String        @id @default(cuid())
-  booking_id      String
-  payment_id      String
-  amount          Decimal       @db.Decimal(10, 2)
-  currency        String        @default("IDR")
-  percentage      Int
-  reason          String
-  status          RefundStatus  @default(REQUESTED)
+  id               String       @id @default(cuid())
+  booking_id       String
+  payment_id       String
+  amount           Decimal      @db.Decimal(10, 2)
+  currency         String       @default("IDR")
+  percentage       Int
+  reason           String
+  status           RefundStatus @default(REQUESTED)
   stripe_refund_id String?      @unique
-  requested_by    String
-  reviewed_by     String?
-  review_note     String?
-  failure_reason  String?
-  created_at      DateTime      @default(now())
-  updated_at      DateTime      @updatedAt
-  completed_at    DateTime?
+  requested_by     String
+  reviewed_by      String?
+  review_note      String?
+  failure_reason   String?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+  completed_at     DateTime?
 
-  booking         t_trx_bookings @relation(fields: [booking_id], references: [id])
-  payment         t_trx_payments @relation(fields: [payment_id], references: [id])
-  requester       t_mtr_users    @relation("RefundRequester", fields: [requested_by], references: [id])
-  reviewer        t_mtr_users?   @relation("RefundReviewer", fields: [reviewed_by], references: [id])
+  booking   t_trx_bookings @relation(fields: [booking_id], references: [id])
+  payment   t_trx_payments @relation(fields: [payment_id], references: [id])
+  requester t_mtr_users    @relation("RefundRequester", fields: [requested_by], references: [id])
+  reviewer  t_mtr_users?   @relation("RefundReviewer", fields: [reviewed_by], references: [id])
 
   @@index([booking_id])
   @@index([payment_id])
@@ -448,21 +456,68 @@ model t_trx_refunds {
   @@index([status, created_at])
 }
 
+model t_trx_disputes {
+  id                           String                    @id @default(cuid())
+  payment_id                   String
+  booking_id                   String
+  stripe_dispute_id            String                    @unique
+  amount                       Decimal                   @db.Decimal(10, 2)
+  currency                     String                    @default("IDR")
+  reason                       String?
+  status                       DisputeStatus             @default(OPEN)
+  evidence_due_by              DateTime?
+  evidence_submitted_at        DateTime?
+  evidence_product_description String?
+  evidence_customer_name       String?
+  evidence_customer_email      String?
+  evidence_service_date        DateTime?
+  evidence_access_activity     String?
+  evidence_uncategorized       String?
+  opened_at                    DateTime                  @default(now())
+  closed_at                    DateTime?
+  created_by                   String?
+  updated_at                   DateTime                  @updatedAt
+  payment                      t_trx_payments            @relation(fields: [payment_id], references: [id])
+  booking                      t_trx_bookings            @relation(fields: [booking_id], references: [id])
+  opened_by                    t_mtr_users?              @relation("DisputeUser", fields: [created_by], references: [id])
+  documents                    t_trx_dispute_documents[]
+
+  @@index([payment_id])
+  @@index([booking_id])
+  @@index([status, evidence_due_by])
+}
+
+model t_trx_dispute_documents {
+  id             String              @id @default(cuid())
+  dispute_id     String
+  stripe_file_id String              @unique
+  evidence_type  DisputeEvidenceType
+  original_name  String
+  mime_type      String
+  size           Int
+  uploaded_by    String
+  created_at     DateTime       @default(now())
+  dispute        t_trx_disputes @relation(fields: [dispute_id], references: [id], onDelete: Cascade)
+  uploader       t_mtr_users    @relation("DisputeDocumentUploader", fields: [uploaded_by], references: [id])
+
+  @@index([dispute_id])
+}
+
 /// Configurable refund percentage per tier. Values are editable by ADMIN via UI
 /// (no redeploy needed). The tier-MATCHING logic lives in code; only the
 /// percentage value and is_active flag are admin-configurable.
 model t_trx_refund_policies {
-  id          String    @id @default(cuid())
-  rule_code   String    @unique
-  label       String
-  percentage  Int
-  priority    Int       @default(0)
-  is_active   Boolean   @default(true)
-  updated_by  String?
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-  updater     t_mtr_users? @relation("RefundPolicyUpdater", fields: [updated_by], references: [id])
-  audit_logs  t_trx_refund_policy_audit_logs[]
+  id         String                           @id @default(cuid())
+  rule_code  String                           @unique
+  label      String
+  percentage Int
+  priority   Int                              @default(0)
+  is_active  Boolean                          @default(true)
+  updated_by String?
+  created_at DateTime                         @default(now())
+  updated_at DateTime                         @updatedAt
+  updater    t_mtr_users?                     @relation("RefundPolicyUpdater", fields: [updated_by], references: [id])
+  audit_logs t_trx_refund_policy_audit_logs[]
 
   @@index([is_active])
   @@index([priority])
@@ -478,8 +533,8 @@ model t_trx_refund_policy_audit_logs {
   changed_by String
   changed_at DateTime @default(now())
 
-  policy     t_trx_refund_policies @relation(fields: [policy_id], references: [id], onDelete: Cascade)
-  author     t_mtr_users           @relation("PolicyAuditAuthor", fields: [changed_by], references: [id])
+  policy t_trx_refund_policies @relation(fields: [policy_id], references: [id], onDelete: Cascade)
+  author t_mtr_users           @relation("PolicyAuditAuthor", fields: [changed_by], references: [id])
 
   @@index([policy_id])
   @@index([changed_by])
@@ -545,6 +600,22 @@ enum PageStatus {
 }
 
 /// Lifecycle status of a refund request (GAP-03, Fase 5).
+enum DisputeEvidenceType {
+  CUSTOMER_COMMUNICATION
+  CUSTOMER_SIGNATURE
+  RECEIPT
+  REFUND_POLICY
+  SERVICE_DOCUMENTATION
+  UNCATEGORIZED_FILE
+}
+
+enum DisputeStatus {
+  OPEN
+  WON
+  LOST
+  CLOSED
+}
+
 enum RefundStatus {
   REQUESTED
   PROCESSING

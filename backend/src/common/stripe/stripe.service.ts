@@ -108,6 +108,44 @@ export class StripeService {
     return this.stripe.checkout.sessions.list(params);
   }
 
+  retrieveDispute(id: string): Promise<Stripe.Dispute> {
+    return this.stripe.disputes.retrieve(id);
+  }
+
+  updateDispute(
+    id: string,
+    params: Stripe.DisputeUpdateParams,
+    ctx: IdempotencyContext,
+  ): Promise<Stripe.Dispute> {
+    return this.runIdempotent(
+      ctx,
+      (options) => this.stripe.disputes.update(id, params, options),
+      () => this.stripe.disputes.retrieve(id),
+    );
+  }
+
+  closeDispute(
+    id: string,
+    ctx: IdempotencyContext,
+  ): Promise<Stripe.Dispute> {
+    return this.runIdempotent(
+      ctx,
+      (options) => this.stripe.disputes.close(id, {}, options),
+      () => this.stripe.disputes.retrieve(id),
+    );
+  }
+
+  uploadDisputeEvidence(
+    params: Stripe.FileCreateParams,
+    ctx: IdempotencyContext,
+  ): Promise<Stripe.File> {
+    return this.runIdempotent(
+      ctx,
+      (options) => this.stripe.files.create(params, options),
+      (resourceId) => this.stripe.files.retrieve(resourceId),
+    );
+  }
+
   /**
    * Shared idempotency wrapper:
    *  1. Generate a deterministic key from `ctx`.

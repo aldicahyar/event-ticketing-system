@@ -1,21 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { RefundStatus } from '@prisma/client';
 import Stripe from 'stripe';
-import { IWebhookEventHandler, WebhookHandlerResult } from '../../interfaces/webhook-handler.interface';
+import {
+  IWebhookEventHandler,
+  WebhookHandlerResult,
+} from '../../interfaces/webhook-handler.interface';
 import { PrismaService } from '../../../../common/database/prisma.service';
-import { PaymentAuditService } from '../../audit/payment-audit.service';
+import { NotificationsService } from '../../../notifications/notifications.service';
 
-/**
- * Handles `refund.updated` — triggered when a refund's status changes
- * (typically: pending → succeeded, or pending → failed).
- *
- * Stripe refunds can be asynchronous — especially for bank transfers
- * or certain card types. This handler ensures the payment record
- * reflects the final refund outcome.
- *
- * Action:
- *   - If refund succeeded: ensure payment status = REFUNDED
- *   - If refund failed: revert payment to COMPLETED, log for investigation
- */
+/** Finalizes asynchronous Stripe refund outcomes. */
 @Injectable()
 export class RefundUpdatedHandler implements IWebhookEventHandler {
   private readonly logger = new Logger('Handler:RefundUpdated');
@@ -23,125 +16,186 @@ export class RefundUpdatedHandler implements IWebhookEventHandler {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly auditService: PaymentAuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async handle(event: Stripe.Event): Promise<WebhookHandlerResult> {
-    const refund = event.data.object as Stripe.Refund;
-    const refundStatus = refund.status;
+    const stripeRefund = event.data.object as Stripe.Refund;
+    const refundStatus = stripeRefund.status;
 
     this.logger.log(
-      `Refund updated: ${refund.id} | status=${refundStatus} | amount=${refund.amount}`,
+      `Refund updated: ${stripeRefund.id} | status=${refundStatus} | amount=${stripeRefund.amount}`,
     );
 
     try {
-      // Find the payment record associated with this refund's charge
-      const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
-      const paymentIntentId =
-        typeof refund.payment_intent === 'string'
-          ? refund.payment_intent
-          : refund.payment_intent?.id;
-
-      const payment = await this.prisma.t_trx_payments.findFirst({
-        where: {
-          OR: [
-            { provider_tx_id: paymentIntentId ?? 'NO_MATCH' },
-            { provider_tx_id: { contains: chargeId ?? 'NO_MATCH' } },
-          ],
+      const refund = await this.prisma.t_trx_refunds.findUnique({
+        where: { stripe_refund_id: stripeRefund.id },
+        include: {
+          requester: { select: { id: true, name: true, email: true } },
+          booking: {
+            select: {
+              id: true,
+              booking_code: true,
+              event: { select: { title: true } },
+            },
+          },
         },
-        include: { booking: { select: { id: true, user_id: true, booking_code: true } } },
       });
-
-      if (!payment) {
+      if (!refund) {
         return {
           success: true,
           skipped: true,
-          message: `No payment record for refund ${refund.id}`,
+          message: `No refund record for Stripe refund ${stripeRefund.id}`,
         };
       }
 
       if (refundStatus === 'succeeded') {
-        // Synchronize the explicit refund request created by RefundsModule.
-        // Redelivered webhooks are safe: updating COMPLETED to COMPLETED is idempotent.
-        await this.prisma.t_trx_refunds.updateMany({
-          where: { stripe_refund_id: refund.id },
-          data: { status: 'COMPLETED', completed_at: new Date(), failure_reason: null },
-        });
+        const completedAt = refund.completed_at ?? new Date();
+        const finalized = await this.prisma.$transaction(async (tx) => {
+          const updated = await tx.t_trx_refunds.updateMany({
+            where: {
+              id: refund.id,
+              status: { in: [RefundStatus.PROCESSING, RefundStatus.COMPLETED] },
+            },
+            data: {
+              status: RefundStatus.COMPLETED,
+              completed_at: completedAt,
+              failure_reason: null,
+            },
+          });
+          if (updated.count === 0) return false;
 
-        // Ensure payment is marked REFUNDED (may already be from charge.refunded)
-        if (payment.status !== 'REFUNDED') {
-          await this.prisma.t_trx_payments.update({
-            where: { id: payment.id },
+          await tx.t_trx_bookings.updateMany({
+            where: {
+              id: refund.booking_id,
+              status: { in: ['CONFIRMED', 'REFUNDED'] },
+            },
+            data: {
+              status: 'REFUNDED',
+              cancelled_at: completedAt,
+              cancelled_reason: 'Refund finalized by Stripe webhook',
+            },
+          });
+          await tx.t_trx_payments.updateMany({
+            where: { id: refund.payment_id },
             data: { status: 'REFUNDED' },
           });
+          await tx.t_mtr_seats.updateMany({
+            where: { booking_id: refund.booking_id },
+            data: { booking_id: null, status: 'AVAILABLE' },
+          });
+          await tx.t_trx_tickets.deleteMany({
+            where: { booking_id: refund.booking_id },
+          });
+          await tx.t_trx_security_logs.create({
+            data: {
+              user_id: refund.requested_by,
+              action: 'REFUND_SUCCEEDED',
+              metadata: {
+                refund_id: refund.id,
+                stripe_refund_id: stripeRefund.id,
+                payment_id: refund.payment_id,
+                booking_code: refund.booking.booking_code,
+                amount: stripeRefund.amount,
+                source: 'stripe_webhook',
+              },
+            },
+          });
+          return true;
+        });
+
+        if (!finalized) {
+          return {
+            success: true,
+            skipped: true,
+            message: `Refund ${stripeRefund.id} cannot be finalized from ${refund.status}`,
+          };
         }
 
-        await this.auditService.record(
-          payment.booking?.user_id ?? 'system',
-          'REFUND_SUCCEEDED',
-          {
-            refund_id: refund.id,
-            payment_id: payment.id,
-            booking_code: payment.booking?.booking_code,
-            amount: refund.amount,
-          },
-        );
-
+        await this.notifications.sendRefundStatus(refund.requester.email, {
+          bookingCode: refund.booking.booking_code,
+          eventName: refund.booking.event.title,
+          customerName: refund.requester.name,
+          refundAmount: Number(refund.amount),
+          currency: refund.currency,
+          status: RefundStatus.COMPLETED,
+        });
         return {
           success: true,
-          message: `Refund ${refund.id} succeeded — payment ${payment.id} confirmed REFUNDED`,
+          message: `Refund ${stripeRefund.id} finalized atomically`,
         };
       }
 
       if (refundStatus === 'failed' || refundStatus === 'canceled') {
-        await this.prisma.t_trx_refunds.updateMany({
-          where: { stripe_refund_id: refund.id },
-          data: {
-            status: 'FAILED',
-            failure_reason: refund.failure_reason ?? refundStatus,
-          },
-        });
+        const failureReason = stripeRefund.failure_reason ?? refundStatus;
+        const failed = await this.prisma.$transaction(async (tx) => {
+          const updated = await tx.t_trx_refunds.updateMany({
+            where: {
+              id: refund.id,
+              status: { in: [RefundStatus.PROCESSING, RefundStatus.FAILED] },
+            },
+            data: {
+              status: RefundStatus.FAILED,
+              completed_at: null,
+              failure_reason: failureReason,
+            },
+          });
+          if (updated.count === 0) return false;
 
-        // Refund failed — revert payment to its previous status
-        this.logger.error(
-          `Refund ${refund.id} failed/canceled — payment ${payment.id} remains COMPLETED`,
-        );
-
-        if (payment.status === 'REFUNDED') {
-          await this.prisma.t_trx_payments.update({
-            where: { id: payment.id },
+          await tx.t_trx_payments.updateMany({
+            where: { id: refund.payment_id, status: 'REFUNDED' },
             data: { status: 'COMPLETED' },
           });
+          await tx.t_trx_security_logs.create({
+            data: {
+              user_id: refund.requested_by,
+              action: 'REFUND_FAILED',
+              metadata: {
+                refund_id: refund.id,
+                stripe_refund_id: stripeRefund.id,
+                payment_id: refund.payment_id,
+                booking_code: refund.booking.booking_code,
+                failure_reason: failureReason,
+                source: 'stripe_webhook',
+              },
+            },
+          });
+          return true;
+        });
+
+        if (!failed) {
+          return {
+            success: true,
+            skipped: true,
+            message: `Refund ${stripeRefund.id} cannot fail from ${refund.status}`,
+          };
         }
 
-        await this.auditService.record(
-          payment.booking?.user_id ?? 'system',
-          'REFUND_FAILED',
-          {
-            refund_id: refund.id,
-            payment_id: payment.id,
-            booking_code: payment.booking?.booking_code,
-            failure_reason: refund.failure_reason,
-          },
-        );
-
+        await this.notifications.sendRefundStatus(refund.requester.email, {
+          bookingCode: refund.booking.booking_code,
+          eventName: refund.booking.event.title,
+          customerName: refund.requester.name,
+          refundAmount: Number(refund.amount),
+          currency: refund.currency,
+          status: RefundStatus.FAILED,
+          note: failureReason,
+        });
         return {
           success: true,
-          message: `Refund ${refund.id} ${refundStatus} — payment reverted to COMPLETED`,
+          message: `Refund ${stripeRefund.id} marked FAILED atomically`,
         };
       }
 
-      // Pending or other status — no action needed
       return {
         success: true,
         skipped: true,
-        message: `Refund ${refund.id} is ${refundStatus} — no action needed`,
+        message: `Refund ${stripeRefund.id} is ${refundStatus} - no action needed`,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return {
         success: false,
-        message: `Error processing refund.updated for ${refund.id}: ${msg}`,
+        message: `Error processing refund.updated for ${stripeRefund.id}: ${msg}`,
       };
     }
   }

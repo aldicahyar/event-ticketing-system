@@ -6,7 +6,13 @@
  */
 export interface IdempotencyContext {
   /** Stripe operation type. Determines the key prefix. */
-  operation: 'checkout' | 'refund' | 'expire';
+  operation:
+    | 'checkout'
+    | 'refund'
+    | 'expire'
+    | 'dispute_evidence'
+    | 'dispute_update'
+    | 'dispute_close';
 
   /** Business entity id: booking_id | payment_id | session_id. */
   entityId: string;

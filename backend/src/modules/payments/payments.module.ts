@@ -22,12 +22,13 @@ import { DisputeClosedHandler } from './webhook/handlers/dispute-closed.handler'
 import { AsyncPaymentSucceededHandler } from './webhook/handlers/async-payment-succeeded.handler';
 import { AsyncPaymentFailedHandler } from './webhook/handlers/async-payment-failed.handler';
 import { ConfigService } from '@nestjs/config';
+import { DisputesModule } from '../disputes/disputes.module';
 
 // Token for injecting all webhook handlers as an array
 export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
 
 @Module({
-  imports: [forwardRef(() => BookingsModule), NotificationsModule, DatabaseModule],
+  imports: [forwardRef(() => BookingsModule), DisputesModule, NotificationsModule, DatabaseModule],
   controllers: [PaymentsController],
   providers: [
     // Core payment service

@@ -10,6 +10,7 @@ import { getIcon } from '@/lib/icon-registry';
 interface DynamicSidebarItemProps {
   item: SidebarItem;
   onNavigate?: () => void;
+  mobile?: boolean;
 }
 
 /**
@@ -22,7 +23,7 @@ interface DynamicSidebarItemProps {
  *   - Auto-expand when current path is under the parent's slug
  *   - External links (is_new_tab) open in new tab
  */
-export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps) {
+export function DynamicSidebarItem({ item, onNavigate, mobile = false }: DynamicSidebarItemProps) {
   const pathname = usePathname();
   const reactId = useId();
   const groupId = `group-${reactId.replace(/[:]/g, '')}`;
@@ -38,14 +39,19 @@ export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps
   // A container menu (e.g. the RBAC group) has slug=null → href '#', so its own
   // href can never prefix-match. Fall back to the children's slugs so the group
   // still auto-expands and highlights when a child route is active.
-  const childActive =
-    hasChildren &&
-    (item.children ?? []).some(
-      (c) => c.slug && (pathname === c.slug || pathname.startsWith(c.slug + '/')),
-    );
+  const activeChild = item.children?.find(
+    (child) => child.slug && (pathname === child.slug || pathname.startsWith(child.slug + '/')),
+  );
+  const childActive = !!activeChild;
   const isPrefixActive =
     (hasChildren && href !== '#' && pathname.startsWith(href + '/')) || childActive;
   const isGroupActive = isExactActive || isPrefixActive;
+
+  const mobileItem = activeChild ?? item.children?.find((child) => child.slug) ?? item;
+  const mobileHref = mobileItem.slug ?? href;
+  const mobileExternal =
+    mobileItem.is_new_tab ||
+    (mobileHref.startsWith('http') && !!origin && !mobileHref.startsWith(origin));
 
   const [isOpen, setIsOpen] = useState(isPrefixActive);
   useEffect(() => {
@@ -53,6 +59,44 @@ export function DynamicSidebarItem({ item, onNavigate }: DynamicSidebarItemProps
   }, [isPrefixActive]);
 
   const Icon = getIcon(item.icon);
+
+  if (mobile) {
+    const mobileClassName = `flex shrink-0 items-center gap-3 whitespace-nowrap px-4 py-3 transition-colors duration-150 ease-out motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
+      isGroupActive ? 'bg-white text-black' : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white'
+    }`;
+    const content = (
+      <>
+        <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+        <span className="font-bold uppercase text-sm">{item.name}</span>
+      </>
+    );
+
+    if (mobileExternal) {
+      return (
+        <a
+          href={mobileHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onNavigate}
+          aria-current={isGroupActive ? 'page' : undefined}
+          className={mobileClassName}
+        >
+          {content}
+        </a>
+      );
+    }
+
+    return (
+      <Link
+        href={mobileHref}
+        onClick={onNavigate}
+        aria-current={isGroupActive ? 'page' : undefined}
+        className={mobileClassName}
+      >
+        {content}
+      </Link>
+    );
+  }
 
   if (!hasChildren) {
     if (isExternal) {

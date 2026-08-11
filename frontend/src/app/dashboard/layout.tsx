@@ -119,11 +119,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (sidebarLoading) {
       // Loading skeleton
       return (
-        <div className="space-y-1" aria-busy="true" aria-live="polite">
+        <div
+          className={mobile ? 'flex h-12 min-h-12 items-center gap-2' : 'space-y-1'}
+          aria-busy="true"
+          aria-live="polite"
+        >
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="px-4 py-3 flex items-center gap-3">
+            <div
+              key={i}
+              className={mobile ? 'flex shrink-0 items-center gap-3 px-4 py-3' : 'flex items-center gap-3 px-4 py-3'}
+            >
               <Skeleton variant="circle" className="w-5 h-5" />
-              <Skeleton className="h-3 flex-1" />
+              <Skeleton className={mobile ? 'h-3 w-20' : 'h-3 flex-1'} />
             </div>
           ))}
         </div>
@@ -135,7 +142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return (
         <div className={mobile ? 'flex gap-2' : 'space-y-1'}>
           {dynamicTree.map((item) => (
-            <DynamicSidebarItem key={item.code} item={item} />
+            <DynamicSidebarItem key={item.code} item={item} mobile={mobile} />
           ))}
         </div>
       );
@@ -145,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className={mobile ? 'flex gap-2' : 'space-y-1'}>
         {fallbackNav.map((item) => (
-          <SidebarItem key={`${item.href}-${item.label}`} item={item} />
+          <SidebarItem key={`${item.href}-${item.label}`} item={item} mobile={mobile} />
         ))}
       </div>
     );
@@ -196,11 +203,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Sidebar */}
           <div className="lg:col-span-1">
             {/* Mobile: horizontal tabs */}
-            <div className="flex lg:hidden overflow-x-auto gap-2 mb-6 -mx-4 px-4 scrollbar-none">
+            <div className="flex h-12 min-h-12 lg:hidden overflow-x-auto gap-2 mb-6 -mx-4 px-4 scrollbar-none">
               {renderSidebarContent(true)}
               <button
                 onClick={handleLogout}
-                className="whitespace-nowrap min-h-touch px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 border border-mono-dark-grey lg:border-0"
+                className="shrink-0 whitespace-nowrap min-h-touch px-4 py-3 text-red-500 hover:bg-red-600/10 transition-all flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 border border-mono-dark-grey lg:border-0"
               >
                 <LogOut className="w-5 h-5 shrink-0" aria-hidden="true" />
                 <span className="font-bold uppercase text-sm">Sign Out</span>

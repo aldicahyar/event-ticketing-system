@@ -27,7 +27,7 @@ const mapDbEventToFrontend = (e: any): EventItem => {
     price: Number(e.base_price),
     genre: 'Metalcore',
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=1000&auto=format&fit=crop',
-    ticketsLeft: e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 100,
+    ticketsLeft: e.available_seats ?? (e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 0),
     status: e.status === 'PUBLISHED' ? 'available' : 'selling_fast',
     venue: e.venue?.name || 'Venue'
   };

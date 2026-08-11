@@ -9,6 +9,7 @@ import type { NavItem } from '@/config/navigation';
 interface SidebarItemProps {
   item: NavItem;
   onNavigate?: () => void;
+  mobile?: boolean;
 }
 
 /**
@@ -22,16 +23,18 @@ interface SidebarItemProps {
  *   - Active state animates only colors (no layout shift)
  *   - Honors prefers-reduced-motion via motion-reduce: variant
  */
-export function SidebarItem({ item, onNavigate }: SidebarItemProps) {
+export function SidebarItem({ item, onNavigate, mobile = false }: SidebarItemProps) {
   const pathname = usePathname();
   // useId() guarantees unique IDs even when the same item renders twice
   // (mobile horizontal nav + desktop sticky sidebar).
   const reactId = useId();
   const groupId = `group-${reactId.replace(/[:]/g, '')}`;
   const hasChildren = !!item.children?.length;
+  const activeChild = item.children?.find((child) => pathname === child.href);
   const isExactActive = pathname === item.href;
   const isPrefixActive = hasChildren && pathname.startsWith(item.href + '/');
   const isGroupActive = isExactActive || isPrefixActive;
+  const mobileHref = activeChild?.href ?? item.children?.[0]?.href ?? item.href;
 
   const [isOpen, setIsOpen] = useState(isPrefixActive);
 
@@ -40,14 +43,16 @@ export function SidebarItem({ item, onNavigate }: SidebarItemProps) {
     if (isPrefixActive) setIsOpen(true);
   }, [isPrefixActive]);
 
-  if (!hasChildren) {
+  if (!hasChildren || mobile) {
     return (
       <Link
-        href={item.href}
+        href={hasChildren ? mobileHref : item.href}
         onClick={onNavigate}
-        aria-current={isExactActive ? 'page' : undefined}
+        aria-current={isGroupActive ? 'page' : undefined}
         className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 ease-out motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
-          isExactActive
+          mobile ? 'shrink-0 whitespace-nowrap ' : ''
+        }${
+          isGroupActive
             ? 'bg-white text-black'
             : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white'
         }`}

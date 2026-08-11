@@ -1,7 +1,34 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Logger, OnModuleInit, OnModuleDestroy, forwardRef, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+  forwardRef,
+  Inject,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+
+const cancelledBookingInclude = Prisma.validator<Prisma.t_trx_bookingsInclude>()({
+  event: {
+    select: {
+      id: true,
+      title: true,
+      start_date_time: true,
+      venue: { select: { name: true, city: true } },
+    },
+  },
+  seats: { orderBy: [{ row: 'asc' }, { number: 'asc' }] },
+});
+
+type CancelledBooking = Prisma.t_trx_bookingsGetPayload<{
+  include: typeof cancelledBookingInclude;
+}>;
 import { RedisService } from '../../common/redis/redis.service';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -23,8 +50,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     private readonly notificationsService: NotificationsService,
     private readonly stripeService: StripeService,
   ) {
-    this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
+    this.frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
   }
 
   onModuleInit() {
@@ -93,9 +119,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         });
       });
 
-      this.logger.log(
-        `Successfully expired ${toExpire.length} bookings and released seats.`,
-      );
+      this.logger.log(`Successfully expired ${toExpire.length} bookings and released seats.`);
     } catch (error) {
       this.logger.error('Failed to expire old bookings', error);
     }
@@ -133,7 +157,12 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  async checkout(user_id: string, event_id: string, seatIds: string[], guestInfo?: { guest_name?: string, guest_email?: string, guest_phone?: string }) {
+  async checkout(
+    user_id: string,
+    event_id: string,
+    seatIds: string[],
+    guestInfo?: { guest_name?: string; guest_email?: string; guest_phone?: string },
+  ) {
     // 1. Verify t_trx_events
     const event = await this.prisma.t_trx_events.findUnique({
       where: { id: event_id },
@@ -178,7 +207,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           if (lockedKeys.length > 0) {
             await redisClient.del(...lockedKeys);
           }
-          throw new ConflictException(`Seat is currently being booked by someone else. Please try again or select another seat.`);
+          throw new ConflictException(
+            `Seat is currently being booked by someone else. Please try again or select another seat.`,
+          );
         }
         lockedKeys.push(lockKey);
       }
@@ -190,8 +221,12 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // 4. Calculate Total Price
-      const tierSettings = await this.prisma.t_mtr_ticket_tier_settings.findMany({ where: { status: 'ACTIVE' } });
-      const taxSetting = await this.prisma.t_mtr_tax_settings.findUnique({ where: { id: 'default' } });
+      const tierSettings = await this.prisma.t_mtr_ticket_tier_settings.findMany({
+        where: { status: 'ACTIVE' },
+      });
+      const taxSetting = await this.prisma.t_mtr_tax_settings.findUnique({
+        where: { id: 'default' },
+      });
       const taxPercent = taxSetting?.status === 'ACTIVE' ? taxSetting.ppn_percent : 0;
 
       let subtotal = 0;
@@ -339,9 +374,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
             });
           });
         } catch (rollbackErr) {
-          this.logger.error(
-            `Failed to rollback booking ${booking.booking_code}: ${rollbackErr}`,
-          );
+          this.logger.error(`Failed to rollback booking ${booking.booking_code}: ${rollbackErr}`);
         }
       }
 
@@ -397,9 +430,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     const isAdmin = user.role === 'ADMIN';
 
     if (!isOwner && !isAdmin) {
-      throw new ForbiddenException(
-        'You do not have permission to cancel this booking',
-      );
+      throw new ForbiddenException('You do not have permission to cancel this booking');
     }
 
     // ── 3. Validate status — only PENDING can be cancelled ───────────
@@ -416,8 +447,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     // and this write.
     const now = new Date();
     const cancelledBy = isAdmin && !isOwner ? `admin:${user.email}` : `user:${user.email}`;
-    const cancelledReason =
-      `USER_CANCELLED | reason=${reason} | desc="${description}" | by=${cancelledBy}`;
+    const cancelledReason = `USER_CANCELLED | reason=${reason} | desc="${description}" | by=${cancelledBy}`;
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Release seats back to AVAILABLE
@@ -448,19 +478,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
       return tx.t_trx_bookings.findUnique({
         where: { id: booking.id },
-        include: {
-          event: {
-            select: {
-              id: true,
-              title: true,
-              start_date_time: true,
-              venue: { select: { name: true, city: true } },
-            },
-          },
-          seats: {
-            orderBy: [{ row: 'asc' }, { number: 'asc' }],
-          },
-        },
+        include: cancelledBookingInclude,
       });
     });
 
@@ -484,7 +502,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // ── 7. Audit log + email notification payload ────────────────────
-    await this.notifyCancellation(result!, user, reason, description, isAdmin);
+    if (!result) {
+      throw new ConflictException('Cancelled booking could not be reloaded');
+    }
+    await this.notifyCancellation(result, user, reason, description, isAdmin);
 
     return result;
   }
@@ -495,7 +516,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
    * email is the customer-facing notification.
    */
   private async notifyCancellation(
-    booking: any,
+    booking: CancelledBooking,
     cancelledBy: { id: string; email: string },
     reason: CancelReasonCode,
     description: string,
@@ -528,6 +549,36 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         cancelledAt: booking.cancelled_at?.toISOString() ?? new Date().toISOString(),
       });
     }
+  }
+
+  async checkInTicket(qrCode: string, actor: { id: string; role: string }) {
+    if (actor.role !== 'ADMIN' && actor.role !== 'ORGANIZER') {
+      throw new ForbiddenException('Only admins and organizers can check in tickets');
+    }
+
+    const ticket = await this.prisma.t_trx_tickets.findUnique({
+      where: { qr_code: qrCode },
+      include: { booking: { include: { event: true } } },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (actor.role !== 'ADMIN' && ticket.booking.event.organizer_id !== actor.id) {
+      throw new ForbiddenException('Organizer can only check in tickets for their own event');
+    }
+    if (ticket.revoked_at || ticket.booking.status === 'DISPUTED') {
+      throw new ForbiddenException('Ticket is revoked or disputed');
+    }
+    if (ticket.is_checked_in) throw new ConflictException('Ticket already checked in');
+    const updated = await this.prisma.t_trx_tickets.updateMany({
+      where: {
+        id: ticket.id,
+        is_checked_in: false,
+        revoked_at: null,
+        booking: { status: 'CONFIRMED' },
+      },
+      data: { is_checked_in: true, checked_in_at: new Date() },
+    });
+    if (updated.count !== 1) throw new ConflictException('Ticket state changed; check-in rejected');
+    return this.prisma.t_trx_tickets.findUnique({ where: { id: ticket.id } });
   }
 
   /**
@@ -638,12 +689,13 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     });
 
     const totalOrders = bookings.length;
-    const totalTickets = bookings.reduce(
-      (acc, b) => acc + (b._count?.tickets ?? 0),
-      0,
-    );
+    const totalTickets = bookings.reduce((acc, b) => acc + (b._count?.tickets ?? 0), 0);
     const totalSpent = bookings.reduce(
-      (acc, b) => acc + (b.total_price instanceof Prisma.Decimal ? Number(b.total_price) : Number(b.total_price ?? 0)),
+      (acc, b) =>
+        acc +
+        (b.total_price instanceof Prisma.Decimal
+          ? Number(b.total_price)
+          : Number(b.total_price ?? 0)),
       0,
     );
 

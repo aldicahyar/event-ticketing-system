@@ -3,7 +3,7 @@ import {
   Calendar, MapPin, Layers, Percent,
   ShieldCheck, Users, Menu as MenuIcon, Lock,
   Image as ImageIcon, FileText, LayoutTemplate,
-  CreditCard, Ticket, User, TrendingUp, RotateCcw, SlidersHorizontal,
+  CreditCard, Ticket, User, TrendingUp, RotateCcw, SlidersHorizontal, Scale,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -47,6 +47,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: 'Tier Settings', href: '/dashboard/tier-settings', icon: Layers, requiredRole: 'ADMIN' },
   { label: 'Tax Settings', href: '/dashboard/tax-settings', icon: Percent, requiredRole: 'ADMIN' },
   { label: 'Refunds', href: '/dashboard/refunds', icon: RotateCcw, requiredRole: 'ADMIN' },
+  { label: 'Disputes', href: '/dashboard/admin/disputes', icon: Scale, requiredRole: 'ADMIN' },
   { label: 'Refund Policy Settings', href: '/dashboard/admin/refund-policies', icon: SlidersHorizontal, requiredRole: 'ADMIN' },
   {
     // Mirrors the RBAC menu group seeded in prisma/seed.ts.

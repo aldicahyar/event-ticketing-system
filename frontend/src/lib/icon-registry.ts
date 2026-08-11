@@ -8,7 +8,7 @@ import {
   // Content (CMS)
   Image as ImageIcon, FileText, LayoutTemplate,
   // Fallback & admin icons
-  ChevronRight, CircleDot, FolderTree, Settings, HelpCircle,
+  ChevronRight, CircleDot, FolderTree, Settings, HelpCircle, Scale,
 } from 'lucide-react';
 
 /**
@@ -41,6 +41,7 @@ export const ICON_REGISTRY: Record<string, LucideIcon> = {
   Lock,
   FolderTree,
   Settings,
+  Scale,
 
   // User management
   Users,

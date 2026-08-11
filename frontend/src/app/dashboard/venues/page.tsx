@@ -30,9 +30,9 @@ const DEFAULT_FORM = {
   address: '',
   city: '',
   country: '',
-  capacity: 100,
-  rows: 10,
-  seatsPerRow: 10,
+  capacity: '100',
+  rows: '10',
+  seatsPerRow: '10',
   description: '',
   image_url: ''
 };
@@ -95,9 +95,9 @@ export default function VenuesManagementPage() {
       address: venue.address,
       city: venue.city,
       country: venue.country,
-      capacity: venue.capacity,
-      rows: rows,
-      seatsPerRow: seatsPerRow,
+      capacity: String(venue.capacity),
+      rows: String(rows),
+      seatsPerRow: String(seatsPerRow),
       description: venue.description || '',
       image_url: venue.image_url || ''
     });
@@ -394,7 +394,7 @@ export default function VenuesManagementPage() {
                   required
                   min="1"
                   value={formData.capacity}
-                  onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch"
                 />
               </div>
@@ -413,7 +413,7 @@ export default function VenuesManagementPage() {
                       required
                       min="1"
                       value={formData.rows}
-                      onChange={(e) => setFormData({ ...formData, rows: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, rows: e.target.value })}
                       className="w-full bg-black border border-white text-white px-3 py-2 text-sm focus:outline-none focus:border-white/50"
                     />
                   </div>
@@ -425,7 +425,7 @@ export default function VenuesManagementPage() {
                       required
                       min="1"
                       value={formData.seatsPerRow}
-                      onChange={(e) => setFormData({ ...formData, seatsPerRow: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, seatsPerRow: e.target.value })}
                       className="w-full bg-black border border-white text-white px-3 py-2 text-sm focus:outline-none focus:border-white/50"
                     />
                   </div>
