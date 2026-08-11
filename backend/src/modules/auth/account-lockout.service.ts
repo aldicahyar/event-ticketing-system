@@ -81,7 +81,11 @@ export class AccountLockoutService {
     }
 
     if (user.locked_until && user.locked_until > new Date()) {
-      return { attempts: user.failed_login_attempts, isLocked: true, locked_until: user.locked_until };
+      return {
+        attempts: user.failed_login_attempts,
+        isLocked: true,
+        locked_until: user.locked_until,
+      };
     }
 
     const newAttempts = user.failed_login_attempts + 1;

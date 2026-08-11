@@ -60,11 +60,7 @@ export class PagesController {
   @RequirePermission('PAGES', 'edit')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a page' })
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdatePageDto,
-    @CurrentUser() user: any,
-  ) {
+  async update(@Param('id') id: string, @Body() dto: UpdatePageDto, @CurrentUser() user: any) {
     const data = await this.pages.update(id, dto, user.id);
     return { data, message: 'Page updated successfully' };
   }

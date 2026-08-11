@@ -55,15 +55,12 @@ export class PaymentsController {
     summary:
       'Verify a Stripe checkout session by ID and sync the booking status (fallback for missed webhooks)',
   })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Session verified and booking synced if needed' })
-  async verifySession(
-    @Body() body: { session_id: string },
-    @CurrentUser() user: any,
-  ) {
-    const data = await this.paymentsService.verifyAndSyncStripeSession(
-      body.session_id,
-      user.id,
-    );
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Session verified and booking synced if needed',
+  })
+  async verifySession(@Body() body: { session_id: string }, @CurrentUser() user: any) {
+    const data = await this.paymentsService.verifyAndSyncStripeSession(body.session_id, user.id);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -85,14 +82,8 @@ export class PaymentsController {
     description:
       'Returns one of: confirmed | expired | pending | new_session with a checkout_url when the user can still pay.',
   })
-  async recoverSession(
-    @Body() body: { booking_id: string },
-    @CurrentUser() user: any,
-  ) {
-    const data = await this.paymentsService.recoverSession(
-      body.booking_id,
-      user.id,
-    );
+  async recoverSession(@Body() body: { booking_id: string }, @CurrentUser() user: any) {
+    const data = await this.paymentsService.recoverSession(body.booking_id, user.id);
     return {
       success: true,
       statusCode: HttpStatus.OK,

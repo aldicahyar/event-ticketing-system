@@ -9,6 +9,7 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
+import { TicketTiersEditor, TicketTierInput } from '@/components/events/TicketTiersEditor';
 
 interface Venue {
   id: string;
@@ -30,6 +31,7 @@ interface Event {
   image_url?: string;
   venue_id?: string;
   tickets_sold: number;
+  ticket_tiers?: TicketTierInput[];
   venue?: {
     name: string;
   };
@@ -52,7 +54,8 @@ const DEFAULT_FORM = {
   base_price: 150000,
   currency: DEFAULT_CURRENCY,
   status: 'DRAFT',
-  image_url: ''
+  image_url: '',
+  ticket_tiers: [] as TicketTierInput[]
 };
 
 // Helper untuk format waktu local ISO YYYY-MM-DDTHH:MM
@@ -203,7 +206,12 @@ export default function EventsManagementPage() {
       base_price: event.base_price,
       currency: event.currency || DEFAULT_CURRENCY,
       status: event.status,
-      image_url: event.image_url || ''
+      image_url: event.image_url || '',
+      ticket_tiers: event.ticket_tiers ? event.ticket_tiers.map(t => ({
+        ...t,
+        start_date_time: toDatetimeLocal(t.start_date_time),
+        end_date_time: toDatetimeLocal(t.end_date_time)
+      })) : []
     });
     setActiveView('edit');
   };
@@ -229,7 +237,17 @@ export default function EventsManagementPage() {
       base_price: Number(formData.base_price),
       currency: formData.currency,
       status: formData.status,
-      image_url: formData.image_url || undefined
+      image_url: formData.image_url || undefined,
+      ticket_tiers: formData.ticket_tiers && formData.ticket_tiers.length > 0 
+        ? formData.ticket_tiers.map(t => ({
+            ...t,
+            id: t.id || undefined, // undefined for new tiers during update
+            price: Number(t.price),
+            stock: Number(t.stock),
+            start_date_time: new Date(t.start_date_time).toISOString(),
+            end_date_time: new Date(t.end_date_time).toISOString()
+          }))
+        : undefined
     };
 
     try {
@@ -538,8 +556,8 @@ export default function EventsManagementPage() {
                     type="number"
                     required
                     min="0"
-                    value={formData.base_price}
-                    onChange={(e) => setFormData({ ...formData, base_price: Number(e.target.value) })}
+                    value={formData.base_price === 0 ? '' : formData.base_price}
+                    onChange={(e) => setFormData({ ...formData, base_price: e.target.value === '' ? 0 : Number(e.target.value) })}
                     className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                   />
                 </div>
@@ -647,6 +665,18 @@ export default function EventsManagementPage() {
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch font-mono"
                 />
               </div>
+            </div>
+
+            {/* Custom Ticket Tiers Editor */}
+            <div className="border-t border-mono-dark-grey pt-6">
+              <TicketTiersEditor
+                tiers={formData.ticket_tiers || []}
+                onChange={(updatedTiers) => setFormData({ ...formData, ticket_tiers: updatedTiers })}
+                currency={formData.currency}
+                maxTiers={10}
+                defaultSalesStart={formData.start_date_time}
+                defaultSalesEnd={formData.end_date_time}
+              />
             </div>
 
             <div className="flex justify-end gap-4">

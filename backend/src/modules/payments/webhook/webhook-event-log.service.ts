@@ -39,10 +39,7 @@ export class WebhookEventLogService {
 
       // If the event was already processed or skipped, it's a true duplicate.
       // If status is RECEIVED (crashed mid-processing), we allow reprocessing.
-      return (
-        existing.status === 'PROCESSED' ||
-        existing.status === 'SKIPPED'
-      );
+      return existing.status === 'PROCESSED' || existing.status === 'SKIPPED';
     } catch (err) {
       // If we can't check for duplicates, assume it's NOT a duplicate
       // to avoid missing critical events. Log the error for investigation.
@@ -58,11 +55,7 @@ export class WebhookEventLogService {
    * Called before the handler runs — ensures we have a record even if
    * processing crashes.
    */
-  async logReceived(
-    stripeEventId: string,
-    eventType: string,
-    payload: unknown,
-  ): Promise<void> {
+  async logReceived(stripeEventId: string, eventType: string, payload: unknown): Promise<void> {
     try {
       await this.prisma.t_trx_webhook_events.create({
         data: {

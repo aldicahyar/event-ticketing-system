@@ -54,13 +54,43 @@ const mapDbSeatToFrontend = (s: any): Seat => {
     number: s.number,
     section: `Section ${s.row}`,
     status: s.status.toLowerCase() as Seat['status'],
-    tier: s.type
+    tier: s.tier_id || s.type
   };
 };
 
-const computeTiersFromSeats = (seats: any[]): TicketTier[] => {
+const computeTiersFromData = (eventData: any): TicketTier[] => {
+  if (eventData.ticket_tiers && eventData.ticket_tiers.length > 0) {
+    return eventData.ticket_tiers.map((t: any) => {
+      const availableCount = (eventData.seats || []).filter(
+        (s: any) => s.tier_id === t.id && s.status === 'AVAILABLE'
+      ).length;
+
+      let features: string[] = ['Standard entry'];
+      let description = t.description || 'General admission ticket';
+      
+      const lowerName = t.name.toLowerCase();
+      if (lowerName.includes('vip')) {
+        features = ['Front row access', 'Dedicated entrance', 'VIP lounge', 'Event program'];
+      } else if (lowerName.includes('premium') || lowerName.includes('presale')) {
+        features = ['Best views', 'Early entry', 'Dedicated entrance'];
+      } else {
+        features = ['Standard entry', 'Standard seating'];
+      }
+
+      return {
+        id: t.id,
+        name: t.name,
+        price: Number(t.price),
+        description,
+        available: availableCount,
+        features
+      };
+    });
+  }
+
+  const seats = eventData.seats || [];
   const tierMap = new Map<string, { price: number; available: number }>();
-  seats.forEach(s => {
+  seats.forEach((s: any) => {
     const type = s.type; // VIP, PREMIUM, REGULAR
     const price = Number(s.price);
     const isAvailable = s.status === 'AVAILABLE';
@@ -139,7 +169,7 @@ export default function EventDetailPage() {
         }
 
         if (eventData) {
-          const computedTiers = computeTiersFromSeats(eventData.seats || []);
+          const computedTiers = computeTiersFromData(eventData);
           const frontEvent: Event = {
             id: eventData.id,
             artist: eventData.title?.toUpperCase() || '',

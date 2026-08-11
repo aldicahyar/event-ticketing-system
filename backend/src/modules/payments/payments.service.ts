@@ -77,9 +77,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     this.stripe = this.stripeService.client;
 
     // Fix #4: frontend URL from config with fallback for local dev
-    this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ??
-      'http://localhost:3001';
+    this.frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
   }
 
   onModuleInit() {
@@ -102,9 +100,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   // ── Helper: resolve the PaymentIntent id (pi_...) from a Checkout Session.
   // `session.payment_intent` is a string by default, or an expanded object.
   // We store the PI id (not the cs_... session id) so Stripe refunds resolve.
-  private resolvePaymentIntentId(
-    session: Stripe.Checkout.Session,
-  ): string | null {
+  private resolvePaymentIntentId(session: Stripe.Checkout.Session): string | null {
     const pi = session.payment_intent;
     if (typeof pi === 'string') return pi;
     return (pi as Stripe.PaymentIntent | null)?.id ?? null;
@@ -193,10 +189,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
    */
   // Fix #8: explicit return type annotation
   // Fix #15: return type is now a consistent interface (RecoverSessionResult)
-  async recoverSession(
-    booking_id: string,
-    user_id: string,
-  ): Promise<RecoverSessionResult> {
+  async recoverSession(booking_id: string, user_id: string): Promise<RecoverSessionResult> {
     const booking = await this.prisma.t_trx_bookings.findFirst({
       where: { id: booking_id, user_id },
       include: { event: true },
@@ -236,9 +229,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     let session: Stripe.Checkout.Session | null = null;
     if (booking.stripe_session_id) {
       try {
-        session = await this.stripe.checkout.sessions.retrieve(
-          booking.stripe_session_id,
-        );
+        session = await this.stripe.checkout.sessions.retrieve(booking.stripe_session_id);
       } catch (err: unknown) {
         this.logger.warn(
           `recoverSession: failed to retrieve session ${booking.stripe_session_id}: ${this.getErrorMessage(err)}`,
@@ -297,9 +288,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Create a fresh Stripe session for the same booking.
-    const newSession = await this.createFreshCheckoutSession(
-      booking as BookingWithEvent,
-    );
+    const newSession = await this.createFreshCheckoutSession(booking as BookingWithEvent);
     return {
       status: 'new_session',
       booking_id: booking.id,
@@ -350,9 +339,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     for (const b of candidates) {
       // Fast guard: if the reservation window already lapsed, skip without
       // hitting the Stripe API. The expiry cron will mark it EXPIRED shortly.
-      const windowLapsed = b.expires_at
-        ? new Date(b.expires_at).getTime() < Date.now()
-        : false;
+      const windowLapsed = b.expires_at ? new Date(b.expires_at).getTime() < Date.now() : false;
       if (windowLapsed) continue;
 
       try {
@@ -413,10 +400,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       : nowSec + 15 * 60;
     const minStripeExpiry = nowSec + 30 * 60; // Stripe minimum: 30 min
     const maxStripeExpiry = nowSec + 24 * 60 * 60; // Stripe maximum: 24 h
-    const expiresAtSec = Math.min(
-      Math.max(bookingExpirySec, minStripeExpiry),
-      maxStripeExpiry,
-    );
+    const expiresAtSec = Math.min(Math.max(bookingExpirySec, minStripeExpiry), maxStripeExpiry);
 
     // Fix #15 (validation): ensure total_price is a valid positive number
     const unitAmount = Math.round(Number(booking.total_price) * 100);
@@ -515,9 +499,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       for (const b of pending) {
         if (!b.stripe_session_id) continue;
         try {
-          const session = await this.stripe.checkout.sessions.retrieve(
-            b.stripe_session_id,
-          );
+          const session = await this.stripe.checkout.sessions.retrieve(b.stripe_session_id);
           if (session.payment_status === 'paid') {
             this.logger.log(
               `pollPendingBookings: session ${session.id} for booking ${b.booking_code} is paid — syncing`,
@@ -558,17 +540,12 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           starting_after: startingAfter,
         });
         for (const s of page.data) {
-          if (
-            s.client_reference_id === booking_id &&
-            s.payment_status === 'paid'
-          ) {
+          if (s.client_reference_id === booking_id && s.payment_status === 'paid') {
             return true;
           }
         }
         hasMore = page.has_more;
-        startingAfter = page.data.length > 0
-          ? page.data[page.data.length - 1].id
-          : undefined;
+        startingAfter = page.data.length > 0 ? page.data[page.data.length - 1].id : undefined;
       }
       return false;
     } catch (err: unknown) {
@@ -588,14 +565,9 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
    * API call fails, the cancellation still proceeds (the DB status change is
    * the source of truth). Any error is logged and swallowed.
    */
-  async expireStripeSession(
-    stripe_session_id: string,
-    booking_code: string,
-  ): Promise<void> {
+  async expireStripeSession(stripe_session_id: string, booking_code: string): Promise<void> {
     try {
-      const session = await this.stripe.checkout.sessions.retrieve(
-        stripe_session_id,
-      );
+      const session = await this.stripe.checkout.sessions.retrieve(stripe_session_id);
 
       // Only expire sessions that are still open (user could still pay).
       if (session.status === 'open') {
@@ -619,9 +591,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   // Made public so webhook handlers (CheckoutCompletedHandler,
   // AsyncPaymentSucceededHandler) can delegate to this method.
-  async processSuccessfulPayment(
-    session: Stripe.Checkout.Session,
-  ): Promise<PaymentOutcome> {
+  async processSuccessfulPayment(session: Stripe.Checkout.Session): Promise<PaymentOutcome> {
     const booking_id = session.client_reference_id;
     if (!booking_id) {
       this.logger.error('No client_reference_id found in checkout session');
@@ -655,9 +625,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     const outerIsExpired =
       booking.status === 'EXPIRED' ||
       booking.status === 'CANCELLED' ||
-      (booking.expires_at
-        ? new Date(booking.expires_at).getTime() < Date.now()
-        : false);
+      (booking.expires_at ? new Date(booking.expires_at).getTime() < Date.now() : false);
 
     if (outerIsExpired) {
       this.logger.warn(
@@ -665,11 +633,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           `(status=${booking.status}, expires_at=${booking.expires_at?.toISOString()}). ` +
           `Initiating automatic refund.`,
       );
-      await this.handlePaymentAfterExpiry(
-        session,
-        booking as BookingWithSeats,
-        amountPaid,
-      );
+      await this.handlePaymentAfterExpiry(session, booking as BookingWithSeats, amountPaid);
       return 'late';
     }
 
@@ -828,11 +792,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       // The booking expired during processing (race condition).
       // Refund the customer. handlePaymentAfterExpiry is idempotent — it
       // checks for an existing payment record before creating one.
-      await this.handlePaymentAfterExpiry(
-        session,
-        booking as BookingWithSeats,
-        amountPaid,
-      );
+      await this.handlePaymentAfterExpiry(session, booking as BookingWithSeats, amountPaid);
       return 'late';
     }
 
@@ -875,9 +835,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     // reconciliation, compliance audits, and debugging edge cases.
     const auditTime = new Date();
     const expiryTime = booking.expires_at ?? null;
-    const delayMs = expiryTime
-      ? auditTime.getTime() - new Date(expiryTime).getTime()
-      : null;
+    const delayMs = expiryTime ? auditTime.getTime() - new Date(expiryTime).getTime() : null;
 
     this.logger.warn(
       `[AUDIT] LATE_PAYMENT_DETECTED | booking=${booking.booking_code} | ` +

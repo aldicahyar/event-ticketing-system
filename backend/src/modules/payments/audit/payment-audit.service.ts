@@ -26,11 +26,7 @@ export class PaymentAuditService {
    * @param action  Machine-readable action code (e.g. 'REFUND_PROCESSED')
    * @param metadata  Structured details (amount, reason, booking_id, etc.)
    */
-  async record(
-    userId: string,
-    action: string,
-    metadata: Record<string, unknown>,
-  ): Promise<void> {
+  async record(userId: string, action: string, metadata: Record<string, unknown>): Promise<void> {
     try {
       await this.prisma.t_trx_security_logs.create({
         data: {
@@ -50,10 +46,7 @@ export class PaymentAuditService {
    * Record a system-initiated payment action (no specific user).
    * Used for automated processes like auto-refunds and webhook-triggered actions.
    */
-  async recordSystemAction(
-    action: string,
-    metadata: Record<string, unknown>,
-  ): Promise<void> {
+  async recordSystemAction(action: string, metadata: Record<string, unknown>): Promise<void> {
     try {
       await this.prisma.t_trx_security_logs.create({
         data: {
@@ -65,9 +58,7 @@ export class PaymentAuditService {
         },
       });
     } catch (err) {
-      this.logger.error(
-        `Failed to record system audit [${action}]: ${this.getErrorMessage(err)}`,
-      );
+      this.logger.error(`Failed to record system audit [${action}]: ${this.getErrorMessage(err)}`);
     }
   }
 

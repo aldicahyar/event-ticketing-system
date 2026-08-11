@@ -11,8 +11,7 @@ export const REFUND_RULE_CODES = {
   TIER_LT_24H: 'TIER_LT_24H',
 } as const;
 
-export type RefundRuleCode =
-  (typeof REFUND_RULE_CODES)[keyof typeof REFUND_RULE_CODES];
+export type RefundRuleCode = (typeof REFUND_RULE_CODES)[keyof typeof REFUND_RULE_CODES];
 
 /** Default seed values — admin can change these at runtime via the UI. */
 export const DEFAULT_REFUND_POLICIES: ReadonlyArray<{
@@ -21,10 +20,25 @@ export const DEFAULT_REFUND_POLICIES: ReadonlyArray<{
   percentage: number;
   priority: number;
 }> = [
-  { rule_code: 'EVENT_CANCELLED', label: 'Event cancelled by organizer', percentage: 100, priority: 0 },
-  { rule_code: 'TIER_GT_7D', label: 'More than 7 days before event', percentage: 100, priority: 10 },
+  {
+    rule_code: 'EVENT_CANCELLED',
+    label: 'Event cancelled by organizer',
+    percentage: 100,
+    priority: 0,
+  },
+  {
+    rule_code: 'TIER_GT_7D',
+    label: 'More than 7 days before event',
+    percentage: 100,
+    priority: 10,
+  },
   { rule_code: 'TIER_1_7D', label: '1 to 7 days before event', percentage: 50, priority: 20 },
-  { rule_code: 'TIER_LT_24H', label: 'Less than 24 hours / event passed', percentage: 0, priority: 30 },
+  {
+    rule_code: 'TIER_LT_24H',
+    label: 'Less than 24 hours / event passed',
+    percentage: 0,
+    priority: 30,
+  },
 ];
 
 /** Time-window boundaries (milliseconds) for tier evaluation. */

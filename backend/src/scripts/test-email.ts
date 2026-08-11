@@ -156,8 +156,15 @@ async function main(): Promise<void> {
   {
     const content = buildPaymentSuccessEmail(paymentSuccessData);
     const result = await sendTestEmail(
-      transporter, fromAddress, smtpUser, recipient,
-      'PAYMENT_SUCCESS', content.subject, content.html, content.text, antiSpamHeaders,
+      transporter,
+      fromAddress,
+      smtpUser,
+      recipient,
+      'PAYMENT_SUCCESS',
+      content.subject,
+      content.html,
+      content.text,
+      antiSpamHeaders,
     );
     logResult(result);
     results.push(result);
@@ -171,8 +178,15 @@ async function main(): Promise<void> {
   {
     const content = buildPaymentRefundedEmail(paymentRefundedData);
     const result = await sendTestEmail(
-      transporter, fromAddress, smtpUser, recipient,
-      'PAYMENT_REFUNDED', content.subject, content.html, content.text, antiSpamHeaders,
+      transporter,
+      fromAddress,
+      smtpUser,
+      recipient,
+      'PAYMENT_REFUNDED',
+      content.subject,
+      content.html,
+      content.text,
+      antiSpamHeaders,
     );
     logResult(result);
     results.push(result);
@@ -185,8 +199,15 @@ async function main(): Promise<void> {
   {
     const content = buildBookingCancelledEmail(bookingCancelledData);
     const result = await sendTestEmail(
-      transporter, fromAddress, smtpUser, recipient,
-      'BOOKING_CANCELLED', content.subject, content.html, content.text, antiSpamHeaders,
+      transporter,
+      fromAddress,
+      smtpUser,
+      recipient,
+      'BOOKING_CANCELLED',
+      content.subject,
+      content.html,
+      content.text,
+      antiSpamHeaders,
     );
     logResult(result);
     results.push(result);

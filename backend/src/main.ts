@@ -19,7 +19,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app: any = await NestFactory.create(AppModule, new FastifyAdapter() as any, { rawBody: true });
+  const app: any = await NestFactory.create(AppModule, new FastifyAdapter() as any, {
+    rawBody: true,
+  });
 
   const configService: ConfigService = app.get(ConfigService);
   const port = configService.get('PORT', 3000);
@@ -60,7 +62,9 @@ async function bootstrap() {
   // used by LocalStorageService (default "/uploads").
   const uploadDir = configService.get<string>('UPLOAD_DIR') || join(process.cwd(), 'uploads');
   const uploadPrefix =
-    '/' + (configService.get<string>('UPLOAD_URL_PREFIX') || '/uploads').replace(/^\/+|\/+$/g, '') + '/';
+    '/' +
+    (configService.get<string>('UPLOAD_URL_PREFIX') || '/uploads').replace(/^\/+|\/+$/g, '') +
+    '/';
   // @fastify/static requires the root to exist at registration time.
   mkdirSync(uploadDir, { recursive: true });
   await app.register(fastifyStatic, {

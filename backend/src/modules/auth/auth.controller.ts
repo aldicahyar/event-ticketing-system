@@ -216,7 +216,7 @@ export class AuthController {
     description: 'Invalid input',
   })
   async updateProfile(
-    @Body() dto: { name?: string, phone?: string, date_of_birth?: string, gender?: string },
+    @Body() dto: { name?: string; phone?: string; date_of_birth?: string; gender?: string },
     @CurrentUser() user: any,
   ) {
     const data = await this.authService.updateProfile(user.id, dto);

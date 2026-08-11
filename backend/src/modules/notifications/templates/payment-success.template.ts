@@ -29,12 +29,18 @@ function formatDate(isoDate: string | null): string | null {
  * Design: responsive, professional, works on all major email clients.
  * Uses table-based layout for maximum email client compatibility.
  */
-export function buildPaymentSuccessEmail(
-  data: PaymentSuccessEmailData,
-): EmailContent {
+export function buildPaymentSuccessEmail(data: PaymentSuccessEmailData): EmailContent {
   const {
-    bookingCode, eventName, customerName, totalAmount, currency,
-    seats, eventDate, venueName, venueCity, ticketUrl,
+    bookingCode,
+    eventName,
+    customerName,
+    totalAmount,
+    currency,
+    seats,
+    eventDate,
+    venueName,
+    venueCity,
+    ticketUrl,
   } = data;
 
   const seatList = seats.length > 0 ? seats.join(', ') : 'General Admission';
@@ -42,7 +48,9 @@ export function buildPaymentSuccessEmail(
   const formattedDate = formatDate(eventDate);
   const venueLocation = [venueName, venueCity].filter(Boolean).join(', ');
   const bookingDate = new Date().toLocaleDateString('en-US', {
-    year: 'numeric', month: 'long', day: 'numeric',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
 
   const subject = `Ticket Confirmed — ${eventName}`;
@@ -65,7 +73,9 @@ export function buildPaymentSuccessEmail(
     `Thank you for your purchase!`,
     ``,
     `EventTix Team`,
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">

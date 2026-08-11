@@ -8,14 +8,17 @@ import {
   Min,
   MinLength,
   MaxLength,
+  ValidateNested,
+  IsArray,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EventStatus } from '@prisma/client';
 import {
   SUPPORTED_CURRENCIES,
   type SupportedCurrency,
 } from '../../../common/constants/currency.constants';
+import { CreateTicketTierDto } from './create-ticket-tier.dto';
 
 export class CreateEventDto {
   @ApiProperty({ example: 'BMTH Concert Live in Jakarta' })
@@ -34,7 +37,10 @@ export class CreateEventDto {
   @MinLength(10)
   description: string;
 
-  @ApiProperty({ example: 'cmqotgog30005advvy6o3hauf', description: 'ID of the venue hosting the event' })
+  @ApiProperty({
+    example: 'cmqotgog30005advvy6o3hauf',
+    description: 'ID of the venue hosting the event',
+  })
   @IsString()
   venue_id: string;
 
@@ -57,9 +63,7 @@ export class CreateEventDto {
 
   @ApiProperty({ example: 'IDR', default: 'IDR', enum: SUPPORTED_CURRENCIES })
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toUpperCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsIn(SUPPORTED_CURRENCIES, { message: 'Only IDR is currently supported' })
   currency?: SupportedCurrency;
 
@@ -72,4 +76,11 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   image_url?: string;
+
+  @ApiPropertyOptional({ type: [CreateTicketTierDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateTicketTierDto)
+  ticket_tiers?: CreateTicketTierDto[];
 }

@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { StorageService, StorageInput } from '../../common/storage/storage.service';
@@ -33,10 +28,7 @@ export class MediaService {
    * If the DB write fails after the file is stored, the orphan file is removed
    * so storage and DB stay consistent.
    */
-  async upload(
-    file: StorageInput & { folder?: string },
-    uploaded_by?: string,
-  ) {
+  async upload(file: StorageInput & { folder?: string }, uploaded_by?: string) {
     if (!ALLOWED_MIME.has(file.mime_type)) {
       throw new BadRequestException(
         `Unsupported file type '${file.mime_type}'. Allowed: ${[...ALLOWED_MIME].join(', ')}`,

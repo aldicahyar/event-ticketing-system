@@ -9,11 +9,7 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../common/database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
-import {
-  ListUsersQueryDto,
-  CreateUserDto,
-  UpdateUserDto,
-} from './dto/user-admin.dto';
+import { ListUsersQueryDto, CreateUserDto, UpdateUserDto } from './dto/user-admin.dto';
 
 const SALT_ROUNDS = 12;
 
@@ -106,19 +102,18 @@ export class UsersService {
    */
   async getStats() {
     const now = new Date();
-    const [total, active, inactive, unverified, locked, roles] =
-      await this.prisma.$transaction([
-        this.prisma.t_mtr_users.count(),
-        this.prisma.t_mtr_users.count({ where: { is_active: true } }),
-        this.prisma.t_mtr_users.count({ where: { is_active: false } }),
-        this.prisma.t_mtr_users.count({ where: { email_verified: false } }),
-        this.prisma.t_mtr_users.count({ where: { locked_until: { gt: now } } }),
-        this.prisma.t_mtr_roles.findMany({
-          where: { is_active: true },
-          select: { code: true, _count: { select: { users: true } } },
-          orderBy: { sort_order: 'asc' },
-        }),
-      ]);
+    const [total, active, inactive, unverified, locked, roles] = await this.prisma.$transaction([
+      this.prisma.t_mtr_users.count(),
+      this.prisma.t_mtr_users.count({ where: { is_active: true } }),
+      this.prisma.t_mtr_users.count({ where: { is_active: false } }),
+      this.prisma.t_mtr_users.count({ where: { email_verified: false } }),
+      this.prisma.t_mtr_users.count({ where: { locked_until: { gt: now } } }),
+      this.prisma.t_mtr_roles.findMany({
+        where: { is_active: true },
+        select: { code: true, _count: { select: { users: true } } },
+        orderBy: { sort_order: 'asc' },
+      }),
+    ]);
 
     return {
       total,

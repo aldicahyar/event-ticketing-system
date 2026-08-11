@@ -687,7 +687,10 @@ export class AuthService {
   }
 
   // t_mtr_users: update own profile (currently supports name, phone, date_of_birth, gender)
-  async updateProfile(user_id: string, updates: { name?: string, phone?: string, date_of_birth?: string, gender?: string }) {
+  async updateProfile(
+    user_id: string,
+    updates: { name?: string; phone?: string; date_of_birth?: string; gender?: string },
+  ) {
     const data: { name?: string } = {};
     if (typeof updates.name === 'string' && updates.name.trim().length >= 2) {
       data.name = updates.name.trim();
@@ -703,7 +706,8 @@ export class AuthService {
     const profileData: any = {};
     if (updates.phone !== undefined) profileData.phone = updates.phone;
     if (updates.gender !== undefined) profileData.gender = updates.gender;
-    if (updates.date_of_birth !== undefined) profileData.date_of_birth = updates.date_of_birth ? new Date(updates.date_of_birth) : null;
+    if (updates.date_of_birth !== undefined)
+      profileData.date_of_birth = updates.date_of_birth ? new Date(updates.date_of_birth) : null;
 
     if (Object.keys(profileData).length > 0) {
       await this.prisma.t_mtr_user_profiles.upsert({

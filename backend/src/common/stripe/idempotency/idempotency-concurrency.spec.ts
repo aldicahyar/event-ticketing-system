@@ -55,13 +55,7 @@ function createInMemoryKeyTable() {
         return rows.get(where.idempotency_key) ?? null;
       }),
       updateMany: jest.fn(
-        async ({
-          where,
-          data,
-        }: {
-          where: { idempotency_key: string };
-          data: Partial<KeyRow>;
-        }) => {
+        async ({ where, data }: { where: { idempotency_key: string }; data: Partial<KeyRow> }) => {
           const row = rows.get(where.idempotency_key);
           if (!row) return { count: 0 };
           rows.set(where.idempotency_key, { ...row, ...data });
@@ -103,26 +97,20 @@ describe('Idempotency load verification (GAP-05 M6)', () => {
   beforeEach(() => {
     db = createInMemoryKeyTable();
     store = new IdempotencyStoreService(db as any, createConfigMock());
-    stripeService = new StripeService(
-      createConfigMock(),
-      new IdempotencyKeyService(),
-      store,
-    );
+    stripeService = new StripeService(createConfigMock(), new IdempotencyKeyService(), store);
 
     let sessionCounter = 0;
-    createSession = jest
-      .spyOn(stripeService.client.checkout.sessions, 'create')
-      .mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            // Keep the winning request IN_FLIGHT long enough for the rest of
-            // the burst to hit the guard, as a real Stripe round-trip would.
-            setTimeout(
-              () => resolve({ id: `cs_load_${++sessionCounter}` } as any),
-              STRIPE_LATENCY_MS,
-            );
-          }) as any,
-      );
+    createSession = jest.spyOn(stripeService.client.checkout.sessions, 'create').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          // Keep the winning request IN_FLIGHT long enough for the rest of
+          // the burst to hit the guard, as a real Stripe round-trip would.
+          setTimeout(
+            () => resolve({ id: `cs_load_${++sessionCounter}` } as any),
+            STRIPE_LATENCY_MS,
+          );
+        }) as any,
+    );
 
     jest
       .spyOn(stripeService.client.checkout.sessions, 'retrieve')
@@ -143,9 +131,7 @@ describe('Idempotency load verification (GAP-05 M6)', () => {
     expect(createSession).toHaveBeenCalledTimes(1);
 
     const fulfilled = results.filter((r) => r.status === 'fulfilled');
-    const rejected = results.filter(
-      (r): r is PromiseRejectedResult => r.status === 'rejected',
-    );
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
 
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(PARALLEL_REQUESTS - 1);
@@ -160,10 +146,7 @@ describe('Idempotency load verification (GAP-05 M6)', () => {
   });
 
   it('replays the same session for retries arriving after completion', async () => {
-    const first = await stripeService.createCheckoutSession(
-      {} as any,
-      checkoutContext(),
-    );
+    const first = await stripeService.createCheckoutSession({} as any, checkoutContext());
 
     const retries = await Promise.all(
       Array.from({ length: 10 }, () =>

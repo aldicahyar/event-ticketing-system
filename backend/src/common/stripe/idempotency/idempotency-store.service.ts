@@ -79,9 +79,7 @@ export class IdempotencyStoreService implements OnModuleInit, OnModuleDestroy {
       }
       return count;
     } catch (err) {
-      this.logger.error(
-        `cleanupExpired: purge failed: ${this.getErrorMessage(err)}`,
-      );
+      this.logger.error(`cleanupExpired: purge failed: ${this.getErrorMessage(err)}`);
       return 0;
     }
   }
@@ -117,9 +115,7 @@ export class IdempotencyStoreService implements OnModuleInit, OnModuleDestroy {
       }
       // Fail-open: if we cannot record the key, still allow the operation.
       // Stripe's own Idempotency-Key header remains the safety net.
-      this.logger.warn(
-        `reserve: could not persist key ${key}: ${this.getErrorMessage(err)}`,
-      );
+      this.logger.warn(`reserve: could not persist key ${key}: ${this.getErrorMessage(err)}`);
       return null;
     }
   }
@@ -155,9 +151,7 @@ export class IdempotencyStoreService implements OnModuleInit, OnModuleDestroy {
         },
       });
     } catch (err) {
-      this.logger.error(
-        `fail: failed to mark key ${key} FAILED: ${this.getErrorMessage(err)}`,
-      );
+      this.logger.error(`fail: failed to mark key ${key} FAILED: ${this.getErrorMessage(err)}`);
     }
   }
 
@@ -197,10 +191,7 @@ export class IdempotencyStoreService implements OnModuleInit, OnModuleDestroy {
   }
 
   private isUniqueViolation(err: unknown): boolean {
-    return (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2002'
-    );
+    return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
   }
 
   private getErrorMessage(err: unknown): string {

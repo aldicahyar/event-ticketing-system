@@ -6,14 +6,19 @@ import { EmailContent, BookingCancelledEmailData } from '../interfaces/email-tem
  * Sent when a user or admin cancels a PENDING booking. Confirms that
  * seats have been released and no payment was processed.
  */
-export function buildBookingCancelledEmail(
-  data: BookingCancelledEmailData,
-): EmailContent {
-  const { bookingCode, eventName, customerName, reason, description, cancelledByAdmin, adminEmail, cancelledAt } = data;
+export function buildBookingCancelledEmail(data: BookingCancelledEmailData): EmailContent {
+  const {
+    bookingCode,
+    eventName,
+    customerName,
+    reason,
+    description,
+    cancelledByAdmin,
+    adminEmail,
+    cancelledAt,
+  } = data;
 
-  const cancelledBy = cancelledByAdmin
-    ? `an administrator (${adminEmail ?? 'admin'})`
-    : 'you';
+  const cancelledBy = cancelledByAdmin ? `an administrator (${adminEmail ?? 'admin'})` : 'you';
 
   const subject = `Booking Cancelled — ${eventName}`;
 

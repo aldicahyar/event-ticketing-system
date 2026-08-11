@@ -32,9 +32,7 @@ export class StripeService {
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!secretKey) {
-      throw new Error(
-        'STRIPE_SECRET_KEY is required to initialise the Stripe client',
-      );
+      throw new Error('STRIPE_SECRET_KEY is required to initialise the Stripe client');
     }
     const apiVersion = (this.configService.get<string>('STRIPE_API_VERSION') ??
       '2023-10-16') as Stripe.LatestApiVersion;
@@ -62,8 +60,9 @@ export class StripeService {
     params: Stripe.Checkout.SessionCreateParams,
     ctx: IdempotencyContext,
   ): Promise<Stripe.Checkout.Session> {
-    return this.runIdempotent(ctx, (options) =>
-      this.stripe.checkout.sessions.create(params, options),
+    return this.runIdempotent(
+      ctx,
+      (options) => this.stripe.checkout.sessions.create(params, options),
       (resourceId) => this.stripe.checkout.sessions.retrieve(resourceId),
     );
   }
@@ -76,8 +75,9 @@ export class StripeService {
     params: Stripe.RefundCreateParams,
     ctx: IdempotencyContext,
   ): Promise<Stripe.Refund> {
-    return this.runIdempotent(ctx, (options) =>
-      this.stripe.refunds.create(params, options),
+    return this.runIdempotent(
+      ctx,
+      (options) => this.stripe.refunds.create(params, options),
       (resourceId) => this.stripe.refunds.retrieve(resourceId),
     );
   }
@@ -87,8 +87,9 @@ export class StripeService {
     sessionId: string,
     ctx: IdempotencyContext,
   ): Promise<Stripe.Checkout.Session> {
-    return this.runIdempotent(ctx, (options) =>
-      this.stripe.checkout.sessions.expire(sessionId, options),
+    return this.runIdempotent(
+      ctx,
+      (options) => this.stripe.checkout.sessions.expire(sessionId, options),
       (resourceId) => this.stripe.checkout.sessions.retrieve(resourceId),
     );
   }
@@ -124,10 +125,7 @@ export class StripeService {
     );
   }
 
-  closeDispute(
-    id: string,
-    ctx: IdempotencyContext,
-  ): Promise<Stripe.Dispute> {
+  closeDispute(id: string, ctx: IdempotencyContext): Promise<Stripe.Dispute> {
     return this.runIdempotent(
       ctx,
       (options) => this.stripe.disputes.close(id, {}, options),

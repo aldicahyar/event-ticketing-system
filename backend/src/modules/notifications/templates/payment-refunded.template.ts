@@ -8,10 +8,17 @@ import { formatCurrency } from '../../../common/utils/currency.utils';
  * window expired. The system automatically refunds the charge via Stripe
  * and the user is notified that they need to place a new booking.
  */
-export function buildPaymentRefundedEmail(
-  data: PaymentRefundedEmailData,
-): EmailContent {
-  const { bookingCode, eventName, customerName, refundAmount, currency, refundId, refundStatus, reason } = data;
+export function buildPaymentRefundedEmail(data: PaymentRefundedEmailData): EmailContent {
+  const {
+    bookingCode,
+    eventName,
+    customerName,
+    refundAmount,
+    currency,
+    refundId,
+    refundStatus,
+    reason,
+  } = data;
   const formattedAmount = formatCurrency(refundAmount, currency);
 
   const subject = `Refund Processed — ${eventName}`;

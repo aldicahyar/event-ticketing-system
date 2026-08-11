@@ -17,9 +17,7 @@ import { IEmailTransport } from './interfaces/email-transport.interface';
  * adding a new provider (e.g. SendGrid, AWS SES) as simple as adding
  * another branch here.
  */
-function createEmailTransportFactory(
-  configService: ConfigService,
-): IEmailTransport {
+function createEmailTransportFactory(configService: ConfigService): IEmailTransport {
   // Priority 1: SMTP (Gmail/Outlook — works immediately without domain)
   const smtpUser = configService.get<string>('SMTP_USER');
   const smtpPass = configService.get<string>('SMTP_PASS');
@@ -41,8 +39,7 @@ function createEmailTransportFactory(
     {
       provide: NotificationsService,
       inject: ['EMAIL_TRANSPORT'],
-      useFactory: (transport: IEmailTransport) =>
-        new NotificationsService(transport),
+      useFactory: (transport: IEmailTransport) => new NotificationsService(transport),
     },
   ],
   exports: [NotificationsService],

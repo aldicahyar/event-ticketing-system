@@ -9,7 +9,9 @@ export function buildRefundStatusEmail(data: RefundStatusEmailData): EmailConten
     `Your refund request for ${data.eventName} is now ${data.status}.`,
     `Amount: ${amount}`,
     data.note ? `Note: ${data.note}` : '',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return {
     subject,

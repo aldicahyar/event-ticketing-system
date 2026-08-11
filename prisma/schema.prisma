@@ -237,6 +237,7 @@ model t_trx_events {
   event_date      DateTime         @default(now())
   seats           t_mtr_seats[]
   bookings        t_trx_bookings[]
+  ticket_tiers    t_trx_event_ticket_tiers[]
   venue           t_mtr_venues     @relation(fields: [venue_id], references: [id])
   organizer       t_mtr_users      @relation("EventOrganizer", fields: [organizer_id], references: [id])
 
@@ -258,16 +259,19 @@ model t_mtr_seats {
   status     SeatStatus      @default(AVAILABLE)
   price      Decimal         @db.Decimal(10, 2)
   booking_id String?
+  tier_id    String?
   created_at DateTime        @default(now())
   updated_at DateTime        @updatedAt
   booking    t_trx_bookings? @relation(fields: [booking_id], references: [id])
   event      t_trx_events    @relation(fields: [event_id], references: [id], onDelete: Cascade)
   venue      t_mtr_venues    @relation(fields: [venue_id], references: [id])
+  tier       t_trx_event_ticket_tiers? @relation(fields: [tier_id], references: [id], onDelete: Cascade)
   tickets    t_trx_tickets[]
 
   @@unique([event_id, row, number])
   @@index([event_id])
   @@index([status])
+  @@index([tier_id])
   // Composite: optimize "available seats for event" query
   @@index([event_id, status])
   // FK join index: seats linked to a booking
@@ -622,4 +626,22 @@ enum RefundStatus {
   COMPLETED
   FAILED
   REJECTED
+}
+
+model t_trx_event_ticket_tiers {
+  id              String        @id @default(cuid())
+  event_id        String
+  name            String
+  price           Decimal       @db.Decimal(10, 2)
+  stock           Int
+  description     String?
+  start_date_time DateTime
+  end_date_time   DateTime
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  event           t_trx_events  @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  seats           t_mtr_seats[]
+
+  @@index([event_id])
 }

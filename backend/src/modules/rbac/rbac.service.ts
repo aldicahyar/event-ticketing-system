@@ -411,7 +411,10 @@ export class RbacService {
     const allCodes = new Set(allActiveMenus.map((m) => m.code));
 
     // Build desired permission map
-    const desired = new Map<string, { can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean }>();
+    const desired = new Map<
+      string,
+      { can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean }
+    >();
     for (const cell of dto.permissions) {
       desired.set(cell.menu_code, {
         can_view: cell.can_view ?? false,
@@ -472,7 +475,9 @@ export class RbacService {
     if (user.role_code === 'ADMIN' && role_code !== 'ADMIN') {
       const adminCount = await this.prisma.t_mtr_users.count({ where: { role_code: 'ADMIN' } });
       if (adminCount <= 1) {
-        throw new ConflictException('Cannot demote the last active ADMIN — system lockout prevention');
+        throw new ConflictException(
+          'Cannot demote the last active ADMIN — system lockout prevention',
+        );
       }
     }
 

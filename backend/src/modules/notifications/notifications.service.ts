@@ -64,12 +64,7 @@ export class NotificationsService {
   }
 
   async sendDisputeOpened(to: string, data: DisputeOpenedEmailData): Promise<void> {
-    await this.deliver(
-      to,
-      buildDisputeOpenedEmail(data),
-      'DISPUTE_OPENED',
-      data.bookingCode,
-    );
+    await this.deliver(to, buildDisputeOpenedEmail(data), 'DISPUTE_OPENED', data.bookingCode);
   }
 
   /** Send a refund request lifecycle notification (non-blocking by design). */

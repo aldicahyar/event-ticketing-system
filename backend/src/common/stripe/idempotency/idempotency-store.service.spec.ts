@@ -55,9 +55,7 @@ describe('IdempotencyStoreService', () => {
       status: 'IN_FLIGHT',
       resource_id: null,
     });
-    await expect(service.reserve('chk_1', 'checkout', 'b1')).rejects.toThrow(
-      ConflictException,
-    );
+    await expect(service.reserve('chk_1', 'checkout', 'b1')).rejects.toThrow(ConflictException);
   });
 
   it('reserve resets a FAILED record and allows retry', async () => {

@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { SettingsService } from './settings.service';
 import { UpdateTierSettingDto, UpdateTaxSettingDto } from './dto/update-settings.dto';
@@ -43,10 +35,7 @@ export class SettingsController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Tier configuration successfully updated' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden resource' })
-  async updateTierSetting(
-    @Body() dto: UpdateTierSettingDto,
-    @CurrentUser() user: any,
-  ) {
+  async updateTierSetting(@Body() dto: UpdateTierSettingDto, @CurrentUser() user: any) {
     const updaterName = user.name || user.email || 'admin';
     const item = await this.settingsService.updateTierSetting(dto, updaterName);
     return {
@@ -66,10 +55,7 @@ export class SettingsController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Tax configuration updated successfully' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden resource' })
-  async updateTaxSetting(
-    @Body() dto: UpdateTaxSettingDto,
-    @CurrentUser() user: any,
-  ) {
+  async updateTaxSetting(@Body() dto: UpdateTaxSettingDto, @CurrentUser() user: any) {
     const updaterName = user.name || user.email || 'admin';
     const item = await this.settingsService.updateTaxSetting(dto, updaterName);
     return {

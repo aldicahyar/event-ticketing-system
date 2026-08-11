@@ -72,19 +72,9 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
     // WebhookEventLogService, and the handler array.
     {
       provide: WebhookProcessorService,
-      inject: [
-        ConfigService,
-        WebhookEventLogService,
-        StripeService,
-        WEBHOOK_HANDLERS,
-      ],
+      inject: [ConfigService, WebhookEventLogService, StripeService, WEBHOOK_HANDLERS],
       useFactory: (configService, eventLogService, stripeService, handlers) =>
-        new WebhookProcessorService(
-          configService,
-          eventLogService,
-          stripeService,
-          handlers,
-        ),
+        new WebhookProcessorService(configService, eventLogService, stripeService, handlers),
     },
   ],
   exports: [PaymentsService, PaymentAuditService],

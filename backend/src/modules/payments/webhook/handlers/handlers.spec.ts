@@ -52,9 +52,8 @@ function makePrismaMock() {
       create: jest.fn(),
     },
     t_trx_security_logs: { create: jest.fn() },
-    $transaction: jest.fn(
-      async (callback: (tx: PrismaMockTransaction) => Promise<unknown>) =>
-        callback(prisma),
+    $transaction: jest.fn(async (callback: (tx: PrismaMockTransaction) => Promise<unknown>) =>
+      callback(prisma),
     ),
   };
   return prisma as unknown as PrismaService & typeof prisma;

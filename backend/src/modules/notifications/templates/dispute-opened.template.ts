@@ -1,8 +1,5 @@
 import { formatCurrency } from '../../../common/utils/currency.utils';
-import {
-  DisputeOpenedEmailData,
-  EmailContent,
-} from '../interfaces/email-template.interface';
+import { DisputeOpenedEmailData, EmailContent } from '../interfaces/email-template.interface';
 
 function escapeHtml(value: string): string {
   return value.replace(
@@ -18,9 +15,7 @@ function escapeHtml(value: string): string {
   );
 }
 
-export function buildDisputeOpenedEmail(
-  data: DisputeOpenedEmailData,
-): EmailContent {
+export function buildDisputeOpenedEmail(data: DisputeOpenedEmailData): EmailContent {
   const amount = formatCurrency(data.amount, data.currency);
   const deadline = data.deadline ?? 'not provided';
   const subject = `Action required: dispute ${data.disputeId}`;

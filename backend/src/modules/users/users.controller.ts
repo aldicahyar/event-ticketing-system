@@ -82,11 +82,7 @@ export class UsersController {
   @RequirePermission('USERS', 'edit')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a user (name, email, role, active, verified)' })
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateUserDto,
-    @CurrentUser() actor: any,
-  ) {
+  async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() actor: any) {
     const data = await this.users.updateUser(id, dto, actor.id);
     return { data, message: 'User updated successfully' };
   }

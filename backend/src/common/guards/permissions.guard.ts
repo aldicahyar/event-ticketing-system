@@ -34,7 +34,9 @@ export class PermissionsGuard implements CanActivate {
     const role_code = user.role_code ?? user.role;
     if (!role_code) return false;
 
-    const action = (perm.action ?? METHOD_ACTION_MAP[context.switchToHttp().getRequest().method] ?? 'view') as Action;
+    const action = (perm.action ??
+      METHOD_ACTION_MAP[context.switchToHttp().getRequest().method] ??
+      'view') as Action;
 
     const allowed = await this.rbacService.hasPermission(role_code, perm.menu_code, action);
 

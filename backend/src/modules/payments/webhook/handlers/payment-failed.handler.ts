@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
-import { IWebhookEventHandler, WebhookHandlerResult } from '../../interfaces/webhook-handler.interface';
+import {
+  IWebhookEventHandler,
+  WebhookHandlerResult,
+} from '../../interfaces/webhook-handler.interface';
 import { PrismaService } from '../../../../common/database/prisma.service';
 
 /**

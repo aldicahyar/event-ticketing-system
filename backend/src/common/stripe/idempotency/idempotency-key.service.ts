@@ -48,10 +48,7 @@ export class IdempotencyKeyService {
    */
   private hashFingerprint(fingerprint: Record<string, unknown>): string {
     const canonical = JSON.stringify(fingerprint, Object.keys(fingerprint).sort());
-    return createHash('sha256')
-      .update(canonical)
-      .digest('hex')
-      .slice(0, FINGERPRINT_HASH_LENGTH);
+    return createHash('sha256').update(canonical).digest('hex').slice(0, FINGERPRINT_HASH_LENGTH);
   }
 
   /** Strip characters that are not safe/readable inside a key segment. */

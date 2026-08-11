@@ -18,9 +18,30 @@ export class SettingsService implements OnModuleInit {
     if (tierCount === 0) {
       await this.prisma.t_mtr_ticket_tier_settings.createMany({
         data: [
-          { id: SeatType.VIP, ratio: 0.2, multiplier: 2, status: 'ACTIVE', created_by: 'system', updated_by: 'system' },
-          { id: SeatType.PREMIUM, ratio: 0.5, multiplier: 1.5, status: 'ACTIVE', created_by: 'system', updated_by: 'system' },
-          { id: SeatType.REGULAR, ratio: 1, multiplier: 1, status: 'ACTIVE', created_by: 'system', updated_by: 'system' },
+          {
+            id: SeatType.VIP,
+            ratio: 0.2,
+            multiplier: 2,
+            status: 'ACTIVE',
+            created_by: 'system',
+            updated_by: 'system',
+          },
+          {
+            id: SeatType.PREMIUM,
+            ratio: 0.5,
+            multiplier: 1.5,
+            status: 'ACTIVE',
+            created_by: 'system',
+            updated_by: 'system',
+          },
+          {
+            id: SeatType.REGULAR,
+            ratio: 1,
+            multiplier: 1,
+            status: 'ACTIVE',
+            created_by: 'system',
+            updated_by: 'system',
+          },
         ],
       });
       console.log('Seeded default TicketTierSettings');
@@ -30,7 +51,13 @@ export class SettingsService implements OnModuleInit {
     const taxCount = await this.prisma.t_mtr_tax_settings.count();
     if (taxCount === 0) {
       await this.prisma.t_mtr_tax_settings.create({
-        data: { id: 'default', ppn_percent: 11, status: 'ACTIVE', created_by: 'system', updated_by: 'system' },
+        data: {
+          id: 'default',
+          ppn_percent: 11,
+          status: 'ACTIVE',
+          created_by: 'system',
+          updated_by: 'system',
+        },
       });
       console.log('Seeded default TaxSetting');
     }
@@ -48,7 +75,13 @@ export class SettingsService implements OnModuleInit {
 
     return {
       tiers,
-      tax: tax || { id: 'default', ppn_percent: 11, status: 'ACTIVE', created_by: 'system', updated_by: 'system' },
+      tax: tax || {
+        id: 'default',
+        ppn_percent: 11,
+        status: 'ACTIVE',
+        created_by: 'system',
+        updated_by: 'system',
+      },
     };
   }
 

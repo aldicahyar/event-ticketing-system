@@ -45,21 +45,46 @@ describe('RefundPolicyService', () => {
 
   it('returns full refund for cancelled event regardless of date', async () => {
     const now = new Date('2026-08-02T00:00:00Z');
-    const result = await service.evaluate(1_000_000, 'CANCELLED', new Date(now.getTime() - DAY), now);
-    expect(result).toEqual({ eligible: true, ruleCode: 'EVENT_CANCELLED', percentage: 100, amount: 1_000_000 });
+    const result = await service.evaluate(
+      1_000_000,
+      'CANCELLED',
+      new Date(now.getTime() - DAY),
+      now,
+    );
+    expect(result).toEqual({
+      eligible: true,
+      ruleCode: 'EVENT_CANCELLED',
+      percentage: 100,
+      amount: 1_000_000,
+    });
   });
 
   it('returns full refund more than 7 days before event', async () => {
     const now = new Date('2026-08-02T00:00:00Z');
-    const result = await service.evaluate(800_000, 'PUBLISHED', new Date(now.getTime() + 8 * DAY), now);
+    const result = await service.evaluate(
+      800_000,
+      'PUBLISHED',
+      new Date(now.getTime() + 8 * DAY),
+      now,
+    );
     expect(result.ruleCode).toBe('TIER_GT_7D');
     expect(result.amount).toBe(800_000);
   });
 
   it('returns configured partial refund between 1 and 7 days', async () => {
     const now = new Date('2026-08-02T00:00:00Z');
-    const result = await service.evaluate(800_000, 'PUBLISHED', new Date(now.getTime() + 3 * DAY), now);
-    expect(result).toEqual({ eligible: true, ruleCode: 'TIER_1_7D', percentage: 50, amount: 400_000 });
+    const result = await service.evaluate(
+      800_000,
+      'PUBLISHED',
+      new Date(now.getTime() + 3 * DAY),
+      now,
+    );
+    expect(result).toEqual({
+      eligible: true,
+      ruleCode: 'TIER_1_7D',
+      percentage: 50,
+      amount: 400_000,
+    });
   });
 
   it('is not eligible at exactly 24 hours', async () => {
@@ -75,7 +100,12 @@ describe('RefundPolicyService', () => {
 
     findMany.mockResolvedValue(policyRows({ TIER_1_7D: 75 }));
     service.invalidateCache();
-    const updated = await service.evaluate(800_000, 'PUBLISHED', new Date(now.getTime() + 3 * DAY), now);
+    const updated = await service.evaluate(
+      800_000,
+      'PUBLISHED',
+      new Date(now.getTime() + 3 * DAY),
+      now,
+    );
 
     expect(updated.percentage).toBe(75);
     expect(updated.amount).toBe(600_000);

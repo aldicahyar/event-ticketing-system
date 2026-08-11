@@ -71,10 +71,7 @@ export class RefundPolicyService {
     return rows;
   }
 
-  private getPercentage(
-    policies: PolicyRow[],
-    ruleCode: string,
-  ): number {
+  private getPercentage(policies: PolicyRow[], ruleCode: string): number {
     const row = policies.find((p) => p.rule_code === ruleCode);
     return row?.percentage ?? 0;
   }
@@ -97,11 +94,7 @@ export class RefundPolicyService {
 
     // Event cancelled by organizer → full refund.
     if (eventStatus === 'CANCELLED') {
-      return this.build(
-        policies,
-        REFUND_RULE_CODES.EVENT_CANCELLED,
-        totalPrice,
-      );
+      return this.build(policies, REFUND_RULE_CODES.EVENT_CANCELLED, totalPrice);
     }
 
     const diffMs = eventStart.getTime() - now.getTime();
@@ -118,11 +111,7 @@ export class RefundPolicyService {
     return this.build(policies, REFUND_RULE_CODES.TIER_LT_24H, totalPrice);
   }
 
-  private build(
-    policies: PolicyRow[],
-    ruleCode: string,
-    totalPrice: number,
-  ): PolicyEvaluation {
+  private build(policies: PolicyRow[], ruleCode: string, totalPrice: number): PolicyEvaluation {
     const percentage = this.getPercentage(policies, ruleCode);
     const amount = Math.round((totalPrice * percentage) / 100);
     return {
