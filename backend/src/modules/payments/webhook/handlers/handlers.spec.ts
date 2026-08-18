@@ -9,11 +9,18 @@ import { PaymentAuditService } from '../../audit/payment-audit.service';
 import { CheckoutCompletedHandler } from './checkout-completed.handler';
 import { CheckoutExpiredHandler } from './checkout-expired.handler';
 import { PaymentFailedHandler } from './payment-failed.handler';
+import { PaymentIntentSucceededHandler } from './payment-intent-succeeded.handler';
 import { ChargeRefundedHandler } from './charge-refunded.handler';
 import { DisputeCreatedHandler } from './dispute-created.handler';
 import { DisputeClosedHandler } from './dispute-closed.handler';
+import {
+  DisputeFundsWithdrawnHandler,
+  DisputeFundsReinstatedHandler,
+} from './dispute-funds.handler';
 import { AsyncPaymentFailedHandler } from './async-payment-failed.handler';
 import { RefundUpdatedHandler } from './refund-updated.handler';
+import { RefundFailedHandler } from './refund-failed.handler';
+import { StripeService } from '../../../../common/stripe/stripe.service';
 import { NotificationsService } from '../../../notifications/notifications.service';
 
 // ── jest.mock() for all dependencies ──────────────────────────
@@ -30,6 +37,7 @@ type PrismaMockTransaction = {
   t_trx_tickets: Record<string, jest.Mock>;
   t_trx_refunds: Record<string, jest.Mock>;
   t_trx_security_logs: Record<string, jest.Mock>;
+  t_trx_disputes: Record<string, jest.Mock>;
 };
 
 function makePrismaMock() {
@@ -52,6 +60,7 @@ function makePrismaMock() {
       create: jest.fn(),
     },
     t_trx_security_logs: { create: jest.fn() },
+    t_trx_disputes: { findUnique: jest.fn() },
     $transaction: jest.fn(async (callback: (tx: PrismaMockTransaction) => Promise<unknown>) =>
       callback(prisma),
     ),
@@ -678,6 +687,193 @@ describe('AsyncPaymentFailedHandler', () => {
   });
 });
 
+// ── PaymentIntentSucceededHandler ────────────────────────────
+
+describe('PaymentIntentSucceededHandler', () => {
+  let handler: PaymentIntentSucceededHandler;
+  let payments: ReturnType<typeof makePaymentsMock>;
+  let stripe: { listCheckoutSessions: jest.Mock };
+
+  beforeEach(() => {
+    payments = makePaymentsMock();
+    stripe = { listCheckoutSessions: jest.fn() };
+    handler = new PaymentIntentSucceededHandler(
+      { listCheckoutSessions: stripe.listCheckoutSessions } as unknown as StripeService,
+      payments,
+    );
+  });
+
+  it('should be registered for the payment_intent.succeeded event type', () => {
+    expect(handler.eventType).toBe('payment_intent.succeeded');
+  });
+
+  it('should confirm the booking via the matched checkout session', async () => {
+    stripe.listCheckoutSessions.mockResolvedValue({
+      data: [{ id: 'cs_123', payment_status: 'paid' }],
+    });
+    payments.processSuccessfulPayment.mockResolvedValue('confirmed');
+
+    const result = await handler.handle(
+      makeEvent('payment_intent.succeeded', { id: 'pi_123' }),
+    );
+
+    expect(stripe.listCheckoutSessions).toHaveBeenCalledWith({
+      payment_intent: 'pi_123',
+      limit: 1,
+    });
+    expect(payments.processSuccessfulPayment).toHaveBeenCalledWith({ id: 'cs_123', payment_status: 'paid' });
+    expect(result).toEqual({
+      success: true,
+      message: expect.stringContaining('pi_123'),
+    });
+  });
+
+  it('should skip when no session references the payment intent', async () => {
+    stripe.listCheckoutSessions.mockResolvedValue({ data: [] });
+
+    const result = await handler.handle(
+      makeEvent('payment_intent.succeeded', { id: 'pi_orphan' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(payments.processSuccessfulPayment).not.toHaveBeenCalled();
+  });
+
+  it('should skip when the session is not paid', async () => {
+    stripe.listCheckoutSessions.mockResolvedValue({
+      data: [{ id: 'cs_123', payment_status: 'unpaid' }],
+    });
+
+    const result = await handler.handle(
+      makeEvent('payment_intent.succeeded', { id: 'pi_123' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(payments.processSuccessfulPayment).not.toHaveBeenCalled();
+  });
+});
+
+// ── Dispute funds handlers ───────────────────────────────────
+
+const disputeRecord = {
+  id: 'dsp_1',
+  amount: 100,
+  currency: 'IDR',
+  payment: { booking: { user_id: 'usr_1', booking_code: 'BOK-1' } },
+};
+
+describe('DisputeFundsWithdrawnHandler', () => {
+  let handler: DisputeFundsWithdrawnHandler;
+  let prisma: ReturnType<typeof makePrismaMock>;
+  let audit: ReturnType<typeof makeAuditMock>;
+
+  beforeEach(() => {
+    prisma = makePrismaMock();
+    prisma.t_trx_disputes.findUnique.mockResolvedValue(disputeRecord);
+    audit = makeAuditMock();
+    handler = new DisputeFundsWithdrawnHandler(prisma, audit);
+  });
+
+  it('should be registered for charge.dispute.funds_withdrawn', () => {
+    expect(handler.eventType).toBe('charge.dispute.funds_withdrawn');
+  });
+
+  it('should record a DISPUTE_FUNDS_WITHDRAWN audit entry', async () => {
+    const result = await handler.handle(
+      makeEvent('charge.dispute.funds_withdrawn', { id: 'dp_1' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(audit.record).toHaveBeenCalledWith('usr_1', 'DISPUTE_FUNDS_WITHDRAWN', {
+      dispute_id: 'dsp_1',
+      stripe_dispute_id: 'dp_1',
+      amount: 100,
+      currency: 'IDR',
+      booking_code: 'BOK-1',
+      source: 'stripe_webhook',
+    });
+  });
+
+  it('should skip when no local dispute matches', async () => {
+    prisma.t_trx_disputes.findUnique.mockResolvedValue(null);
+    const result = await handler.handle(
+      makeEvent('charge.dispute.funds_withdrawn', { id: 'dp_unknown' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+});
+
+describe('DisputeFundsReinstatedHandler', () => {
+  it('should be registered for charge.dispute.funds_reinstated', () => {
+    const handler = new DisputeFundsReinstatedHandler(makePrismaMock(), makeAuditMock());
+    expect(handler.eventType).toBe('charge.dispute.funds_reinstated');
+  });
+
+  it('should record a DISPUTE_FUNDS_REINSTATED audit entry', async () => {
+    const prisma = makePrismaMock();
+    prisma.t_trx_disputes.findUnique.mockResolvedValue(disputeRecord);
+    const audit = makeAuditMock();
+    const handler = new DisputeFundsReinstatedHandler(prisma, audit);
+
+    const result = await handler.handle(
+      makeEvent('charge.dispute.funds_reinstated', { id: 'dp_1' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(audit.record).toHaveBeenCalledWith('usr_1', 'DISPUTE_FUNDS_REINSTATED', {
+      dispute_id: 'dsp_1',
+      stripe_dispute_id: 'dp_1',
+      amount: 100,
+      currency: 'IDR',
+      booking_code: 'BOK-1',
+      source: 'stripe_webhook',
+    });
+  });
+});
+
+// ── RefundFailedHandler ──────────────────────────────────────
+
+describe('RefundFailedHandler', () => {
+  it('should be registered for refund.failed and delegate to RefundUpdatedHandler', async () => {
+    const prisma = makePrismaMock();
+    const notifications = makeNotificationsMock();
+    prisma.t_trx_refunds.updateMany.mockResolvedValue({ count: 1 });
+    prisma.t_trx_payments.updateMany.mockResolvedValue({ count: 1 });
+    prisma.t_trx_refunds.findUnique = jest.fn().mockResolvedValue({
+      id: 'ref_1',
+      stripe_refund_id: 're_1',
+      status: 'PROCESSING',
+      payment_id: 'pay_1',
+      booking_id: 'bk_1',
+      requested_by: 'usr_1',
+      amount: 50,
+      currency: 'IDR',
+      completed_at: null,
+      failure_reason: null,
+      requester: { id: 'usr_1', name: 'A', email: 'a@b.c' },
+      booking: { id: 'bk_1', booking_code: 'BOK-1', event: { title: 'Concert' } },
+    });
+    const underlying = new RefundUpdatedHandler(prisma, notifications);
+    const handler = new RefundFailedHandler(underlying);
+
+    expect(handler.eventType).toBe('refund.failed');
+    const result = await handler.handle(
+      makeEvent('refund.failed', { id: 're_1', status: 'failed' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(notifications.sendRefundStatus).toHaveBeenCalledWith(
+      'a@b.c',
+      expect.objectContaining({ status: 'FAILED' }),
+    );
+  });
+});
+
 // ── Contract: every handler implements the interface ─────────
 
 describe('Handler interface contract', () => {
@@ -685,11 +881,17 @@ describe('Handler interface contract', () => {
     new CheckoutCompletedHandler(makePaymentsMock()),
     new CheckoutExpiredHandler(),
     new PaymentFailedHandler(makePrismaMock()),
+    new PaymentIntentSucceededHandler(
+      { listCheckoutSessions: jest.fn().mockResolvedValue({ data: [] }) } as never,
+      makePaymentsMock(),
+    ),
     new ChargeRefundedHandler(makePrismaMock(), makeAuditMock()),
     new DisputeCreatedHandler(makePrismaMock(), {
       opened: jest.fn().mockResolvedValue({}),
     } as never),
     new AsyncPaymentFailedHandler(makePrismaMock()),
+    new DisputeFundsWithdrawnHandler(makePrismaMock(), makeAuditMock()),
+    new DisputeFundsReinstatedHandler(makePrismaMock(), makeAuditMock()),
   ];
 
   it.each(handlers.map((h) => [h.constructor.name, h]))(

@@ -15,11 +15,17 @@ import { StripeService } from '../../common/stripe/stripe.service';
 import { CheckoutCompletedHandler } from './webhook/handlers/checkout-completed.handler';
 import { CheckoutExpiredHandler } from './webhook/handlers/checkout-expired.handler';
 import { PaymentFailedHandler } from './webhook/handlers/payment-failed.handler';
+import { PaymentIntentSucceededHandler } from './webhook/handlers/payment-intent-succeeded.handler';
 import { ChargeRefundedHandler } from './webhook/handlers/charge-refunded.handler';
 import { RefundUpdatedHandler } from './webhook/handlers/refund-updated.handler';
+import { RefundFailedHandler } from './webhook/handlers/refund-failed.handler';
 import { DisputeCreatedHandler } from './webhook/handlers/dispute-created.handler';
 import { DisputeClosedHandler } from './webhook/handlers/dispute-closed.handler';
 import { DisputeUpdatedHandler } from './webhook/handlers/dispute-updated.handler';
+import {
+  DisputeFundsWithdrawnHandler,
+  DisputeFundsReinstatedHandler,
+} from './webhook/handlers/dispute-funds.handler';
 import { AsyncPaymentSucceededHandler } from './webhook/handlers/async-payment-succeeded.handler';
 import { AsyncPaymentFailedHandler } from './webhook/handlers/async-payment-failed.handler';
 import { ConfigService } from '@nestjs/config';
@@ -44,11 +50,15 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
     CheckoutCompletedHandler,
     CheckoutExpiredHandler,
     PaymentFailedHandler,
+    PaymentIntentSucceededHandler,
     ChargeRefundedHandler,
     RefundUpdatedHandler,
+    RefundFailedHandler,
     DisputeCreatedHandler,
     DisputeClosedHandler,
     DisputeUpdatedHandler,
+    DisputeFundsWithdrawnHandler,
+    DisputeFundsReinstatedHandler,
     AsyncPaymentSucceededHandler,
     AsyncPaymentFailedHandler,
 
@@ -61,11 +71,15 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
         CheckoutCompletedHandler,
         CheckoutExpiredHandler,
         PaymentFailedHandler,
+        PaymentIntentSucceededHandler,
         ChargeRefundedHandler,
         RefundUpdatedHandler,
+        RefundFailedHandler,
         DisputeCreatedHandler,
         DisputeClosedHandler,
         DisputeUpdatedHandler,
+        DisputeFundsWithdrawnHandler,
+        DisputeFundsReinstatedHandler,
         AsyncPaymentSucceededHandler,
         AsyncPaymentFailedHandler,
       ],
