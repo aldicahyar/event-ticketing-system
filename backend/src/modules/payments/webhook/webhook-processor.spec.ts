@@ -256,7 +256,7 @@ describe('WebhookEventLogService', () => {
     };
     const service = new WebhookEventLogService(mockPrisma as never);
 
-    await service.markProcessed('evt_1', 'success');
+    await service.markProcessed('evt_1');
 
     expect(mockPrisma.t_trx_webhook_events.updateMany).toHaveBeenCalledWith({
       where: { stripe_event_id: 'evt_1' },

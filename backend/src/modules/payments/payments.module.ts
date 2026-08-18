@@ -28,6 +28,11 @@ import {
 } from './webhook/handlers/dispute-funds.handler';
 import { AsyncPaymentSucceededHandler } from './webhook/handlers/async-payment-succeeded.handler';
 import { AsyncPaymentFailedHandler } from './webhook/handlers/async-payment-failed.handler';
+import {
+  EarlyFraudWarningHandler,
+  ReviewOpenedHandler,
+  ReviewClosedHandler,
+} from './webhook/handlers/radar.handler';
 import { ConfigService } from '@nestjs/config';
 import { DisputesModule } from '../disputes/disputes.module';
 
@@ -61,6 +66,9 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
     DisputeFundsReinstatedHandler,
     AsyncPaymentSucceededHandler,
     AsyncPaymentFailedHandler,
+    EarlyFraudWarningHandler,
+    ReviewOpenedHandler,
+    ReviewClosedHandler,
 
     // Handler registry: injects all handlers as IWebhookEventHandler[]
     // so the WebhookProcessorService receives them via DI.
@@ -82,6 +90,9 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
         DisputeFundsReinstatedHandler,
         AsyncPaymentSucceededHandler,
         AsyncPaymentFailedHandler,
+        EarlyFraudWarningHandler,
+        ReviewOpenedHandler,
+        ReviewClosedHandler,
       ],
     },
 

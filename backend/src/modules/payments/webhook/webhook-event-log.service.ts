@@ -78,7 +78,7 @@ export class WebhookEventLogService {
   /**
    * Update an event's status to PROCESSED after successful handler execution.
    */
-  async markProcessed(stripeEventId: string, message: string): Promise<void> {
+  async markProcessed(stripeEventId: string): Promise<void> {
     try {
       await this.prisma.t_trx_webhook_events.updateMany({
         where: { stripe_event_id: stripeEventId },

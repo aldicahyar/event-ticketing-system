@@ -17,6 +17,11 @@ import {
   DisputeFundsWithdrawnHandler,
   DisputeFundsReinstatedHandler,
 } from './dispute-funds.handler';
+import {
+  EarlyFraudWarningHandler,
+  ReviewOpenedHandler,
+  ReviewClosedHandler,
+} from './radar.handler';
 import { AsyncPaymentFailedHandler } from './async-payment-failed.handler';
 import { RefundUpdatedHandler } from './refund-updated.handler';
 import { RefundFailedHandler } from './refund-failed.handler';
@@ -713,15 +718,16 @@ describe('PaymentIntentSucceededHandler', () => {
     });
     payments.processSuccessfulPayment.mockResolvedValue('confirmed');
 
-    const result = await handler.handle(
-      makeEvent('payment_intent.succeeded', { id: 'pi_123' }),
-    );
+    const result = await handler.handle(makeEvent('payment_intent.succeeded', { id: 'pi_123' }));
 
     expect(stripe.listCheckoutSessions).toHaveBeenCalledWith({
       payment_intent: 'pi_123',
       limit: 1,
     });
-    expect(payments.processSuccessfulPayment).toHaveBeenCalledWith({ id: 'cs_123', payment_status: 'paid' });
+    expect(payments.processSuccessfulPayment).toHaveBeenCalledWith({
+      id: 'cs_123',
+      payment_status: 'paid',
+    });
     expect(result).toEqual({
       success: true,
       message: expect.stringContaining('pi_123'),
@@ -731,9 +737,7 @@ describe('PaymentIntentSucceededHandler', () => {
   it('should skip when no session references the payment intent', async () => {
     stripe.listCheckoutSessions.mockResolvedValue({ data: [] });
 
-    const result = await handler.handle(
-      makeEvent('payment_intent.succeeded', { id: 'pi_orphan' }),
-    );
+    const result = await handler.handle(makeEvent('payment_intent.succeeded', { id: 'pi_orphan' }));
 
     expect(result.success).toBe(true);
     expect(result.skipped).toBe(true);
@@ -745,9 +749,7 @@ describe('PaymentIntentSucceededHandler', () => {
       data: [{ id: 'cs_123', payment_status: 'unpaid' }],
     });
 
-    const result = await handler.handle(
-      makeEvent('payment_intent.succeeded', { id: 'pi_123' }),
-    );
+    const result = await handler.handle(makeEvent('payment_intent.succeeded', { id: 'pi_123' }));
 
     expect(result.success).toBe(true);
     expect(result.skipped).toBe(true);
@@ -874,6 +876,145 @@ describe('RefundFailedHandler', () => {
   });
 });
 
+// ── Radar fraud / review handlers ────────────────────────────
+
+const radarPayment = {
+  id: 'pay_1',
+  booking: { user_id: 'usr_1', booking_code: 'BOK-1' },
+};
+
+describe('EarlyFraudWarningHandler', () => {
+  let handler: EarlyFraudWarningHandler;
+  let prisma: ReturnType<typeof makePrismaMock>;
+  let audit: ReturnType<typeof makeAuditMock>;
+
+  beforeEach(() => {
+    prisma = makePrismaMock();
+    prisma.t_trx_payments.findFirst.mockResolvedValue(radarPayment);
+    audit = makeAuditMock();
+    handler = new EarlyFraudWarningHandler(prisma, audit);
+  });
+
+  it('should be registered for radar.early_fraud_warning.created', () => {
+    expect(handler.eventType).toBe('radar.early_fraud_warning.created');
+  });
+
+  it('should record a FRAUD_EARLY_WARNING audit entry', async () => {
+    const result = await handler.handle(
+      makeEvent('radar.early_fraud_warning.created', {
+        id: 'issfr_1',
+        charge: 'ch_1',
+        payment_intent: 'pi_1',
+        fraud_type: 'made_with_stolen_card',
+        actionable: true,
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(audit.record).toHaveBeenCalledWith('usr_1', 'FRAUD_EARLY_WARNING', {
+      early_fraud_warning_id: 'issfr_1',
+      payment_id: 'pay_1',
+      booking_code: 'BOK-1',
+      fraud_type: 'made_with_stolen_card',
+      actionable: true,
+      source: 'stripe_webhook',
+    });
+  });
+
+  it('should skip when the warning carries no payment identifiers', async () => {
+    const result = await handler.handle(
+      makeEvent('radar.early_fraud_warning.created', { id: 'issfr_2' }),
+    );
+
+    expect(result.skipped).toBe(true);
+    expect(prisma.t_trx_payments.findFirst).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('should skip when no local payment matches', async () => {
+    prisma.t_trx_payments.findFirst.mockResolvedValue(null);
+    const result = await handler.handle(
+      makeEvent('radar.early_fraud_warning.created', { id: 'issfr_3', charge: 'ch_x' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('should return failure when the audit write throws', async () => {
+    audit.record.mockRejectedValue(new Error('db down'));
+    const result = await handler.handle(
+      makeEvent('radar.early_fraud_warning.created', { id: 'issfr_4', charge: 'ch_1' }),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('issfr_4');
+  });
+});
+
+describe('Review handlers', () => {
+  it('should record PAYMENT_REVIEW_OPENED for review.opened', async () => {
+    const prisma = makePrismaMock();
+    prisma.t_trx_payments.findFirst.mockResolvedValue(radarPayment);
+    const audit = makeAuditMock();
+    const handler = new ReviewOpenedHandler(prisma, audit);
+
+    expect(handler.eventType).toBe('review.opened');
+    const result = await handler.handle(
+      makeEvent('review.opened', { id: 'prv_1', charge: 'ch_1', reason: 'rule' }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(audit.record).toHaveBeenCalledWith('usr_1', 'PAYMENT_REVIEW_OPENED', {
+      review_id: 'prv_1',
+      payment_id: 'pay_1',
+      booking_code: 'BOK-1',
+      reason: 'rule',
+      closed_reason: null,
+      source: 'stripe_webhook',
+    });
+  });
+
+  it('should record PAYMENT_REVIEW_CLOSED with the closed reason', async () => {
+    const prisma = makePrismaMock();
+    prisma.t_trx_payments.findFirst.mockResolvedValue(radarPayment);
+    const audit = makeAuditMock();
+    const handler = new ReviewClosedHandler(prisma, audit);
+
+    expect(handler.eventType).toBe('review.closed');
+    const result = await handler.handle(
+      makeEvent('review.closed', {
+        id: 'prv_2',
+        payment_intent: 'pi_1',
+        reason: 'approved',
+        closed_reason: 'approved',
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(audit.record).toHaveBeenCalledWith(
+      'usr_1',
+      'PAYMENT_REVIEW_CLOSED',
+      expect.objectContaining({ review_id: 'prv_2', closed_reason: 'approved' }),
+    );
+  });
+
+  it('should skip when no local payment matches', async () => {
+    const prisma = makePrismaMock();
+    prisma.t_trx_payments.findFirst.mockResolvedValue(null);
+    const audit = makeAuditMock();
+    const handler = new ReviewOpenedHandler(prisma, audit);
+
+    const result = await handler.handle(
+      makeEvent('review.opened', { id: 'prv_3', charge: 'ch_x' }),
+    );
+
+    expect(result.skipped).toBe(true);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+});
+
 // ── Contract: every handler implements the interface ─────────
 
 describe('Handler interface contract', () => {
@@ -892,6 +1033,9 @@ describe('Handler interface contract', () => {
     new AsyncPaymentFailedHandler(makePrismaMock()),
     new DisputeFundsWithdrawnHandler(makePrismaMock(), makeAuditMock()),
     new DisputeFundsReinstatedHandler(makePrismaMock(), makeAuditMock()),
+    new EarlyFraudWarningHandler(makePrismaMock(), makeAuditMock()),
+    new ReviewOpenedHandler(makePrismaMock(), makeAuditMock()),
+    new ReviewClosedHandler(makePrismaMock(), makeAuditMock()),
   ];
 
   it.each(handlers.map((h) => [h.constructor.name, h]))(

@@ -130,7 +130,7 @@ export class WebhookProcessorService {
           `Event skipped: type=${event.type} | id=${event.id} | reason=${result.message}`,
         );
       } else {
-        await this.eventLogService.markProcessed(event.id, result.message);
+        await this.eventLogService.markProcessed(event.id);
         this.logger.log(`Event processed: type=${event.type} | id=${event.id} | ${result.message}`);
       }
     } catch (err) {

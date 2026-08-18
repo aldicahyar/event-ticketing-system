@@ -8,7 +8,6 @@ import {
   Body,
   UseGuards,
   Get,
-  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
