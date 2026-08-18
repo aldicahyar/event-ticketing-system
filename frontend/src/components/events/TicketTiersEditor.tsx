@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Plus, Trash2, Tag, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Trash2, Tag, AlertCircle, X, Armchair, Users } from 'lucide-react';
 
 export interface TicketTierInput {
   id?: string;
@@ -9,6 +9,8 @@ export interface TicketTierInput {
   price: number;
   stock: number;
   description?: string;
+  features?: string[];
+  is_seated?: boolean;
   start_date_time: string;
   end_date_time: string;
 }
@@ -26,10 +28,12 @@ export function TicketTiersEditor({
   tiers,
   onChange,
   currency = 'IDR',
-  maxTiers = 5,
+  maxTiers = 10,
   defaultSalesStart,
   defaultSalesEnd,
 }: TicketTiersEditorProps) {
+  const [newFeatureInputs, setNewFeatureInputs] = useState<{ [key: number]: string }>({});
+
   const handleAddTier = () => {
     if (tiers.length >= maxTiers) return;
     const now = new Date();
@@ -40,6 +44,8 @@ export function TicketTiersEditor({
       price: 150000,
       stock: 100,
       description: '',
+      features: ['Standard Entry'],
+      is_seated: false, // Default to Standing/General Admission
       start_date_time: defaultSalesStart || now.toISOString().slice(0, 16),
       end_date_time: defaultSalesEnd || future.toISOString().slice(0, 16),
     };
@@ -60,6 +66,24 @@ export function TicketTiersEditor({
     onChange(updated);
   };
 
+  const handleAddFeature = (tierIndex: number) => {
+    const inputVal = (newFeatureInputs[tierIndex] || '').trim();
+    if (!inputVal) return;
+
+    const currentFeatures = tiers[tierIndex].features || [];
+    if (!currentFeatures.includes(inputVal)) {
+      handleUpdateTier(tierIndex, 'features', [...currentFeatures, inputVal]);
+    }
+
+    setNewFeatureInputs((prev) => ({ ...prev, [tierIndex]: '' }));
+  };
+
+  const handleRemoveFeature = (tierIndex: number, featureIndex: number) => {
+    const currentFeatures = tiers[tierIndex].features || [];
+    const updated = currentFeatures.filter((_, i) => i !== featureIndex);
+    handleUpdateTier(tierIndex, 'features', updated);
+  };
+
   const getTierErrors = (tier: TicketTierInput) => {
     const errors: string[] = [];
     if (!tier.name.trim()) errors.push('Name is required');
@@ -78,10 +102,10 @@ export function TicketTiersEditor({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-mono-dark-grey pb-4">
         <div>
           <h3 className="font-bold uppercase text-lg text-white flex items-center gap-2">
-            <Tag className="w-5 h-5 text-white" /> Ticket Tiers Configuration *
+            <Tag className="w-5 h-5 text-white" /> Ticket Tiers & Perks Configuration *
           </h3>
           <p className="text-xs text-mono-light-grey uppercase tracking-widest mt-1">
-            Configure up to {maxTiers} custom ticket tiers (VIP, Presale, Regular, etc.)
+            Configure up to {maxTiers} custom ticket categories, seat modes, and perks
           </p>
         </div>
         <button
@@ -96,21 +120,45 @@ export function TicketTiersEditor({
 
       {tiers.length === 0 ? (
         <div className="p-6 text-center border border-dashed border-mono-dark-grey text-mono-light-grey text-xs uppercase">
-          No custom ticket tiers added. Click &quot;Add Ticket Tier&quot; to configure pricing and stock tiers.
+          No custom ticket tiers added. Click &quot;Add Ticket Tier&quot; to configure pricing, seat mode, and perks.
         </div>
       ) : (
         <div className="space-y-6">
           {tiers.map((tier, index) => {
             const errors = getTierErrors(tier);
+            const isSeated = tier.is_seated ?? false;
+
             return (
               <div
                 key={tier.id || index}
                 className="p-4 border border-mono-dark-grey bg-black relative space-y-4"
               >
-                <div className="flex items-center justify-between border-b border-mono-dark-grey pb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-white">
-                    Tier #{index + 1}: {tier.name || 'Unnamed Tier'}
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-mono-dark-grey pb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">
+                      Tier #{index + 1}: {tier.name || 'Unnamed Tier'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateTier(index, 'is_seated', !isSeated)}
+                      className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors border ${
+                        isSeated
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                          : 'bg-white/10 text-white border-mono-dark-grey'
+                      }`}
+                    >
+                      {isSeated ? (
+                        <>
+                          <Armchair className="w-3 h-3" /> Seated (Pilih Kursi)
+                        </>
+                      ) : (
+                        <>
+                          <Users className="w-3 h-3" /> Standing (General Admission)
+                        </>
+                      )}
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => handleRemoveTier(index)}
@@ -158,7 +206,13 @@ export function TicketTiersEditor({
                       required
                       min="1"
                       value={tier.price === 0 ? '' : tier.price}
-                      onChange={(e) => handleUpdateTier(index, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+                      onChange={(e) =>
+                        handleUpdateTier(
+                          index,
+                          'price',
+                          e.target.value === '' ? 0 : Number(e.target.value)
+                        )
+                      }
                       className="w-full bg-black border border-white text-white px-3 py-2 text-sm focus:outline-none focus:border-white/50"
                     />
                   </div>
@@ -173,7 +227,13 @@ export function TicketTiersEditor({
                       required
                       min="0"
                       value={tier.stock === 0 ? '' : tier.stock}
-                      onChange={(e) => handleUpdateTier(index, 'stock', e.target.value === '' ? 0 : Number(e.target.value))}
+                      onChange={(e) =>
+                        handleUpdateTier(
+                          index,
+                          'stock',
+                          e.target.value === '' ? 0 : Number(e.target.value)
+                        )
+                      }
                       className="w-full bg-black border border-white text-white px-3 py-2 text-sm focus:outline-none focus:border-white/50"
                     />
                   </div>
@@ -207,7 +267,7 @@ export function TicketTiersEditor({
                   </div>
 
                   {/* Description */}
-                  <div className="md:col-span-3">
+                  <div>
                     <label className="block text-[10px] text-mono-light-grey uppercase tracking-widest mb-1">
                       Description (Optional)
                     </label>
@@ -215,9 +275,59 @@ export function TicketTiersEditor({
                       type="text"
                       value={tier.description || ''}
                       onChange={(e) => handleUpdateTier(index, 'description', e.target.value)}
-                      placeholder="e.g. Free merchandise & fast-track entry"
+                      placeholder="e.g. Best view of the main stage"
                       className="w-full bg-black border border-white text-white px-3 py-2 text-sm focus:outline-none focus:border-white/50"
                     />
+                  </div>
+
+                  {/* Features & Perks Multi-Tag Input */}
+                  <div className="md:col-span-3 border-t border-mono-dark-grey/50 pt-3">
+                    <label className="block text-[10px] text-mono-light-grey uppercase tracking-widest mb-1">
+                      Perks & Facilities (Features)
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {(tier.features || []).map((feat, fIdx) => (
+                        <span
+                          key={fIdx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-mono-dark-grey text-white text-xs border border-mono-light-grey/30"
+                        >
+                          <span>{feat}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFeature(index, fIdx)}
+                            className="text-mono-light-grey hover:text-red-400"
+                            aria-label={`Remove perk ${feat}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newFeatureInputs[index] || ''}
+                        onChange={(e) =>
+                          setNewFeatureInputs((prev) => ({ ...prev, [index]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddFeature(index);
+                          }
+                        }}
+                        placeholder="Type a perk (e.g. VIP Lounge, Free Drink) and press Enter or Add"
+                        className="flex-1 bg-black border border-white/60 text-white px-3 py-1.5 text-xs focus:outline-none focus:border-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddFeature(index)}
+                        className="px-3 py-1.5 bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-mono-light-grey"
+                      >
+                        + Add Perk
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

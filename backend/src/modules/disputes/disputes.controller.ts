@@ -49,6 +49,12 @@ export class DisputesController {
     return this.service.list(query.status, query.page, query.limit);
   }
 
+  @Get('stats')
+  @RequirePermission('DISPUTES', 'view')
+  stats() {
+    return this.service.openCount();
+  }
+
   @Get(':id')
   @RequirePermission('DISPUTES', 'view')
   detail(@Param('id') id: string) {

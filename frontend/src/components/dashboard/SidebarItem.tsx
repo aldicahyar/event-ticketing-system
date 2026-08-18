@@ -10,6 +10,8 @@ interface SidebarItemProps {
   item: NavItem;
   onNavigate?: () => void;
   mobile?: boolean;
+  /** Pending-work counter shown as a badge (omitted when 0/undefined). */
+  badge?: number;
 }
 
 /**
@@ -23,7 +25,7 @@ interface SidebarItemProps {
  *   - Active state animates only colors (no layout shift)
  *   - Honors prefers-reduced-motion via motion-reduce: variant
  */
-export function SidebarItem({ item, onNavigate, mobile = false }: SidebarItemProps) {
+export function SidebarItem({ item, onNavigate, mobile = false, badge }: SidebarItemProps) {
   const pathname = usePathname();
   // useId() guarantees unique IDs even when the same item renders twice
   // (mobile horizontal nav + desktop sticky sidebar).
@@ -59,6 +61,14 @@ export function SidebarItem({ item, onNavigate, mobile = false }: SidebarItemPro
       >
         <item.icon className="w-5 h-5 shrink-0" aria-hidden="true" />
         <span className="font-bold uppercase text-sm">{item.label}</span>
+        {badge ? (
+          <span
+            className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+            aria-label={`${badge} awaiting action`}
+          >
+            {badge > 99 ? '99+' : badge}
+          </span>
+        ) : null}
       </Link>
     );
   }

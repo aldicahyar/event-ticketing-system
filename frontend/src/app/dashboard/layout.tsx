@@ -25,6 +25,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Dynamic sidebar state
   const [sidebarItems, setSidebarItems] = useState<SidebarItemType[] | null>(null);
   const [sidebarLoading, setSidebarLoading] = useState(true);
+  // Pending-dispute counter for the sidebar badge (admin only).
+  const [openDisputes, setOpenDisputes] = useState(0);
 
   const loadSidebar = useCallback(async () => {
     setSidebarLoading(true);
@@ -62,6 +64,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Load the dispute badge count. Admin-only: any other role gets 403 from the
+  // guard, so we never call it. Failure is silent — a missing badge must not
+  // break navigation.
+  useEffect(() => {
+    if (currentUser.role !== 'ADMIN') {
+      setOpenDisputes(0);
+      return;
+    }
+    apiClient
+      .getDisputeStats()
+      .then((stats) => setOpenDisputes(stats?.open ?? 0))
+      .catch(() => setOpenDisputes(0));
+  }, [currentUser.role]);
 
   // Collect all allowed slugs from the sidebar (flat list from backend).
   const allowedSlugs = useMemo(() => {
@@ -142,7 +158,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return (
         <div className={mobile ? 'flex gap-2' : 'space-y-1'}>
           {dynamicTree.map((item) => (
-            <DynamicSidebarItem key={item.code} item={item} mobile={mobile} />
+            <DynamicSidebarItem
+              key={item.code}
+              item={item}
+              mobile={mobile}
+              badge={item.code === 'DISPUTES' ? openDisputes : undefined}
+            />
           ))}
         </div>
       );
@@ -152,7 +173,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className={mobile ? 'flex gap-2' : 'space-y-1'}>
         {fallbackNav.map((item) => (
-          <SidebarItem key={`${item.href}-${item.label}`} item={item} mobile={mobile} />
+          <SidebarItem
+            key={`${item.href}-${item.label}`}
+            item={item}
+            mobile={mobile}
+            badge={item.href.endsWith('/disputes') ? openDisputes : undefined}
+          />
         ))}
       </div>
     );

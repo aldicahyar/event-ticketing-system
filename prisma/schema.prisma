@@ -383,7 +383,8 @@ model t_trx_idempotency_keys {
 model t_trx_tickets {
   id             String         @id @default(cuid())
   booking_id     String
-  seat_id        String
+  seat_id        String?
+  tier_id        String?
   qr_code        String         @unique
   is_checked_in  Boolean        @default(false)
   checked_in_at  DateTime?
@@ -391,12 +392,11 @@ model t_trx_tickets {
   revoked_reason String?
   created_at     DateTime       @default(now())
   booking        t_trx_bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade)
-  seat           t_mtr_seats    @relation(fields: [seat_id], references: [id], onDelete: Restrict)
-  // Index tickets by check-in and revocation state
+  seat           t_mtr_seats?   @relation(fields: [seat_id], references: [id], onDelete: Restrict)
+  tier           t_trx_event_ticket_tiers? @relation(fields: [tier_id], references: [id], onDelete: Restrict)
 
-  // seat_id unique: one ticket per seat (prevents double-booking at DB level)
-  @@unique([seat_id])
-  // qr_code @unique already creates an index — no separate @@index([qr_code]) needed
+  @@index([seat_id])
+  @@index([tier_id])
   @@index([booking_id])
   @@index([is_checked_in])
   @@index([revoked_at])
@@ -635,6 +635,8 @@ model t_trx_event_ticket_tiers {
   price           Decimal       @db.Decimal(10, 2)
   stock           Int
   description     String?
+  features        String[]      @default([])
+  is_seated       Boolean       @default(true)
   start_date_time DateTime
   end_date_time   DateTime
   created_at      DateTime      @default(now())
@@ -642,6 +644,7 @@ model t_trx_event_ticket_tiers {
 
   event           t_trx_events  @relation(fields: [event_id], references: [id], onDelete: Cascade)
   seats           t_mtr_seats[]
+  tickets         t_trx_tickets[]
 
   @@index([event_id])
 }

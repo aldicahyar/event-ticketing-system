@@ -19,6 +19,7 @@ import { ChargeRefundedHandler } from './webhook/handlers/charge-refunded.handle
 import { RefundUpdatedHandler } from './webhook/handlers/refund-updated.handler';
 import { DisputeCreatedHandler } from './webhook/handlers/dispute-created.handler';
 import { DisputeClosedHandler } from './webhook/handlers/dispute-closed.handler';
+import { DisputeUpdatedHandler } from './webhook/handlers/dispute-updated.handler';
 import { AsyncPaymentSucceededHandler } from './webhook/handlers/async-payment-succeeded.handler';
 import { AsyncPaymentFailedHandler } from './webhook/handlers/async-payment-failed.handler';
 import { ConfigService } from '@nestjs/config';
@@ -47,6 +48,7 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
     RefundUpdatedHandler,
     DisputeCreatedHandler,
     DisputeClosedHandler,
+    DisputeUpdatedHandler,
     AsyncPaymentSucceededHandler,
     AsyncPaymentFailedHandler,
 
@@ -63,6 +65,7 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
         RefundUpdatedHandler,
         DisputeCreatedHandler,
         DisputeClosedHandler,
+        DisputeUpdatedHandler,
         AsyncPaymentSucceededHandler,
         AsyncPaymentFailedHandler,
       ],

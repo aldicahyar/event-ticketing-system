@@ -22,13 +22,18 @@ interface HeroEvent {
 }
 
 const mapDbEventToHeroEvent = (e: any): HeroEvent => {
+  let minPrice = Number(e.base_price);
+  if (e.ticket_tiers && e.ticket_tiers.length > 0) {
+    minPrice = Math.min(...e.ticket_tiers.map((t: any) => Number(t.price)));
+  }
+
   return {
     id: e.id,
     artist: e.title,
     tour: e.subtitle || 'WORLD TOUR',
     date: e.start_date_time,
     venue: e.venue?.name || 'VENUE',
-    price: Number(e.base_price),
+    price: minPrice,
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2000&auto=format&fit=crop',
     ticketsLeft: e.available_seats ?? (e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 0),
     totalTickets: e.venue?.capacity || 10000,

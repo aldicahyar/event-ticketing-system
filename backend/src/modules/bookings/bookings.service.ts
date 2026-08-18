@@ -221,21 +221,12 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // 4. Calculate Total Price
-      const tierSettings = await this.prisma.t_mtr_ticket_tier_settings.findMany({
-        where: { status: 'ACTIVE' },
-      });
       const taxSetting = await this.prisma.t_mtr_tax_settings.findUnique({
         where: { id: 'default' },
       });
       const taxPercent = taxSetting?.status === 'ACTIVE' ? taxSetting.ppn_percent : 0;
 
-      let subtotal = 0;
-      for (const seat of seats) {
-        const tier = tierSettings.find((t) => t.id === seat.type);
-        const multiplier = tier ? tier.multiplier : 1;
-        const price = Number(event.base_price) * multiplier;
-        subtotal += price;
-      }
+      const subtotal = seats.reduce((sum, s) => sum + Number(s.price), 0);
       const tax = subtotal * (taxPercent / 100);
       const total_price = subtotal + tax;
       const booking_code = `BOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -670,7 +661,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         payment: true,
         tickets: true,
       },
-      orderBy: { event: { start_date_time: 'asc' } },
+      orderBy: { event: { event_date: 'asc' } },
     });
 
     return bookings;

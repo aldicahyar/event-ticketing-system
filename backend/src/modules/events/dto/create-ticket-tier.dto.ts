@@ -3,6 +3,8 @@ import {
   IsNumber,
   IsOptional,
   IsDateString,
+  IsBoolean,
+  IsArray,
   Min,
   MinLength,
   MaxLength,
@@ -30,6 +32,17 @@ export class CreateTicketTierDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiPropertyOptional({ example: ['VIP Lounge', 'Fast Track'] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  features?: string[];
+
+  @ApiPropertyOptional({ example: true, description: 'Set to true if selecting specific seats is required' })
+  @IsBoolean()
+  @IsOptional()
+  is_seated?: boolean;
 
   @ApiProperty({ example: '2026-07-01T00:00:00.000Z' })
   @IsDateString()

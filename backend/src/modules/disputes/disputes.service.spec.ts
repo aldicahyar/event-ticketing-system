@@ -35,6 +35,7 @@ describe('DisputesService', () => {
     close: jest.fn(),
     applyOpened: jest.fn(),
     findActiveAdminEmails: jest.fn(),
+    countOpen: jest.fn(),
   } as unknown as DisputesRepository;
   const stripe = {
     retrieveDispute: jest.fn(),
@@ -78,6 +79,44 @@ describe('DisputesService', () => {
   it('rejects evidence when deadline is missing', async () => {
     (repo.findById as jest.Mock).mockResolvedValue(dispute({ evidence_due_by: null }));
     await expect(service.submit('dispute-1')).rejects.toThrow(ForbiddenException);
+  });
+
+  it('openCount returns the repository open total for the sidebar badge', async () => {
+    (repo.countOpen as jest.Mock).mockResolvedValue(3);
+    await expect(service.openCount()).resolves.toEqual({ open: 3 });
+    expect(repo.countOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('syncFromWebhook maps under_review to CLOSED keyed by stripe id', async () => {
+    (repo.findByStripeId as jest.Mock).mockResolvedValue(dispute());
+    await service.syncFromWebhook({
+      id: 'dp_1',
+      status: 'under_review',
+      evidence_details: { due_by: 1_800_000_000 },
+    } as never);
+
+    expect(repo.findByStripeId).toHaveBeenCalledWith('dp_1');
+    expect(repo.saveEvidence).toHaveBeenCalledWith(
+      'dispute-1',
+      expect.objectContaining({
+        status: DisputeStatus.CLOSED,
+        evidence_due_by: new Date(1_800_000_000 * 1000),
+      }),
+    );
+  });
+
+  it.each(['won', 'lost'] as const)('syncFromWebhook closes on terminal %s', async (remote) => {
+    (repo.findByStripeId as jest.Mock).mockResolvedValue(dispute());
+    await service.syncFromWebhook({
+      id: 'dp_1',
+      status: remote,
+      evidence_details: { due_by: null },
+    } as never);
+
+    expect(repo.close).toHaveBeenCalledWith(
+      'dispute-1',
+      remote === 'won' ? DisputeStatus.WON : DisputeStatus.LOST,
+    );
   });
 
   it('submits typed uploaded document IDs with text evidence', async () => {

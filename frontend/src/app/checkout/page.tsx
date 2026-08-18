@@ -13,7 +13,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency';
 import 'react-phone-number-input/style.css';
-import PhoneInput from 'react-phone-number-input';
+import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 
 // Checkout Steps
 const STEPS = ['Review', 'Details', 'Payment', 'Confirmation'];
@@ -194,7 +194,9 @@ function CheckoutContent() {
             firstName: freshUser.name?.split(' ')[0] || prev.firstName,
             lastName: freshUser.name?.split(' ').slice(1).join(' ') || prev.lastName,
             email: freshUser.email || prev.email,
-            phone: freshUser.profile?.phone || prev.phone,
+            phone: freshUser.profile?.phone
+              ? parsePhoneNumber(freshUser.profile.phone, 'ID')?.number || ''
+              : prev.phone,
           }));
         }
       } catch (e) {

@@ -69,6 +69,10 @@ export class DisputesRepository {
     });
   }
 
+  countOpen(): Promise<number> {
+    return this.prisma.t_trx_disputes.count({ where: { status: DisputeStatus.OPEN } });
+  }
+
   async list(status: DisputeStatus | undefined, page: number, limit: number) {
     const where: Prisma.t_trx_disputesWhereInput = status ? { status } : {};
     const [total, data] = await this.prisma.$transaction([

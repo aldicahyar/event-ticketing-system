@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { RbacService } from './rbac.service';
 import {
   SidebarController,
@@ -8,6 +9,7 @@ import {
   UserRolesController,
 } from './rbac.controllers';
 
+@Global()
 @Module({
   controllers: [
     SidebarController,
@@ -16,7 +18,7 @@ import {
     PermissionsController,
     UserRolesController,
   ],
-  providers: [RbacService],
-  exports: [RbacService],
+  providers: [RbacService, Reflector],
+  exports: [RbacService, Reflector],
 })
 export class RbacModule {}

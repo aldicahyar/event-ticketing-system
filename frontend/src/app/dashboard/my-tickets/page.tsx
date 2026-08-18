@@ -31,6 +31,7 @@ interface TicketEvent {
   id: string;
   title: string;
   description?: string;
+  event_date?: string;
   start_date_time: string;
   end_date_time?: string;
   image_url?: string | null;
@@ -214,8 +215,11 @@ function TicketsContent() {
   }, [focused, focusOrderId, refreshSilently]);
 
   const isUpcoming = (b: TicketBooking) => {
-    const start = b.event?.start_date_time ? new Date(b.event.start_date_time) : null;
-    return start ? start.getTime() >= Date.now() : false;
+    // The actual event date lives in event_date; start_date_time is the ticket
+    // sales-open date. Match the convention used across the app (checkout/events).
+    const iso = b.event?.event_date ?? b.event?.start_date_time;
+    const eventDate = iso ? new Date(iso) : null;
+    return eventDate ? eventDate.getTime() >= Date.now() : false;
   };
 
   const filteredTickets = bookings.filter((b) =>
@@ -592,7 +596,8 @@ function TicketsContent() {
       {!isLoading && !error && (
         <div className="space-y-6">
           {filteredTickets.map((ticket, index) => {
-            const startDate = ticket.event?.start_date_time ? new Date(ticket.event.start_date_time) : null;
+            const eventIso = ticket.event?.event_date ?? ticket.event?.start_date_time;
+            const startDate = eventIso ? new Date(eventIso) : null;
             const isFocused =
               focused.state === 'ready' && focused.booking.id === ticket.id;
             return (
@@ -663,13 +668,13 @@ function TicketsContent() {
                         </div>
                       </div>
                     </div>
-                    {ticket.event?.start_date_time && (
+                    {startDate && (
                       <div className="flex items-center gap-3">
                         <Clock className="w-5 h-5 text-white" />
                         <div>
                           <div className="text-xs text-mono-light-grey uppercase">Time</div>
                           <div className="font-bold">
-                            {new Date(ticket.event.start_date_time).toLocaleTimeString('en-GB', {
+                            {startDate.toLocaleTimeString('en-GB', {
                               hour: '2-digit',
                               minute: '2-digit',
                             })}

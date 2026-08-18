@@ -21,6 +21,7 @@ interface TicketTier {
   description: string;
   available: number;
   features: string[];
+  is_seated: boolean;
 }
 
 interface Seat {
@@ -65,17 +66,11 @@ const computeTiersFromData = (eventData: any): TicketTier[] => {
         (s: any) => s.tier_id === t.id && s.status === 'AVAILABLE'
       ).length;
 
-      let features: string[] = ['Standard entry'];
+      // Use features directly from database if available
+      let features: string[] = t.features && t.features.length > 0
+        ? t.features
+        : ['Standard Entry'];
       let description = t.description || 'General admission ticket';
-      
-      const lowerName = t.name.toLowerCase();
-      if (lowerName.includes('vip')) {
-        features = ['Front row access', 'Dedicated entrance', 'VIP lounge', 'Event program'];
-      } else if (lowerName.includes('premium') || lowerName.includes('presale')) {
-        features = ['Best views', 'Early entry', 'Dedicated entrance'];
-      } else {
-        features = ['Standard entry', 'Standard seating'];
-      }
 
       return {
         id: t.id,
@@ -83,7 +78,8 @@ const computeTiersFromData = (eventData: any): TicketTier[] => {
         price: Number(t.price),
         description,
         available: availableCount,
-        features
+        features,
+        is_seated: t.is_seated ?? false
       };
     });
   }
@@ -125,7 +121,8 @@ const computeTiersFromData = (eventData: any): TicketTier[] => {
         price: val.price,
         description,
         available: val.available,
-        features
+        features,
+        is_seated: true // Legacy fallback is always seated
       });
     }
   });
@@ -176,7 +173,9 @@ export default function EventDetailPage() {
             tour: eventData.subtitle?.toUpperCase() || '',
             date: eventData.event_date || eventData.start_date_time,
             venue: eventData.venue?.name?.toUpperCase() || '',
-            price: Number(eventData.base_price),
+            price: eventData.ticket_tiers && eventData.ticket_tiers.length > 0
+              ? Math.min(...eventData.ticket_tiers.map((t: any) => Number(t.price)))
+              : Number(eventData.base_price),
             currency: eventData.currency || DEFAULT_CURRENCY,
             image: eventData.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
             genre: eventData.genre?.toUpperCase() || 'GENERAL',
@@ -243,8 +242,15 @@ export default function EventDetailPage() {
   const total = subtotal + ppn;
 
   const handleCheckout = () => {
-    // Navigate to checkout
-    const seatIds = selectedSeats.map(s => s.id).join(',');
+    let finalSeats = selectedSeats;
+    if (selectedTierData && !selectedTierData.is_seated) {
+      // Auto-assign available seats for non-seated tier seamlessly
+      finalSeats = seats.filter(s => s.status === 'available').slice(0, quantity);
+    }
+
+    if (finalSeats.length === 0) return;
+
+    const seatIds = finalSeats.map(s => s.id).join(',');
     router.push(`/checkout?event=${event_id}&seats=${seatIds}&subtotal=${subtotal}&ppn=${ppn}&total=${total}&ppn_percent=${ppn_percent}&currency=${encodeURIComponent(event?.currency || DEFAULT_CURRENCY)}`);
   };
 
@@ -381,7 +387,11 @@ export default function EventDetailPage() {
                     key={tier.id}
                     onClick={() => {
                       setSelectedTier(tier.id);
-                      setShowSeatMap(true);
+                      if (tier.is_seated) {
+                        setShowSeatMap(true);
+                      } else {
+                        setShowSeatMap(false);
+                      }
                     }}
                     aria-pressed={selectedTier === tier.id}
                     aria-label={`${tier.name} tier - ${formatCurrency(tier.price)} per ticket, ${tier.available} available`}
@@ -393,8 +403,15 @@ export default function EventDetailPage() {
                   >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex-grow">
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex flex-wrap items-center gap-3 mb-2">
                           <span className="font-display font-bold text-xl uppercase text-white">{tier.name}</span>
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 border ${
+                            tier.is_seated
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              : 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                          }`}>
+                            {tier.is_seated ? 'Seated' : 'Standing (GA)'}
+                          </span>
                           {tier.available < 100 && (
                             <span className="text-xs text-red-500 font-bold uppercase animate-pulse" aria-label={`Only ${tier.available} tickets left`}>
                               Only {tier.available} left
@@ -403,8 +420,8 @@ export default function EventDetailPage() {
                         </div>
                         <p className="text-sm text-mono-light-grey mb-2">{tier.description}</p>
                         <div className="flex flex-wrap gap-2">
-                          {tier.features.slice(0, 3).map((feature, i) => (
-                            <span key={i} className="text-xs bg-white/10 px-2 py-1 text-[#CCCCCC]">
+                          {tier.features.map((feature, i) => (
+                            <span key={i} className="text-xs bg-white/10 border border-mono-dark-grey px-2.5 py-1 text-mono-light-grey uppercase font-bold">
                               {feature}
                             </span>
                           ))}
@@ -559,8 +576,32 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              {/* Selected Seats */}
-              {selectedSeats.length > 0 && (
+              {/* Quantity Selector for Non-Seated (GA) Tickets */}
+              {selectedTierData && !selectedTierData.is_seated && (
+                <div className="pb-4 border-b border-mono-dark-grey mb-4">
+                  <div className="text-sm text-mono-light-grey uppercase tracking-widest mb-2">Quantity</div>
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      aria-label="Decrease quantity"
+                      className="w-8 h-8 border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all"
+                    >
+                      -
+                    </button>
+                    <span className="text-xl font-bold" aria-live="polite">{quantity}</span>
+                    <button 
+                      onClick={() => setQuantity(Math.min(selectedTierData.available, 10, quantity + 1))}
+                      aria-label="Increase quantity"
+                      className="w-8 h-8 border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Seats (Only for Seated Tickets) */}
+              {selectedTierData?.is_seated && selectedSeats.length > 0 && (
                 <div className="pb-4 border-b border-mono-dark-grey mb-4">
                   <div className="text-sm text-mono-light-grey uppercase tracking-widest mb-2">Selected Seats</div>
                   <div className="flex flex-wrap gap-1">

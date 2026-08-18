@@ -31,6 +31,7 @@ import type {
 import type {
   DisputeDetail,
   DisputeListResult,
+  DisputeListMeta,
   DisputeSummary,
   DisputeStatus,
   SaveEvidenceInput,
@@ -540,15 +541,15 @@ class ApiClient {
     page?: number;
     limit?: number;
   }): Promise<DisputeListResult> {
-    const response = await this.client.get<ApiResponse<DisputeListResult | DisputeSummary[]>>(
-      '/disputes',
-      { params: this.cleanParams(query) },
-    );
-    const payload = response.data.data;
-    if (Array.isArray(payload)) {
-      return { data: payload };
-    }
-    return payload ?? { data: [] };
+    const response = await this.client.get<
+      ApiResponse<DisputeSummary[]> & { meta?: DisputeListMeta }
+    >('/disputes', { params: this.cleanParams(query) });
+    return { data: response.data.data ?? [], meta: response.data.meta };
+  }
+
+  /** Sidebar badge counter: disputes still awaiting action. */
+  async getDisputeStats() {
+    return this.get<{ open: number }>('/disputes/stats');
   }
 
   async getDispute(id: string) {

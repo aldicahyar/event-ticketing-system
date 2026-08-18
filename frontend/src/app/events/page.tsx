@@ -26,13 +26,18 @@ interface EventListItem {
 }
 
 const mapDbEventToFrontend = (e: any): EventListItem => {
+  let minPrice = Number(e.base_price);
+  if (e.ticket_tiers && e.ticket_tiers.length > 0) {
+    minPrice = Math.min(...e.ticket_tiers.map((t: any) => Number(t.price)));
+  }
+
   return {
     id: e.id,
     artist: e.title.toUpperCase(),
     tour: e.subtitle.toUpperCase() || '',
     date: e.start_date_time,
     venue: e.venue?.name.toUpperCase() || '',
-    price: Number(e.base_price),
+    price: minPrice,
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
     genre: e.genre.toUpperCase() || '',
     ticketsLeft: 200,

@@ -51,6 +51,11 @@ export class DisputesService {
     return this.repo.list(status, page, limit);
   }
 
+  /** Badge counter for the admin sidebar: how many disputes still need action. */
+  async openCount(): Promise<{ open: number }> {
+    return { open: await this.repo.countOpen() };
+  }
+
   async detail(id: string): Promise<DisputeDetail> {
     const dispute = await this.repo.findById(id);
     if (!dispute) {
@@ -205,6 +210,26 @@ export class DisputesService {
       throw new NotFoundException('Dispute not found');
     }
     return this.repo.close(dispute.id, outcome);
+  }
+
+  /** Webhook counterpart of sync(): reconcile local dispute from a Stripe event, keyed by stripe id. */
+  async syncFromWebhook(remote: Stripe.Dispute) {
+    const dispute = await this.repo.findByStripeId(remote.id);
+    if (!dispute) {
+      throw new NotFoundException('Dispute not found');
+    }
+    const status = this.mapStatus(remote.status);
+    if (status === DisputeStatus.WON || status === DisputeStatus.LOST) {
+      return this.repo.close(dispute.id, status);
+    }
+    if (dispute.status === DisputeStatus.WON || dispute.status === DisputeStatus.LOST) {
+      throw new ConflictException('Terminal dispute cannot be reopened by webhook');
+    }
+    return this.repo.saveEvidence(dispute.id, {
+      status,
+      evidence_due_by: this.unixDate(remote.evidence_details.due_by),
+      closed_at: status === DisputeStatus.CLOSED ? (dispute.closed_at ?? new Date()) : undefined,
+    });
   }
 
   private async notifyAdmin(dispute: OpenedDispute): Promise<void> {

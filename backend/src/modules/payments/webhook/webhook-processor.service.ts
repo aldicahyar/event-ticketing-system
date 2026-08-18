@@ -78,6 +78,7 @@ export class WebhookProcessorService {
       if (!this.webhookSecret) {
         throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
       }
+
       event = this.stripe.webhooks.constructEvent(rawBody, signature, this.webhookSecret);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

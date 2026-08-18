@@ -11,6 +11,8 @@ interface DynamicSidebarItemProps {
   item: SidebarItem;
   onNavigate?: () => void;
   mobile?: boolean;
+  /** Pending-work counter shown as a badge (omitted when 0/undefined). */
+  badge?: number;
 }
 
 /**
@@ -23,7 +25,12 @@ interface DynamicSidebarItemProps {
  *   - Auto-expand when current path is under the parent's slug
  *   - External links (is_new_tab) open in new tab
  */
-export function DynamicSidebarItem({ item, onNavigate, mobile = false }: DynamicSidebarItemProps) {
+export function DynamicSidebarItem({
+  item,
+  onNavigate,
+  mobile = false,
+  badge,
+}: DynamicSidebarItemProps) {
   const pathname = usePathname();
   const reactId = useId();
   const groupId = `group-${reactId.replace(/[:]/g, '')}`;
@@ -60,6 +67,15 @@ export function DynamicSidebarItem({ item, onNavigate, mobile = false }: Dynamic
 
   const Icon = getIcon(item.icon);
 
+  const badgeNode = badge ? (
+    <span
+      className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+      aria-label={`${badge} awaiting action`}
+    >
+      {badge > 99 ? '99+' : badge}
+    </span>
+  ) : null;
+
   if (mobile) {
     const mobileClassName = `flex shrink-0 items-center gap-3 whitespace-nowrap px-4 py-3 transition-colors duration-150 ease-out motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
       isGroupActive ? 'bg-white text-black' : 'text-[#CCCCCC] hover:bg-white/10 hover:text-white'
@@ -68,6 +84,7 @@ export function DynamicSidebarItem({ item, onNavigate, mobile = false }: Dynamic
       <>
         <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
         <span className="font-bold uppercase text-sm">{item.name}</span>
+        {badgeNode}
       </>
     );
 
@@ -126,6 +143,7 @@ export function DynamicSidebarItem({ item, onNavigate, mobile = false }: Dynamic
       >
         <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
         <span className="font-bold uppercase text-sm">{item.name}</span>
+        {badgeNode}
       </Link>
     );
   }

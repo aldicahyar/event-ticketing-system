@@ -75,12 +75,14 @@ export class EventsService {
               price: tier.price,
               stock: tier.stock,
               description: tier.description,
+              features: tier.features || [],
+              is_seated: tier.is_seated ?? true,
               start_date_time: new Date(tier.start_date_time),
               end_date_time: new Date(tier.end_date_time),
             },
           });
 
-          // Generate dummy seats for this tier based on stock
+          // Generate dummy seats for all tiers (acts as inventory unit)
           const seatsToCreate = [];
           for (let i = 1; i <= tier.stock; i++) {
             seatsToCreate.push({
@@ -280,12 +282,14 @@ export class EventsService {
                 price: tier.price,
                 stock: tier.stock,
                 description: tier.description,
+                features: tier.features || [],
+                is_seated: tier.is_seated ?? true,
                 start_date_time: new Date(tier.start_date_time),
                 end_date_time: new Date(tier.end_date_time),
               },
             });
   
-            // Generate dummy seats for this tier based on stock
+            // Generate dummy seats for all tiers (acts as inventory unit)
             const seatsToCreate = [];
             for (let i = 1; i <= tier.stock; i++) {
               seatsToCreate.push({
