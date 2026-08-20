@@ -22,3 +22,15 @@ export function formatCurrency(
   }
   return `${code} ${num.toLocaleString('en-US')}`;
 }
+
+export function formatNumberWithDots(val: number | string): string {
+  if (val === '' || val === undefined || val === null || val === 0) return '';
+  const cleanStr = String(val).replace(/\D/g, '');
+  if (!cleanStr) return '';
+  return cleanStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+export function parseDotsToNumber(val: string): number {
+  const cleanStr = String(val).replace(/\D/g, '');
+  return cleanStr ? Number(cleanStr) : 0;
+}

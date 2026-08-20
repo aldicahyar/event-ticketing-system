@@ -39,6 +39,12 @@ import type {
   DisputeEvidenceType,
 } from '@/types/dispute';
 
+import type {
+  RefundReport,
+  ReconciliationResult,
+  RevenueReport,
+} from '@/types/analytics';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Types
@@ -604,6 +610,30 @@ class ApiClient {
   /** Public — a single published page by slug (no auth). */
   async getPublishedPage(slug: string) {
     return this.get<CmsPage>(`/public/pages/${slug}`);
+  }
+
+  // ============================================================
+  // ANALYTICS (admin: /analytics)
+  // ============================================================
+
+  async getRevenueReport(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
+    return this.get<RevenueReport>('/analytics/revenue', { period });
+  }
+
+  async getRefundReport() {
+    return this.get<RefundReport>('/analytics/refunds');
+  }
+
+  async exportPaymentsCsv(from: string, to: string): Promise<Blob> {
+    const response = await this.client.get('/analytics/export', {
+      params: { from, to },
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  }
+
+  async getReconciliation(from: string, to: string) {
+    return this.get<ReconciliationResult>('/analytics/reconciliation', { from, to });
   }
 }
 

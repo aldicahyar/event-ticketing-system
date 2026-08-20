@@ -661,7 +661,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         payment: true,
         tickets: true,
       },
-      orderBy: { event: { event_date: 'asc' } },
+      orderBy: [{ event: { event_date: 'desc' } }, { booked_at: 'desc' }],
     });
 
     return bookings;

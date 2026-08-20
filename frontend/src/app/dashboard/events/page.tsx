@@ -7,7 +7,7 @@ import {
   Calendar, Plus, Edit2, Trash2, ArrowLeft, RefreshCw, TicketCheck
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
-import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency';
+import { formatCurrency, DEFAULT_CURRENCY, formatNumberWithDots, parseDotsToNumber } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
 import { TicketTiersEditor, TicketTierInput } from '@/components/events/TicketTiersEditor';
 
@@ -553,11 +553,12 @@ export default function EventsManagementPage() {
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-mono-light-grey font-bold">{DEFAULT_CURRENCY}</div>
                   <input
                     id="event-base_price"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    min="0"
-                    value={formData.base_price === 0 ? '' : formData.base_price}
-                    onChange={(e) => setFormData({ ...formData, base_price: e.target.value === '' ? 0 : Number(e.target.value) })}
+                    value={formatNumberWithDots(formData.base_price)}
+                    onChange={(e) => setFormData({ ...formData, base_price: parseDotsToNumber(e.target.value) })}
+                    placeholder="150.000"
                     className="w-full bg-black border border-white text-white px-12 py-3 text-base focus:outline-none focus:border-white/50 min-h-touch"
                   />
                 </div>

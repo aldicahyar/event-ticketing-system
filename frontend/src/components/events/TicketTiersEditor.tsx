@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2, Tag, AlertCircle, X, Armchair, Users } from 'lucide-react';
+import { formatNumberWithDots, parseDotsToNumber } from '@/lib/currency';
 
 export interface TicketTierInput {
   id?: string;
@@ -202,17 +203,18 @@ export function TicketTiersEditor({
                       Price ({currency}) *
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       required
-                      min="1"
-                      value={tier.price === 0 ? '' : tier.price}
+                      value={formatNumberWithDots(tier.price)}
                       onChange={(e) =>
                         handleUpdateTier(
                           index,
                           'price',
-                          e.target.value === '' ? 0 : Number(e.target.value)
+                          parseDotsToNumber(e.target.value)
                         )
                       }
+                      placeholder="150.000"
                       className="w-full bg-black border border-white text-white px-3 py-2 text-sm focus:outline-none focus:border-white/50"
                     />
                   </div>
