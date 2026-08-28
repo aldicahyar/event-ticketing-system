@@ -15,6 +15,7 @@ import { parse as parseYaml } from 'yaml';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { ActorInterceptor } from './common/interceptors/actor.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
@@ -85,7 +86,7 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
-  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalInterceptors(new ActorInterceptor(), new TransformInterceptor());
 
   // ===== Primary API docs (auto-generated from NestJS decorators) =====
   const autoConfig = new DocumentBuilder()

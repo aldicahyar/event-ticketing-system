@@ -635,6 +635,51 @@ class ApiClient {
   async getReconciliation(from: string, to: string) {
     return this.get<ReconciliationResult>('/analytics/reconciliation', { from, to });
   }
+
+  // ============================================================
+  // ADMIN OPS & ACTIVITY (GAP-08)
+  // ============================================================
+
+  async getAdminPayments(params?: {
+    status?: string;
+    event_id?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    // Needs the envelope's `meta` for pagination, so bypass this.get() which unwraps to `data`.
+    const res = await this.client.get<ApiResponse<any[]> & { meta?: any }>('/admin/payments', {
+      params: this.cleanParams(params),
+    });
+    return { data: res.data.data ?? [], meta: res.data.meta };
+  }
+
+  async getAdminPaymentDetail(id: string) {
+    return this.get<any>(`/admin/payments/${id}`);
+  }
+
+  async adminRefundPayment(id: string, note: string) {
+    return this.post<any>(`/admin/payments/${id}/refund`, { note });
+  }
+
+  async getActivityFeed(params?: {
+    model?: string;
+    action?: string;
+    target_id?: string;
+    actor_id?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    // Needs the envelope's `meta` for pagination, so bypass this.get() which unwraps to `data`.
+    const res = await this.client.get<ApiResponse<any[]> & { meta?: any }>('/admin/activity', {
+      params: this.cleanParams(params),
+    });
+    return { data: res.data.data ?? [], meta: res.data.meta };
+  }
 }
 
 export const apiClient = new ApiClient();

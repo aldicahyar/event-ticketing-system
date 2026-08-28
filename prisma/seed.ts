@@ -282,7 +282,8 @@ const PERMISSION_MATRIX: Array<
   ['ADMIN', 'DASHBOARD', { can_view: true }],
   ['ADMIN', 'DASHBOARD_STATS', { can_view: true }],
   ['ADMIN', 'DASHBOARD_ACTIVITY', { can_view: true }],
-  ['ADMIN', 'DASHBOARD_OPS', { can_view: true }],
+  // can_edit gates the admin-initiated refund action on the Ops page.
+  ['ADMIN', 'DASHBOARD_OPS', { can_view: true, can_edit: true }],
   ['ADMIN', 'EVENTS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'VENUES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'TIER_SETTINGS', { can_view: true, can_edit: true }],

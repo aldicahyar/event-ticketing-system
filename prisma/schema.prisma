@@ -189,6 +189,21 @@ model t_trx_security_logs {
   @@index([created_at])
 }
 
+model t_trx_activity_log {
+  id          String   @id @default(cuid())
+  actor_id    String?  // NULL means system action / webhook
+  action      String   // e.g. "CREATE", "UPDATE", "DELETE"
+  model       String   // e.g. "t_trx_payments", "t_trx_bookings"
+  target_id   String   // The ID of the affected row (stored as text)
+  target_type String   // Same as model, or business entity type
+  metadata    Json?    // Stores the payload difference or payload snapshot
+  created_at  DateTime @default(now())
+
+  @@index([actor_id])
+  @@index([model, target_id])
+  @@index([created_at])
+}
+
 model t_trx_oauth_accounts {
   id          String      @id @default(cuid())
   user_id     String
@@ -458,6 +473,11 @@ model t_trx_refunds {
   @@index([requested_by])
   // Composite: optimize admin queue "pending refunds sorted by date"
   @@index([status, created_at])
+  // NOTE: a PARTIAL unique index on (booking_id) WHERE status IN
+  // ('REQUESTED','PROCESSING','COMPLETED') exists in the DB (migration
+  // 20260828090000_prevent_duplicate_active_refund). Prisma cannot express
+  // partial indexes, so `prisma migrate dev` will report it as drift —
+  // keep the migration, do not drop the index.
 }
 
 model t_trx_disputes {

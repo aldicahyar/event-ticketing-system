@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma, RefundStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { DEFAULT_REFUND_POLICIES } from './refunds.constants';
@@ -94,8 +94,21 @@ export class RefundsRepository {
     };
   }
 
-  create(data: Prisma.t_trx_refundsUncheckedCreateInput) {
-    return this.prisma.t_trx_refunds.create({ data, include: refundInclude });
+  /**
+   * Creates a refund request. The DB enforces a partial unique index on
+   * (booking_id) WHERE status IN (REQUESTED, PROCESSING, COMPLETED), so a
+   * concurrent request that loses the race fails here instead of producing a
+   * duplicate active refund.
+   */
+  async create(data: Prisma.t_trx_refundsUncheckedCreateInput) {
+    try {
+      return await this.prisma.t_trx_refunds.create({ data, include: refundInclude });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('An active refund request already exists for this booking');
+      }
+      throw err;
+    }
   }
 
   update(id: string, data: Prisma.t_trx_refundsUncheckedUpdateInput) {

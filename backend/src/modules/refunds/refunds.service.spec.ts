@@ -44,6 +44,7 @@ describe('RefundsService', () => {
   let service: RefundsService;
   let repository: Record<string, jest.Mock>;
   let stripe: { createRefund: jest.Mock };
+  let policyEvaluate: jest.Mock;
 
   beforeEach(async () => {
     repository = {
@@ -68,6 +69,12 @@ describe('RefundsService', () => {
       createPolicyAudit: jest.fn(),
     };
     stripe = { createRefund: jest.fn().mockResolvedValue({ id: 're_1', status: 'succeeded' }) };
+    policyEvaluate = jest.fn().mockResolvedValue({
+      eligible: true,
+      ruleCode: 'TIER_1_7D',
+      percentage: 50,
+      amount: 400000,
+    });
     const module = await Test.createTestingModule({
       providers: [
         RefundsService,
@@ -75,12 +82,7 @@ describe('RefundsService', () => {
         {
           provide: RefundPolicyService,
           useValue: {
-            evaluate: jest.fn().mockResolvedValue({
-              eligible: true,
-              ruleCode: 'TIER_1_7D',
-              percentage: 50,
-              amount: 400000,
-            }),
+            evaluate: policyEvaluate,
             invalidateCache: jest.fn(),
           },
         },
@@ -108,6 +110,30 @@ describe('RefundsService', () => {
     await expect(
       service.create('user-1', { booking_id: 'booking-1', reason: 'OTHER' }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('maps a concurrent unique-index violation to ConflictException', async () => {
+    // The check-then-create window lost the race: the DB partial unique index
+    // rejects the insert, surfaced by the repository as ConflictException.
+    repository.create.mockRejectedValue(
+      new ConflictException('An active refund request already exists for this booking'),
+    );
+    await expect(
+      service.create('user-1', { booking_id: 'booking-1', reason: 'OTHER' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('adminRefund refuses to create an orphan refund for an ineligible booking', async () => {
+    policyEvaluate.mockResolvedValue({
+      eligible: false,
+      ruleCode: 'TIER_LT_24H',
+      percentage: 0,
+      amount: 0,
+    });
+    await expect(
+      service.adminRefund('booking-1', { id: 'admin-1', role: 'ADMIN' }, 'note'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   it('prevents an organizer from processing another organizer event refund', async () => {

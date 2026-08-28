@@ -84,6 +84,58 @@ export class RefundsService {
     return this.repository.findMine(userId);
   }
 
+  /**
+   * Admin-initiated refund from the Ops console: create the request on behalf
+   * of the booking owner, then run the normal approve flow (Stripe + state
+   * machine + audit). Idempotent — reuses any active refund instead of
+   * creating a duplicate.
+   */
+  async adminRefund(bookingId: string, admin: RefundActor, note: string) {
+    const existing = await this.repository.findActiveByBooking(bookingId);
+    if (existing) {
+      throw new ConflictException('An active refund already exists for this booking');
+    }
+    const booking = await this.repository.findBookingForRefund(bookingId);
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (
+      booking.status !== 'CONFIRMED' ||
+      !booking.payment ||
+      booking.payment.status !== 'COMPLETED'
+    ) {
+      throw new BadRequestException('Only confirmed and paid bookings can be refunded');
+    }
+
+    const evaluation = await this.policyService.evaluate(
+      Number(booking.total_price),
+      booking.event.status,
+      booking.event.start_date_time,
+    );
+    if (!evaluation.eligible) {
+      throw new BadRequestException(
+        'This booking is not eligible for refund under the current policy',
+      );
+    }
+
+    const refund = await this.repository.create({
+      booking_id: booking.id,
+      payment_id: booking.payment.id,
+      amount: evaluation.amount,
+      currency: booking.currency,
+      percentage: evaluation.percentage,
+      reason: 'ADMIN_INITIATED',
+      review_note: note,
+      requested_by: admin.id,
+    });
+    await this.audit.record(admin.id, 'ADMIN_REFUND', {
+      refund_id: refund.id,
+      booking_id: booking.id,
+      amount: evaluation.amount,
+      percentage: evaluation.percentage,
+      note,
+    });
+    return this.approve(refund.id, admin, note);
+  }
+
   findAll(actor: RefundActor, status: string | undefined, page: number, limit: number) {
     const parsedStatus = this.parseStatus(status);
     const organizerId = actor.role === 'ORGANIZER' ? actor.id : undefined;
