@@ -121,7 +121,7 @@ export class AdminService {
       if (providerTxId.startsWith('cs_')) {
         const session = await this.stripe.retrieveCheckoutSession(providerTxId);
         const pi = session.payment_intent;
-        intentId = typeof pi === 'string' ? pi : (pi as Stripe.PaymentIntent | null)?.id ?? '';
+        intentId = typeof pi === 'string' ? pi : ((pi as Stripe.PaymentIntent | null)?.id ?? '');
       }
       if (!intentId.startsWith('pi_')) return { unavailable: true, reason: 'No payment intent' };
 
@@ -190,7 +190,10 @@ export class AdminService {
     const actorMap = new Map(actors.map((a) => [a.id, a]));
 
     return {
-      data: rows.map((r) => ({ ...r, actor: r.actor_id ? actorMap.get(r.actor_id) ?? null : null })),
+      data: rows.map((r) => ({
+        ...r,
+        actor: r.actor_id ? (actorMap.get(r.actor_id) ?? null) : null,
+      })),
       meta: {
         total,
         page,

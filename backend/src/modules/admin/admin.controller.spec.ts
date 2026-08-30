@@ -26,10 +26,14 @@ describe('AdminController', () => {
   });
 
   it('maps refund actor + note from the request', () => {
-    controller.refund('pay-1', { note: 'duplicate charge' } as never, {
-      id: 'admin-9',
-      role_code: 'ADMIN',
-    } as never);
+    controller.refund(
+      'pay-1',
+      { note: 'duplicate charge' } as never,
+      {
+        id: 'admin-9',
+        role_code: 'ADMIN',
+      } as never,
+    );
     expect(service.refundPayment).toHaveBeenCalledWith(
       'pay-1',
       { id: 'admin-9', role: 'ADMIN' },

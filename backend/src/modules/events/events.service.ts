@@ -230,96 +230,95 @@ export class EventsService {
     };
 
     // Issue 2 fix: validate updated start < end using updated or existing values
-      const finalStart = (updateData.start_date_time as Date | undefined) ?? existing.start_date_time;
-      const finalEnd = (updateData.end_date_time as Date | undefined) ?? existing.end_date_time;
-      if (finalStart >= finalEnd) {
-        throw new BadRequestException('start_date_time must be before end_date_time');
-      }
-  
-      if (dto.ticket_tiers?.length) {
-        for (const tier of dto.ticket_tiers) {
-          if (new Date(tier.start_date_time) >= new Date(tier.end_date_time)) {
-            throw new BadRequestException(
-              `Tier ${tier.name} start_date_time must be before end_date_time`,
-            );
-          }
+    const finalStart = (updateData.start_date_time as Date | undefined) ?? existing.start_date_time;
+    const finalEnd = (updateData.end_date_time as Date | undefined) ?? existing.end_date_time;
+    if (finalStart >= finalEnd) {
+      throw new BadRequestException('start_date_time must be before end_date_time');
+    }
+
+    if (dto.ticket_tiers?.length) {
+      for (const tier of dto.ticket_tiers) {
+        if (new Date(tier.start_date_time) >= new Date(tier.end_date_time)) {
+          throw new BadRequestException(
+            `Tier ${tier.name} start_date_time must be before end_date_time`,
+          );
         }
       }
+    }
 
-      // Use transaction if ticket tiers are provided
-      if (dto.ticket_tiers && dto.ticket_tiers.length > 0) {
-        // Prevent updates if any seats are already reserved or sold
-        const nonAvailableSeatsCount = await this.prisma.t_mtr_seats.count({
-          where: { event_id: id, status: { in: ['RESERVED', 'SOLD'] } },
-        });
-
-        if (nonAvailableSeatsCount > 0) {
-           throw new BadRequestException(
-             'Cannot modify event tickets/tiers. Some tickets are already reserved or sold.',
-           );
-        }
-
-        return this.prisma.$transaction(async (tx) => {
-           const updatedEvent = await tx.t_trx_events.update({
-            where: { id },
-            data: updateData,
-          });
-
-           // Simple strategy: we drop old tiers/seats if no bookings (checked above), and recreate.
-           await tx.t_mtr_seats.deleteMany({
-             where: { event_id: id },
-           });
-
-           await tx.t_trx_event_ticket_tiers.deleteMany({
-             where: { event_id: id },
-           });
-           
-           for (const tier of dto.ticket_tiers!) {
-            const createdTier = await tx.t_trx_event_ticket_tiers.create({
-              data: {
-                event_id: id,
-                name: tier.name,
-                price: tier.price,
-                stock: tier.stock,
-                description: tier.description,
-                features: tier.features || [],
-                is_seated: tier.is_seated ?? true,
-                start_date_time: new Date(tier.start_date_time),
-                end_date_time: new Date(tier.end_date_time),
-              },
-            });
-  
-            // Generate dummy seats for all tiers (acts as inventory unit)
-            const seatsToCreate = [];
-            for (let i = 1; i <= tier.stock; i++) {
-              seatsToCreate.push({
-                event_id: id,
-                venue_id: updatedEvent.venue_id,
-                row: tier.name, // Use tier name as row indicator
-                number: i,
-                type: 'REGULAR',
-                status: 'AVAILABLE',
-                price: tier.price,
-                tier_id: createdTier.id,
-              });
-            }
-            if (seatsToCreate.length > 0) {
-              await tx.t_mtr_seats.createMany({ data: seatsToCreate });
-            }
-          }
-
-          return tx.t_trx_events.findUnique({
-            where: { id },
-            include: { venue: true, seats: true, ticket_tiers: true },
-          });
-
-        });
-      }
-  
-      const updatedEvent = await this.prisma.t_trx_events.update({
-        where: { id },
-        data: updateData,
+    // Use transaction if ticket tiers are provided
+    if (dto.ticket_tiers && dto.ticket_tiers.length > 0) {
+      // Prevent updates if any seats are already reserved or sold
+      const nonAvailableSeatsCount = await this.prisma.t_mtr_seats.count({
+        where: { event_id: id, status: { in: ['RESERVED', 'SOLD'] } },
       });
+
+      if (nonAvailableSeatsCount > 0) {
+        throw new BadRequestException(
+          'Cannot modify event tickets/tiers. Some tickets are already reserved or sold.',
+        );
+      }
+
+      return this.prisma.$transaction(async (tx) => {
+        const updatedEvent = await tx.t_trx_events.update({
+          where: { id },
+          data: updateData,
+        });
+
+        // Simple strategy: we drop old tiers/seats if no bookings (checked above), and recreate.
+        await tx.t_mtr_seats.deleteMany({
+          where: { event_id: id },
+        });
+
+        await tx.t_trx_event_ticket_tiers.deleteMany({
+          where: { event_id: id },
+        });
+
+        for (const tier of dto.ticket_tiers!) {
+          const createdTier = await tx.t_trx_event_ticket_tiers.create({
+            data: {
+              event_id: id,
+              name: tier.name,
+              price: tier.price,
+              stock: tier.stock,
+              description: tier.description,
+              features: tier.features || [],
+              is_seated: tier.is_seated ?? true,
+              start_date_time: new Date(tier.start_date_time),
+              end_date_time: new Date(tier.end_date_time),
+            },
+          });
+
+          // Generate dummy seats for all tiers (acts as inventory unit)
+          const seatsToCreate = [];
+          for (let i = 1; i <= tier.stock; i++) {
+            seatsToCreate.push({
+              event_id: id,
+              venue_id: updatedEvent.venue_id,
+              row: tier.name, // Use tier name as row indicator
+              number: i,
+              type: 'REGULAR',
+              status: 'AVAILABLE',
+              price: tier.price,
+              tier_id: createdTier.id,
+            });
+          }
+          if (seatsToCreate.length > 0) {
+            await tx.t_mtr_seats.createMany({ data: seatsToCreate });
+          }
+        }
+
+        return tx.t_trx_events.findUnique({
+          where: { id },
+          include: { venue: true, seats: true, ticket_tiers: true },
+        });
+      });
+    }
+
+    const updatedEvent = await this.prisma.t_trx_events.update({
+      where: { id },
+      data: updateData,
+    });
 
     // If venue was changed, regenerate seats from scratch (new seat map).
     if (venue) {

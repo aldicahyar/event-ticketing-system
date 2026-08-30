@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { resolveCorsOrigins } from './common/utils/cors.utils';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ActorInterceptor } from './common/interceptors/actor.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -27,7 +28,7 @@ async function bootstrap() {
   const configService: ConfigService = app.get(ConfigService);
   const port = configService.get('PORT', 3000);
   const nodeEnv = configService.get('NODE_ENV', 'development');
-  const corsOrigin = configService.get('CORS_ORIGIN', 'http://localhost:3001');
+  const corsOrigins = resolveCorsOrigins(configService.get<string>('CORS_ORIGIN'), nodeEnv);
 
   // Register Fastify plugins
   await app.register(helmet, {
@@ -36,10 +37,11 @@ async function bootstrap() {
 
   // CORS configuration
   await app.register(cors, {
-    origin: true, // Allow all origins in development
+    origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     credentials: true,
+    maxAge: 86400,
   });
 
   await app.register(compress);
@@ -121,7 +123,7 @@ async function bootstrap() {
   logger.log(`🌍 Environment: ${nodeEnv}`);
   logger.log(`📚 API endpoints ready at: http://localhost:${port}/api/v1`);
   logger.log(`📖 API Documentation: http://localhost:${port}/api/docs`);
-  logger.log(`🔓 CORS enabled for: ${corsOrigin}`);
+  logger.log(`🔒 CORS allowed origins: ${corsOrigins.join(', ')}`);
 }
 
 bootstrap();

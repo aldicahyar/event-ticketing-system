@@ -181,7 +181,9 @@ describe('EventsService', () => {
       expect(prisma.t_mtr_seats.count).toHaveBeenCalledWith({
         where: { event_id: 'event-1', status: { in: ['RESERVED', 'SOLD'] } },
       });
-      expect(prisma.t_mtr_seats.deleteMany).toHaveBeenCalledWith({ where: { event_id: 'event-1' } });
+      expect(prisma.t_mtr_seats.deleteMany).toHaveBeenCalledWith({
+        where: { event_id: 'event-1' },
+      });
       expect(prisma.t_trx_event_ticket_tiers.deleteMany).toHaveBeenCalledWith({
         where: { event_id: 'event-1' },
       });

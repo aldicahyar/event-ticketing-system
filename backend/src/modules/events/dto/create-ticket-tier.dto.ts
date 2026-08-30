@@ -39,7 +39,10 @@ export class CreateTicketTierDto {
   @IsOptional()
   features?: string[];
 
-  @ApiPropertyOptional({ example: true, description: 'Set to true if selecting specific seats is required' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Set to true if selecting specific seats is required',
+  })
   @IsBoolean()
   @IsOptional()
   is_seated?: boolean;
