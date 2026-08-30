@@ -632,6 +632,13 @@ class ApiClient {
     return response.data as Blob;
   }
 
+  async getInvoice(bookingId: string): Promise<Blob> {
+    const response = await this.client.get(`/bookings/${bookingId}/invoice`, {
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  }
+
   async getReconciliation(from: string, to: string) {
     return this.get<ReconciliationResult>('/analytics/reconciliation', { from, to });
   }

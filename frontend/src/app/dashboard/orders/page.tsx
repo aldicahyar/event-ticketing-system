@@ -135,6 +135,28 @@ export default function OrdersPage() {
     setCancelDescription('');
   }, []);
 
+  const [downloadingInvoice, setDownloadingInvoice] = useState<string | null>(null);
+
+  const handleDownloadInvoice = useCallback(
+    async (order: Order) => {
+      setDownloadingInvoice(order.id);
+      try {
+        const blob = await apiClient.getInvoice(order.id);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `INV-${order.booking_code}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        showToast('error', apiClient.getErrorMessage(err));
+      } finally {
+        setDownloadingInvoice(null);
+      }
+    },
+    [showToast],
+  );
+
   const hasPending = orders.some((o) => o.status === 'PENDING');
 
   const loadOrders = useCallback(
@@ -555,11 +577,13 @@ export default function OrdersPage() {
                         </>
                       )}
                       <button
-                        className="h-10 px-4 border border-mono-dark-grey text-[#CCCCCC] text-xs font-bold uppercase hover:border-white hover:text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+                        className="h-10 px-4 border border-mono-dark-grey text-[#CCCCCC] text-xs font-bold uppercase hover:border-white hover:text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                         type="button"
+                        onClick={() => void handleDownloadInvoice(order)}
+                        disabled={downloadingInvoice === order.id}
                       >
                         <Download className="w-3 h-3" />
-                        Invoice
+                        {downloadingInvoice === order.id ? 'Preparing…' : 'Invoice'}
                       </button>
                     </div>
                   </div>

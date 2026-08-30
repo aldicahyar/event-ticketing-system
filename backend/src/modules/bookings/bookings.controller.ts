@@ -2,14 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { FastifyReply } from 'fastify';
 import { BookingsService } from './bookings.service';
+import { InvoiceService } from './invoice.service';
 import { CheckoutDto, CancelBookingDto } from './dto/bookings.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -25,7 +29,23 @@ type AuthenticatedUser = {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(
+    private readonly bookingsService: BookingsService,
+    private readonly invoiceService: InvoiceService,
+  ) {}
+
+  @Get(':id/invoice')
+  @Header('Content-Type', 'application/pdf')
+  @ApiOperation({ summary: 'Download invoice PDF for a booking' })
+  async getInvoice(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() reply: FastifyReply,
+  ) {
+    const { filename, pdf } = await this.invoiceService.generateInvoice(id, user);
+    reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+    return reply.send(pdf);
+  }
 
   @Post('checkout')
   @HttpCode(HttpStatus.OK)
