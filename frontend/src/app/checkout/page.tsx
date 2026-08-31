@@ -132,13 +132,12 @@ function CheckoutContent() {
               if (!cancelled) router.replace(`/checkout/pending?booking=${bookingId}`);
             }, 1500);
           }
-        } else if (status === 'confirmed') {
-          // Payment already succeeded — redirect to success page.
-          if (!cancelled) {
-            router.replace(`/checkout/success?session_id=${bookingId}`);
-          }
         } else {
-          // expired — clear stale localStorage so the user can start fresh.
+          // confirmed | expired — nothing is pending anymore. Clear the stale
+          // entry so it can't hijack a new checkout. Do NOT redirect to
+          // /checkout/success here: bookingId is not a Stripe session id, so
+          // verify-session would fail, and a previously-paid booking must not
+          // block the user from buying again.
           try { localStorage.removeItem('pendingCheckout'); } catch { /* noop */ }
           if (!cancelled) setPendingGuard({ state: 'idle' });
         }

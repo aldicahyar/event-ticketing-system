@@ -4,8 +4,24 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { formatCurrency } from '../../common/utils/currency.utils';
 import type { Prisma } from '@prisma/client';
 
-const BRAND = 'Event Ticketing System';
+const BRAND = 'EVENTTICKET.';
 const PAGE_MARGIN = 48;
+const PAGE_BOTTOM = 60;
+
+// Print-safe brand palette. Monochromatic slate so hierarchy comes from
+// contrast, not decoration — stays legible on B/W printers and matches the
+// platform's brutalist brand (no gradients/glow, per design guidelines).
+const C = {
+  primary: '#0a0a0a',  // deep black — brand, header, badge
+  text:    '#2d2d2d',  // body copy
+  muted:   '#6b7280',  // section labels, secondary
+  fainter: '#9ca3af',  // page footer, disclaimer
+  line:    '#d1d5db',  // soft separators
+  lineStrong: '#9ca3af', // total separators
+  surface: '#f3f4f6',  // table header / total box tint
+  solid:   '#1c1c1c',  // near-black total box background
+  white:   '#ffffff',
+};
 
 export type InvoiceRequester = { id: string; role: string };
 type InvoiceTotals = { subtotal: number; tax: number; total: number };
@@ -30,12 +46,30 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** Renders in Asia/Jakarta with an explicit WIB suffix. Using toISOString() here
+ *  previously printed UTC, so an 09:00 WIB event showed as 02:00 on the invoice. */
+export function formatJakartaDate(value: Date, includeTime = true): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    ...(includeTime ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}),
+  })
+    .format(value)
+    .replace(',', '') + (includeTime ? ' WIB' : '');
+}
+
+function paymentLabel(status: string): string {
+  return status === 'COMPLETED' ? 'PAID' : status;
+}
+
 @Injectable()
 export class InvoiceService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Subtotal/tax are not persisted at checkout. Derived from seat prices + total.
-   *  TODO: move to stored subtotal/tax_amount columns when multi-region tax (GAP-15) lands. */
+   * TODO: move to stored subtotal/tax_amount columns when multi-region tax (GAP-15) lands. */
   computeTotals(seatPrices: number[], totalPrice: number): InvoiceTotals {
     const subtotal = round2(seatPrices.reduce((sum, price) => sum + price, 0));
     const total = round2(totalPrice);
@@ -72,8 +106,22 @@ export class InvoiceService {
   private render(booking: BookingForInvoice, totals: InvoiceTotals): Promise<Buffer> {
     const currency = booking.currency;
     const money = (value: number) => formatCurrency(value, currency);
-    const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN });
+    // Issuer defaults to the platform brand, not the per-event organizer, so the
+    // invoice is always printed under the platform's identity. Override via env.
+    const issuerName = process.env.INVOICE_ISSUER_NAME || BRAND;
+    const issuerAddress = process.env.INVOICE_ISSUER_ADDRESS;
+    const issuerNpwp = process.env.INVOICE_ISSUER_NPWP;
+    const taxRate = totals.subtotal > 0 ? Math.round((totals.tax / totals.subtotal) * 100) : 0;
+    const paidStatus = booking.payment ? paymentLabel(booking.payment.status) : 'UNPAID';
+
+    const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN, bufferPages: true });
     const chunks: Buffer[] = [];
+    const right = doc.page.width - PAGE_MARGIN;
+    const contentWidth = right - PAGE_MARGIN;
+    // Right-aligned metadata column starts mid-page; line items keep 4 clean columns.
+    const metaLeft = PAGE_MARGIN + contentWidth / 2;
+    const cols = [PAGE_MARGIN, PAGE_MARGIN + 105, PAGE_MARGIN + 255, PAGE_MARGIN + 355];
+    const amountWidth = right - cols[3];
 
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     const done = new Promise<Buffer>((resolve, reject) => {
@@ -81,104 +129,195 @@ export class InvoiceService {
       doc.on('error', reject);
     });
 
-    const right = doc.page.width - PAGE_MARGIN;
-    const contentWidth = right - PAGE_MARGIN;
-
-    // Header
-    doc.fontSize(18).font('Helvetica-Bold').text(BRAND, PAGE_MARGIN, PAGE_MARGIN);
-    doc.fontSize(18).text('INVOICE', PAGE_MARGIN, PAGE_MARGIN, { align: 'right' });
-    doc
-      .fontSize(9)
-      .font('Helvetica')
-      .text(`Organizer: ${booking.event.organizer?.name ?? BRAND}`);
-    doc.moveDown(0.6);
-    doc
-      .moveTo(PAGE_MARGIN, doc.y)
-      .lineTo(right, doc.y)
-      .strokeColor('#cccccc')
-      .stroke();
-    doc.moveDown(1);
-
-    // Bill-to + invoice meta side-by-side
-    const metaLeft = PAGE_MARGIN + contentWidth / 2;
-    const infoTop = doc.y;
-    doc.fontSize(9).font('Helvetica-Bold').text('BILL TO', PAGE_MARGIN, infoTop);
-    doc.font('Helvetica').text(booking.user.name).text(booking.user.email);
-
-    doc.font('Helvetica-Bold').text('INVOICE #', metaLeft, infoTop);
-    doc
-      .font('Helvetica')
-      .text(`INV-${booking.booking_code}`, metaLeft)
-      .text(`Order date: ${booking.booked_at.toISOString().slice(0, 10)}`, metaLeft)
-      .text(`Status: ${booking.status}`, metaLeft);
-
-    doc.moveDown(1.5);
-    doc.font('Helvetica-Bold').fontSize(9).text('EVENT', PAGE_MARGIN, doc.y);
-    doc
-      .font('Helvetica')
-      .text(booking.event.title)
-      .text(booking.event.start_date_time.toISOString().replace('T', ' ').slice(0, 16))
-      .text(
-        [booking.event.venue.name, booking.event.venue.city, booking.event.venue.address]
-          .filter(Boolean)
-          .join(', '),
-      );
-
-    // Seat table
-    doc.moveDown(1.2);
-    const cols = [PAGE_MARGIN, PAGE_MARGIN + 110, PAGE_MARGIN + 230, PAGE_MARGIN + 320];
-    const amountWidth = right - cols[3];
-
-    doc.font('Helvetica-Bold').fontSize(9);
-    doc.text('SEAT', cols[0], doc.y, { continued: true });
-    doc.text('TYPE', cols[1], doc.y, { continued: true });
-    doc.text('UNIT PRICE', cols[2], doc.y, { continued: true });
-    doc.text('AMOUNT', cols[3], doc.y, { width: amountWidth, align: 'right' });
-    doc.moveDown(0.3);
-    doc.moveTo(PAGE_MARGIN, doc.y).lineTo(right, doc.y).stroke();
-    doc.moveDown(0.4);
-
-    doc.font('Helvetica');
-    for (const seat of booking.seats) {
-      const price = Number(seat.price);
-      const row = doc.y;
-      doc.text(`${seat.row}-${seat.number}`, cols[0], row);
-      doc.text(seat.type, cols[1], row);
-      doc.text(money(price), cols[2], row);
-      doc.text(money(price), cols[3], row, { width: amountWidth, align: 'right' });
-      doc.moveDown(0.2);
-    }
-
-    // Totals
-    doc.moveDown(0.6);
-    doc.moveTo(cols[2], doc.y).lineTo(right, doc.y).stroke();
-    doc.moveDown(0.4);
-
-    const totalRow = (label: string, value: number, bold = false) => {
-      const row = doc.y;
-      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
-      doc.text(label, cols[2], row);
-      doc.text(money(value), cols[3], row, { width: amountWidth, align: 'right' });
-      doc.moveDown(0.3);
+    // Label helper: small, spaced, uppercase monospace — the only place Courier
+    // earns its keep (labels), so financial data uses Helvetica (legible).
+    const label = (text: string, x: number, y: number) => {
+      doc.font('Courier-Bold').fontSize(7.5).fillColor(C.muted)
+        .text(text, x, y, { characterSpacing: 1.2 });
     };
-    totalRow('Subtotal', totals.subtotal);
-    totalRow('Tax (PPN)', totals.tax);
-    totalRow('Total', totals.total, true);
+    const sectionRule = (y: number) => {
+      doc.moveTo(PAGE_MARGIN, y).lineTo(right, y).strokeColor(C.line).lineWidth(0.6).stroke();
+    };
+    const gl = (y: number) => {
+      doc.moveTo(PAGE_MARGIN, y).lineTo(right, y).strokeColor(C.line).lineWidth(0.6).stroke();
+    };
 
-    // Footer
-    doc.moveDown(1.5);
-    doc.font('Helvetica').fontSize(8).fillColor('#555555');
+    const tableHeader = () => {
+      const row = doc.y;
+      const headerH = 18;
+      doc.rect(PAGE_MARGIN, row, contentWidth, headerH).fill(C.surface);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.primary);
+      const mid = row + (headerH / 2) - 3;
+      doc.text('SEAT', cols[0], mid);
+      doc.text('TYPE', cols[1], mid);
+      doc.text('UNIT PRICE', cols[2], mid, { width: 100, align: 'right' });
+      doc.text('AMOUNT', cols[3], mid, { width: amountWidth, align: 'right' });
+      doc.y = row + headerH;
+      doc.moveDown(0.1);
+    };
+    const ensureSeatSpace = () => {
+      if (doc.y + 34 <= doc.page.height - PAGE_BOTTOM) return;
+      doc.addPage();
+      label('INVOICE ITEMS (CONTINUED)', PAGE_MARGIN, PAGE_MARGIN);
+      doc.moveDown(0.6);
+      tableHeader();
+    };
+
+    // ── Branded header ───────────────────────────────────────────────
+    const headerH = 64;
+    doc.rect(PAGE_MARGIN, PAGE_MARGIN, contentWidth, headerH).fill(C.primary);
+    // Geometric brand mark (solid square + brand name). Print-safe, no external asset.
+    doc.rect(PAGE_MARGIN + 16, PAGE_MARGIN + 24, 12, 12).fill(C.white);
+    doc.font('Helvetica-Bold').fontSize(21).fillColor(C.white)
+      .text(BRAND, PAGE_MARGIN + 38, PAGE_MARGIN + 19);
+    // Status badge sits in the header bar (right), so payment state is read
+    // at a glance and never floats awkwardly in the metadata block.
+    const badgeW = 66;
+    const badgeH = 24;
+    const badgeX = right - badgeW - 16;
+    const badgeY = PAGE_MARGIN + (headerH - badgeH) / 2;
+    if (paidStatus === 'PAID') {
+      // Inverted badge: white outline + white text on the black bar.
+      doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2).strokeColor(C.white).lineWidth(1).stroke();
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(C.white)
+        .text('PAID', badgeX, badgeY + 8, { width: badgeW, align: 'center' });
+    } else {
+      doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2).fill(C.solid);
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(C.white)
+        .text(paidStatus, badgeX, badgeY + 8, { width: badgeW, align: 'center' });
+    }
+    doc.font('Helvetica').fontSize(10).fillColor(C.fainter)
+      .text('INVOICE', PAGE_MARGIN, PAGE_MARGIN + 26, { width: badgeX - 64, align: 'right' });
+    doc.y = PAGE_MARGIN + headerH + 20;
+
+    // Thin secondary rule under the header for a clean seam.
+    gl(PAGE_MARGIN + headerH + 10);
+
+    // ── Issuer (left) & invoice meta (right) ─────────────────────────
+    const metaTop = doc.y;
+    label('ISSUED BY', PAGE_MARGIN, metaTop);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(C.text)
+      .text(issuerName, PAGE_MARGIN, metaTop + 14);
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.muted);
+    if (issuerAddress) doc.text(issuerAddress, PAGE_MARGIN, doc.y, { width: metaLeft - PAGE_MARGIN - 20 });
+    if (issuerNpwp) doc.text(`NPWP: ${issuerNpwp}`, PAGE_MARGIN, doc.y);
+
+    label('INVOICE DETAILS', metaLeft, metaTop);
+    doc.font('Courier').fontSize(8.5).fillColor(C.text)
+      .text(`No.   INV-${booking.booking_code}`, metaLeft, metaTop + 14)
+      .text(`Date   ${formatJakartaDate(booking.booked_at, false)}`, metaLeft)
+      .text(`Cur.   ${currency.toUpperCase()}`, metaLeft);
+    doc.y = metaTop + 62;
+    doc.fillColor(C.primary);
+    sectionRule(doc.y - 8);
+    doc.moveDown(1.1);
+
+    // ── Bill to (left) & event (right) ───────────────────────────────
+    const infoTop = doc.y;
+    label('BILL TO', PAGE_MARGIN, infoTop);
+    doc.font('Helvetica').fontSize(9).fillColor(C.text)
+      .text(booking.user.name, PAGE_MARGIN, infoTop + 14)
+      .text(booking.user.email, PAGE_MARGIN);
+    // Ticket count gives the buyer an instant, human summary.
+    const count = booking.seats.length;
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.muted)
+      .text(`${count} ${count === 1 ? 'ticket' : 'tickets'}`, PAGE_MARGIN, doc.y);
+
+    label('EVENT', metaLeft, infoTop);
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.text)
+      .text(booking.event.title, metaLeft, infoTop + 14, { width: contentWidth / 2 });
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.muted)
+      .text(formatJakartaDate(booking.event.start_date_time), metaLeft, doc.y, { width: contentWidth / 2 });
+    const venue = [booking.event.venue.name, booking.event.venue.address, booking.event.venue.city]
+      .filter(Boolean)
+      .join('\n');
+    doc.fillColor(C.muted).text(venue, metaLeft, doc.y, { width: contentWidth / 2, lineGap: 1 });
+    doc.fillColor(C.text);
+    doc.y = Math.max(doc.y, infoTop + 56) + 20;
+    sectionRule(doc.y - 8);
+    doc.moveDown(1.0);
+
+    // ── Line items table ─────────────────────────────────────────────
+    tableHeader();
+    const rowH = 17;
+    // Render each cell by explicit x/y so rows never collapse when the font
+    // changes for the money columns — mixing text() cursor flow had rows
+    // overlapping (only the first seat printed).
+    for (let i = 0; i < booking.seats.length; i += 1) {
+      ensureSeatSpace();
+      const row = doc.y;
+      const y = row + 3;
+      if (i % 2 === 1) doc.rect(PAGE_MARGIN, row, contentWidth, rowH - 2).fill('#fafafa');
+      const price = Number(booking.seats[i].price);
+      doc.font('Helvetica').fontSize(9).fillColor(C.text);
+      doc.text(`${booking.seats[i].row}-${booking.seats[i].number}`, cols[0], y, { lineBreak: false });
+      doc.text(booking.seats[i].type, cols[1], y, { width: 120, lineBreak: false });
+      doc.font('Courier').text(money(price), cols[2], y, { width: 100, align: 'right', lineBreak: false });
+      doc.text(money(price), cols[3], y, { width: amountWidth, align: 'right', lineBreak: false });
+      doc.y = row + rowH;
+    }
+
+    // ── Total block (near-black, white figures = primary statement) ──
+    const totalH = 112;
+    if (doc.y + totalH > doc.page.height - PAGE_BOTTOM) doc.addPage();
+    doc.moveDown(0.7);
+    const totalW = 240;
+    const totalLeft = right - totalW;
+    const totalTop = doc.y;
+    doc.rect(totalLeft, totalTop, totalW, totalH).fill(C.solid);
+    const tr = (labelText: string, value: number, y: number, bold = false) => {
+      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(bold ? 14 : 9.5).fillColor(C.white);
+      doc.text(labelText, totalLeft + 16, y);
+      doc.font(bold ? 'Courier-Bold' : 'Courier').text(money(value), totalLeft + 16, y, {
+        width: totalW - 32,
+        align: 'right',
+      });
+    };
+    tr('SUB-TOTAL', totals.subtotal, totalTop + 14);
+    tr(`PPN ${taxRate}%`, totals.tax, totalTop + 32);
+    // Double rule above grand total (invoice tradition, readable in B/W).
+    const ruleY = totalTop + 50;
+    doc.moveTo(totalLeft + 16, ruleY).lineTo(right - 16, ruleY).strokeColor(C.white).lineWidth(0.6).stroke();
+    doc.moveTo(totalLeft + 16, ruleY + 2).lineTo(right - 16, ruleY + 2).strokeColor(C.white).lineWidth(0.6).stroke();
+    tr('TOTAL', totals.total, totalTop + 62, true);
+    doc.y = totalTop + totalH + 22;
+
+    // ── Payment reconciliation ───────────────────────────────────────
+    label('PAYMENT DETAILS', PAGE_MARGIN, doc.y);
+    doc.moveDown(0.6);
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.text);
     if (booking.payment) {
-      const paidAt = booking.payment.paid_at
-        ? booking.payment.paid_at.toISOString().slice(0, 10)
-        : 'unpaid';
-      doc.text(
-        `Payment: ${booking.payment.provider} | ${booking.payment.status} | ${paidAt}` +
-          (booking.payment.provider_tx_id ? ` | ref ${booking.payment.provider_tx_id}` : ''),
-        PAGE_MARGIN, doc.y,
+      const paidAt = booking.payment.paid_at ? formatJakartaDate(booking.payment.paid_at) : 'Not paid';
+      doc.text(`Method: ${booking.payment.provider}    Status: ${paymentLabel(booking.payment.status)}    Paid: ${paidAt}`);
+      if (booking.payment.provider_tx_id)
+        doc.font('Courier').fillColor(C.muted).text(`Transaction reference: ${booking.payment.provider_tx_id}`);
+    } else {
+      doc.text('Payment has not been recorded.');
+    }
+    doc.moveDown(1.1);
+    gl(doc.y - 8);
+    doc.moveDown(0.7);
+
+    // ── Legal / compliance footer ────────────────────────────────────
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(C.primary)
+      .text('NOT A TAX INVOICE', PAGE_MARGIN, doc.y);
+    doc.font('Helvetica').fontSize(8).fillColor(C.muted)
+      .text('This document is a payment receipt and is not an official tax invoice.');
+    doc.moveDown(0.5);
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.text)
+      .text('Thank you for your purchase. Please present your valid ticket for venue entry.');
+
+    // ── Pagination footer (all pages) ────────────────────────────────
+    const pages = doc.bufferedPageRange();
+    for (let page = 0; page < pages.count; page += 1) {
+      doc.switchToPage(page);
+      doc.font('Courier').fontSize(7).fillColor(C.fainter).text(
+        `INV-${booking.booking_code}   Page ${page + 1} of ${pages.count}`,
+        PAGE_MARGIN,
+        doc.page.height - 30,
+        { width: contentWidth, align: 'right' },
       );
     }
-    doc.text('Thank you for your purchase.', PAGE_MARGIN, doc.y);
 
     doc.end();
     return done;

@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import { InvoiceService } from './invoice.service';
+import { InvoiceService, formatJakartaDate } from './invoice.service';
 import { PrismaService } from '../../common/database/prisma.service';
 
 describe('InvoiceService', () => {
@@ -13,6 +13,17 @@ describe('InvoiceService', () => {
       },
     };
     service = new InvoiceService(prisma as unknown as PrismaService);
+  });
+
+  describe('formatJakartaDate', () => {
+    it('renders a UTC instant in WIB (+7) with a WIB suffix', () => {
+      // 09:00 UTC → 16:00 WIB. Guards against the toISOString() UTC bug.
+      expect(formatJakartaDate(new Date('2026-08-11T09:00:00Z'))).toBe('11 Aug 2026 16:00 WIB');
+    });
+
+    it('omits the time and suffix when includeTime is false', () => {
+      expect(formatJakartaDate(new Date('2026-08-11T20:00:00Z'), false)).toBe('12 Aug 2026');
+    });
   });
 
   describe('computeTotals', () => {
@@ -98,6 +109,29 @@ describe('InvoiceService', () => {
         }),
       );
       expect(result.filename).toBe('INV-BK-123.pdf');
+    });
+
+    it('paginates without crashing when seats overflow one page', async () => {
+      const seats = Array.from({ length: 60 }, (_, i) => ({
+        row: 'A',
+        number: i + 1,
+        type: 'REGULAR',
+        price: 100000,
+      }));
+      prisma.t_trx_bookings.findFirst.mockResolvedValue({ ...mockBooking, seats });
+
+      const result = await service.generateInvoice('book-1', { id: 'usr-1', role: 'CUSTOMER' });
+
+      expect(result.pdf.subarray(0, 4).toString()).toBe('%PDF');
+      expect(result.pdf.length).toBeGreaterThan(0);
+    });
+
+    it('renders when no payment record exists yet', async () => {
+      prisma.t_trx_bookings.findFirst.mockResolvedValue({ ...mockBooking, payment: null });
+
+      const result = await service.generateInvoice('book-1', { id: 'usr-1', role: 'CUSTOMER' });
+
+      expect(result.pdf.subarray(0, 4).toString()).toBe('%PDF');
     });
 
     it('throws NotFoundException if booking does not exist or user lacks access', async () => {
