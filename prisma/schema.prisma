@@ -132,6 +132,8 @@ model t_mtr_users {
   provider              String                           @default("local")
   provider_id           String?
   avatar                String?
+  /// Stripe Customer reference — lazy-created on first successful checkout (GAP-10)
+  stripe_customer_id    String?                          @unique
   is_active             Boolean                          @default(true)
   email_verified        Boolean                          @default(false)
   failed_login_attempts Int                              @default(0)

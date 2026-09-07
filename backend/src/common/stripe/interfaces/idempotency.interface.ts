@@ -12,7 +12,8 @@ export interface IdempotencyContext {
     | 'expire'
     | 'dispute_evidence'
     | 'dispute_update'
-    | 'dispute_close';
+    | 'dispute_close'
+    | 'customer_create';
 
   /** Business entity id: booking_id | payment_id | session_id. */
   entityId: string;

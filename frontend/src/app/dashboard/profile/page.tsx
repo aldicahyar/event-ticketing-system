@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   User, Shield, Mail, Smartphone, Camera,
-  CheckCircle, Bell, Loader2
+  CheckCircle, Bell, Loader2, CreditCard, ExternalLink
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +41,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState({
     email: true,
@@ -111,6 +113,21 @@ export default function ProfilePage() {
     }
   };
 
+  const handleOpenPortal = async () => {
+    setOpeningPortal(true);
+    setPortalError(null);
+    try {
+      const { url } = await apiClient.createPortalSession(
+        window.location.origin + '/dashboard/profile'
+      );
+      window.open(url, '_blank');
+    } catch (err) {
+      setPortalError(apiClient.getErrorMessage(err));
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
 
@@ -174,7 +191,7 @@ export default function ProfilePage() {
         <>
           {/* Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {['personal', 'security', 'notifications'].map((tab) => (
+            {['personal', 'security', 'billing', 'notifications'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -184,7 +201,7 @@ export default function ProfilePage() {
                     : 'bg-black text-[#CCCCCC] border-mono-dark-grey hover:border-white'
                 }`}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'billing' ? 'Billing' : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
           </div>
@@ -461,6 +478,53 @@ export default function ProfilePage() {
                   className="px-6 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all"
                 >
                   Enable 2FA
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Billing Tab */}
+          {activeTab === 'billing' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-black border border-mono-dark-grey p-6 space-y-6"
+            >
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-white" />
+                <h3 className="font-bold uppercase text-white">
+                  Billing & Payment Methods
+                </h3>
+              </div>
+
+              <p className="text-sm text-mono-light-grey leading-relaxed max-w-2xl">
+                Kelola metode pembayaran tersimpan, informasi kartu kredit, dan riwayat tagihan Anda secara langsung dan aman melalui Stripe Customer Portal.
+              </p>
+
+              {portalError && (
+                <div className="p-4 border border-red-500/50 bg-red-500/10 text-red-400 text-xs uppercase tracking-wide">
+                  {portalError}
+                </div>
+              )}
+
+              <div>
+                <button
+                  type="button"
+                  onClick={handleOpenPortal}
+                  disabled={openingPortal}
+                  className="px-6 py-3 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all inline-flex items-center gap-2 disabled:opacity-60"
+                >
+                  {openingPortal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Membuka Portal…
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4" />
+                      Open Billing Portal
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

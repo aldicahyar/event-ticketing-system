@@ -274,14 +274,19 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       });
 
       // 6. Create Stripe Checkout Session (idempotency handled by StripeService)
-      // Fetch user to get email for Stripe
+      // Fetch user to get email / Stripe Customer id for Stripe
+      // (no select — full row, so snake_case stripe_customer_id is included)
       const customer = await this.prisma.t_mtr_users.findUnique({ where: { id: user_id } });
 
       const unitAmount = Math.round(total_price * 100); // Stripe expects cents
       const session = await this.stripeService.createCheckoutSession(
         {
           payment_method_types: ['card'],
-          customer_email: customer?.email || undefined,
+          // Attach the Stripe Customer object when it exists so checkout and
+          // the Billing Portal share the same customer/payment data.
+          ...(customer?.stripe_customer_id
+            ? { customer: customer.stripe_customer_id }
+            : { customer_email: customer?.email || undefined }),
           line_items: [
             {
               price_data: {

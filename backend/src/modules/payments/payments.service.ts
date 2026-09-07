@@ -11,6 +11,7 @@ import Stripe from 'stripe';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CustomersService } from '../customers/customers.service';
 import { StripeService } from '../../common/stripe/stripe.service';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_CURRENCY } from '../../common/constants/currency.constants';
@@ -71,6 +72,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService, // Fix #3: inject ConfigService
     private readonly notificationsService: NotificationsService,
     private readonly stripeService: StripeService,
+    private readonly customersService: CustomersService,
   ) {
     // The unified StripeService owns the single Stripe client. Reads reuse it;
     // writes go through StripeService so they get an Idempotency-Key (GAP-05).
@@ -803,6 +805,20 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Successfully processed payment for Booking ${booking.booking_code} (was ${booking.status} → now CONFIRMED)`,
     );
+
+    // Post-hook (M4): lazily create/fetch the Stripe Customer after a first
+    // successful payment so future checkouts reuse it. Fire-and-forget — a
+    // failure must never break the webhook response.
+    setImmediate(async () => {
+      try {
+        await this.customersService.ensureCustomer(booking.user_id);
+        this.logger.log(`Stripe Customer ensured for user ${booking.user_id}`);
+      } catch (err: unknown) {
+        this.logger.error(
+          `Failed to ensure Stripe Customer for user ${booking.user_id}: ${this.getErrorMessage(err)}`,
+        );
+      }
+    });
 
     // Send payment-success confirmation email (non-blocking).
     await this.notifyPaymentSuccess(booking, amountPaid, session);

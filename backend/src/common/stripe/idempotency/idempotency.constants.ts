@@ -10,6 +10,7 @@ export const IDEMPOTENCY_PREFIX = {
   dispute_evidence: 'dse',
   dispute_update: 'dsu',
   dispute_close: 'dsc',
+  customer_create: 'cus',
 } as const;
 
 /**

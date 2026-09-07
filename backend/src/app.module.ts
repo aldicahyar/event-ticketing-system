@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EventsModule } from './modules/events/events.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { UsersModule } from './modules/users/users.module';
 import { VenuesModule } from './modules/venues/venues.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
@@ -48,6 +49,7 @@ import { HealthModule } from './common/modules/health/health.module';
     EventsModule,
     BookingsModule,
     PaymentsModule,
+    CustomersModule,
     RefundsModule,
     DisputesModule,
     UsersModule,

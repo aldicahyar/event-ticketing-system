@@ -639,6 +639,30 @@ class ApiClient {
     return response.data as Blob;
   }
 
+  // ============================================================
+  // STRIPE CUSTOMER MANAGEMENT (see docs/api)
+  // ============================================================
+
+  /** Current user's Stripe customer record (stripeCustomerId null = not created yet). */
+  async getCustomerInfo() {
+    return this.get<{
+      id: string;
+      email: string;
+      name: string;
+      stripeCustomerId: string | null;
+    }>('/customers/me') as Promise<{
+      id: string;
+      email: string;
+      name: string;
+      stripeCustomerId: string | null;
+    }>;
+  }
+
+  /** Create a Stripe billing portal session; backend auto-creates the customer if missing. */
+  async createPortalSession(returnUrl?: string) {
+    return this.post<{ url: string }>('/customers/portal', { returnUrl }) as Promise<{ url: string }>;
+  }
+
   async getReconciliation(from: string, to: string) {
     return this.get<ReconciliationResult>('/analytics/reconciliation', { from, to });
   }

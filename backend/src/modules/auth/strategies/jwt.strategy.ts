@@ -27,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role_code: true,
         is_active: true,
         email_verified: true,
+        stripe_customer_id: true, // GAP-10/F3: expose Stripe Customer link on GET /auth/me
         profile: true,
       },
     });

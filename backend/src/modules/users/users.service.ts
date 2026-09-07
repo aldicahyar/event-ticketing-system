@@ -23,6 +23,7 @@ const USER_SELECT = {
   role_code: true,
   provider: true,
   avatar: true,
+  stripe_customer_id: true, // GAP-10/F3: admin troubleshooting of Stripe customers
   is_active: true,
   email_verified: true,
   failed_login_attempts: true,

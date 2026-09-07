@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { BookingsModule } from '../bookings/bookings.module';
+import { CustomersModule } from '../customers/customers.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { DatabaseModule } from '../../common/database/database.module';
 
@@ -40,7 +41,13 @@ import { DisputesModule } from '../disputes/disputes.module';
 export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
 
 @Module({
-  imports: [forwardRef(() => BookingsModule), DisputesModule, NotificationsModule, DatabaseModule],
+  imports: [
+    forwardRef(() => BookingsModule),
+    CustomersModule,
+    DisputesModule,
+    NotificationsModule,
+    DatabaseModule,
+  ],
   controllers: [PaymentsController],
   providers: [
     // Core payment service

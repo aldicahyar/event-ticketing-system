@@ -96,6 +96,22 @@ export class StripeService {
 
   // ── Read-only pass-throughs (no idempotency key) ─────────────────
 
+  /** Retrieve a Stripe Customer by ID. Read-only, no idempotency needed. */
+  retrieveCustomer(id: string): Promise<Stripe.Customer> {
+    return this.stripe.customers.retrieve(id) as Promise<Stripe.Customer>;
+  }
+
+  /** Create a Stripe Billing Portal session for a customer (self-service). */
+  createBillingPortalSession(
+    customerId: string,
+    returnUrl: string,
+  ): Promise<Stripe.BillingPortal.Session> {
+    return this.stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl,
+    });
+  }
+
   retrieveCheckoutSession(
     id: string,
     params?: Stripe.Checkout.SessionRetrieveParams,
@@ -141,6 +157,23 @@ export class StripeService {
       ctx,
       (options) => this.stripe.files.create(params, options),
       (resourceId) => this.stripe.files.retrieve(resourceId),
+    );
+  }
+
+  /**
+   * Create a Stripe Customer with an idempotency key derived from `ctx`.
+   * Retried identical requests replay the existing customer instead of
+   * creating a duplicate (GAP-10, Fase 12).
+   */
+  async createCustomer(
+    params: Stripe.CustomerCreateParams,
+    ctx: IdempotencyContext,
+  ): Promise<Stripe.Customer> {
+    return this.runIdempotent(
+      ctx,
+      (options) => this.stripe.customers.create(params, options),
+      (resourceId) =>
+        this.stripe.customers.retrieve(resourceId) as Promise<Stripe.Customer>,
     );
   }
 
