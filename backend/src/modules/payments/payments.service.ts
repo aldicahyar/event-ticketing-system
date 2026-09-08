@@ -1023,7 +1023,14 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         seats: seatLabels,
         groupedItems,
         subtotal,
-        taxAmount: amountPaid > subtotal ? amountPaid - subtotal : 0,
+        // GAP-15: use the stored tax snapshot; legacy bookings fall back to
+        // the old derivation (amountPaid - subtotal).
+        taxAmount:
+          booking.tax_amount != null
+            ? Number(booking.tax_amount)
+            : amountPaid > subtotal
+              ? amountPaid - subtotal
+              : 0,
         eventDate: event?.start_date_time?.toISOString() ?? null,
         paidAt,
         venueName: event?.venue?.name ?? null,

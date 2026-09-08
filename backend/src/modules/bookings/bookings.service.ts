@@ -34,6 +34,9 @@ import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CancelReasonCode } from './dto/bookings.dto';
 import { StripeService } from '../../common/stripe/stripe.service';
+import { TaxResolverService } from './tax-resolver.service';
+import { BookingCodeService } from './booking-code.service';
+import { round2 } from '../../common/utils/currency.utils';
 
 @Injectable()
 export class BookingsService implements OnModuleInit, OnModuleDestroy {
@@ -49,6 +52,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     private readonly paymentsService: PaymentsService,
     private readonly notificationsService: NotificationsService,
     private readonly stripeService: StripeService,
+    private readonly taxResolverService: TaxResolverService,
+    private readonly bookingCodeService: BookingCodeService,
   ) {
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
   }
@@ -220,16 +225,17 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
     let booking: { id: string; booking_code: string } | undefined;
 
     try {
-      // 4. Calculate Total Price
-      const taxSetting = await this.prisma.t_mtr_tax_settings.findUnique({
-        where: { id: 'default' },
-      });
-      const taxPercent = taxSetting?.status === 'ACTIVE' ? taxSetting.ppn_percent : 0;
+      // 4. Resolve region-based tax & compute the price breakdown (GAP-15).
+      // The resolved rate is snapshotted onto the booking so invoices/receipts
+      // never re-derive it from total - subtotal.
+      const tax = await this.taxResolverService.resolveTaxForVenue(
+        event.venue?.country,
+        event.venue?.city,
+      );
 
-      const subtotal = seats.reduce((sum, s) => sum + Number(s.price), 0);
-      const tax = subtotal * (taxPercent / 100);
-      const total_price = subtotal + tax;
-      const booking_code = `BOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const subtotal = round2(seats.reduce((sum, s) => sum + Number(s.price), 0));
+      const tax_amount = round2(subtotal * (tax.rate / 100));
+      const total_price = round2(subtotal + tax_amount);
       // Booking window: 15 minutes for the user to complete payment.
       // Note: Stripe requires expires_at >= 30 min from session creation,
       // so we clamp the Stripe session expiry to Stripe's minimum while
@@ -248,21 +254,22 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           throw new ConflictException('Seats were taken before transaction completed');
         }
 
-        const b = await tx.t_trx_bookings.create({
-          data: {
-            user_id,
-            event_id,
-            booking_code,
-            total_price,
-            currency: event.currency,
-            status: 'PENDING',
-            expires_at,
-            // Snapshot seat IDs — permanent record that survives seat release
-            seat_ids: seatIds,
-            guest_name: guestInfo?.guest_name,
-            guest_email: guestInfo?.guest_email,
-            guest_phone: guestInfo?.guest_phone,
-          },
+        const b = await this.createBookingWithUniqueCode(tx, {
+          user_id,
+          event_id,
+          total_price,
+          subtotal,
+          tax_amount,
+          tax_rate: tax.rate,
+          tax_region: tax.region,
+          currency: event.currency,
+          status: 'PENDING',
+          expires_at,
+          // Snapshot seat IDs — permanent record that survives seat release
+          seat_ids: seatIds,
+          guest_name: guestInfo?.guest_name,
+          guest_email: guestInfo?.guest_email,
+          guest_phone: guestInfo?.guest_phone,
         });
 
         await tx.t_mtr_seats.updateMany({
@@ -380,6 +387,39 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       // undefined, and the frontend never received a checkoutUrl.
       throw error;
     }
+  }
+
+  /**
+   * Inserts a booking with a freshly generated, cryptographically random
+   * booking_code (GAP-16), retrying up to MAX_CODE_RETRIES times on the
+   * astronomically rare unique-constraint collision (Prisma P2002).
+   *
+   * Must be called inside a transaction: a failed attempt leaves no residue.
+   */
+  private static readonly MAX_CODE_RETRIES = 3;
+
+  private async createBookingWithUniqueCode(
+    tx: Prisma.TransactionClient,
+    data: Omit<Prisma.t_trx_bookingsUncheckedCreateInput, 'booking_code'>,
+  ): Promise<{ id: string; booking_code: string }> {
+    for (let attempt = 1; attempt <= BookingsService.MAX_CODE_RETRIES; attempt++) {
+      try {
+        return await tx.t_trx_bookings.create({
+          data: { ...data, booking_code: this.bookingCodeService.generate() },
+        });
+      } catch (error) {
+        const isCodeCollision =
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+        if (!isCodeCollision || attempt === BookingsService.MAX_CODE_RETRIES) {
+          throw error;
+        }
+        this.logger.warn(
+          `booking_code collision on attempt ${attempt}/${BookingsService.MAX_CODE_RETRIES}; regenerating`,
+        );
+      }
+    }
+    // Unreachable: the loop either returns or throws.
+    throw new Error('Failed to generate a unique booking code');
   }
 
   /**

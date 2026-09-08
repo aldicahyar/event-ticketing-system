@@ -53,6 +53,15 @@ describe('InvoiceService', () => {
         total: 34.43,
       });
     });
+
+    it('prefers stored subtotal and tax_amount snapshot when provided (GAP-15)', () => {
+      const result = service.computeTotals([100000, 100000], 220000, 200000, 20000);
+      expect(result).toEqual({
+        subtotal: 200000,
+        tax: 20000,
+        total: 220000,
+      });
+    });
   });
 
   describe('generateInvoice', () => {

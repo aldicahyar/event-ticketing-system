@@ -1,6 +1,15 @@
 import { DEFAULT_CURRENCY } from '../constants/currency.constants';
 
 /**
+ * Rounds a monetary value to 2 decimal places.
+ *
+ * Shared by checkout pricing and invoice rendering so both agree on cents.
+ */
+export function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
  * Formats a numeric amount with its currency code into a human-readable string.
  *
  * Single source of truth for currency formatting across the backend (previously

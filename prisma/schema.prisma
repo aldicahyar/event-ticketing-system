@@ -301,6 +301,14 @@ model t_trx_bookings {
   event_id          String
   booking_code      String           @unique
   total_price       Decimal          @db.Decimal(10, 2)
+  /// Price of the tickets before tax (GAP-15). Nullable for legacy bookings.
+  subtotal          Decimal?         @db.Decimal(10, 2)
+  /// Tax charged on this booking, snapshotted at checkout (GAP-15).
+  tax_amount        Decimal?         @db.Decimal(10, 2)
+  /// Percentage tax rate applied (e.g. 11.0) at time of checkout (GAP-15).
+  tax_rate          Float?
+  /// Tax jurisdiction resolved at checkout, e.g. "ID", "ID-BALI", "DEFAULT" (GAP-15).
+  tax_region        String?
   currency          String           @default("IDR")
   status            BookingStatus    @default(PENDING)
   expires_at        DateTime?
@@ -432,15 +440,23 @@ model t_mtr_ticket_tier_settings {
   updated_at DateTime @updatedAt
 }
 
-/// Tax (PPN/VAT) configuration. Single row with id='default'.
+/// Tax configuration (GAP-15 multi-region). Supports global fallback (id='default')
+/// as well as country/region-specific rows (e.g. country='ID', region='BALI', tax_type='PB1').
 model t_mtr_tax_settings {
   id          String   @id
+  name        String?
+  country     String?
+  region      String?
+  tax_type    String   @default("PPN")
   ppn_percent Float
   status      String   @default("ACTIVE")
   created_by  String?
   updated_by  String?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+
+  @@index([country, region, status])
+  @@index([status])
 }
 
 /// Refund request raised by a user against a CONFIRMED booking.

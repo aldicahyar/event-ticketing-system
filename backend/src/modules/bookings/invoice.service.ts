@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../../common/database/prisma.service';
-import { formatCurrency } from '../../common/utils/currency.utils';
+import { formatCurrency, round2 } from '../../common/utils/currency.utils';
 import type { Prisma } from '@prisma/client';
 
 const BRAND = 'EVENTTICKET.';
@@ -42,10 +42,6 @@ const INCLUDE = {
 
 export type BookingForInvoice = Prisma.t_trx_bookingsGetPayload<{ include: typeof INCLUDE }>;
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 /** Renders in Asia/Jakarta with an explicit WIB suffix. Using toISOString() here
  *  previously printed UTC, so an 09:00 WIB event showed as 02:00 on the invoice. */
 export function formatJakartaDate(value: Date, includeTime = true): string {
@@ -70,9 +66,23 @@ function paymentLabel(status: string): string {
 export class InvoiceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Subtotal/tax are not persisted at checkout. Derived from seat prices + total.
-   * TODO: move to stored subtotal/tax_amount columns when multi-region tax (GAP-15) lands. */
-  computeTotals(seatPrices: number[], totalPrice: number): InvoiceTotals {
+  /** GAP-15: Use the stored subtotal/tax_amount snapshot when available.
+   * Falls back to the legacy derivation (total - subtotal) for bookings
+   * created before the multi-region tax migration. */
+  computeTotals(
+    seatPrices: number[],
+    totalPrice: number,
+    storedSubtotal?: number | null,
+    storedTaxAmount?: number | null,
+  ): InvoiceTotals {
+    if (storedSubtotal != null && storedTaxAmount != null) {
+      return {
+        subtotal: round2(storedSubtotal),
+        tax: round2(storedTaxAmount),
+        total: round2(totalPrice),
+      };
+    }
+    // Legacy fallback: derive from seat prices + total.
     const subtotal = round2(seatPrices.reduce((sum, price) => sum + price, 0));
     const total = round2(totalPrice);
     return { subtotal, tax: Math.max(0, round2(total - subtotal)), total };
@@ -100,6 +110,8 @@ export class InvoiceService {
       this.computeTotals(
         booking.seats.map((s) => Number(s.price)),
         Number(booking.total_price),
+        booking.subtotal != null ? Number(booking.subtotal) : null,
+        booking.tax_amount != null ? Number(booking.tax_amount) : null,
       ),
     );
     return { filename: `INV-${booking.booking_code}.pdf`, pdf };
@@ -113,7 +125,11 @@ export class InvoiceService {
     const issuerName = process.env.INVOICE_ISSUER_NAME || BRAND;
     const issuerAddress = process.env.INVOICE_ISSUER_ADDRESS;
     const issuerNpwp = process.env.INVOICE_ISSUER_NPWP;
-    const taxRate = totals.subtotal > 0 ? Math.round((totals.tax / totals.subtotal) * 100) : 0;
+    // Prefer the exact stored rate (GAP-15); fall back to reverse-engineering
+    // it from totals for legacy bookings created before the migration.
+    const taxRate =
+      booking.tax_rate ??
+      (totals.subtotal > 0 ? Math.round((totals.tax / totals.subtotal) * 100) : 0);
     const paidStatus = booking.payment ? paymentLabel(booking.payment.status) : 'UNPAID';
 
     const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN, bufferPages: true });

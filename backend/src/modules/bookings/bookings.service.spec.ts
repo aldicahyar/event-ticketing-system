@@ -12,6 +12,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 import { StripeService } from '../../common/stripe/stripe.service';
 import { BookingsService } from './bookings.service';
+import { TaxResolverService } from './tax-resolver.service';
+import { BookingCodeService } from './booking-code.service';
 
 function createPrismaMock() {
   const tx = {
@@ -72,6 +74,14 @@ async function createService(prisma = createPrismaMock()) {
           sendPaymentRefunded: jest.fn(),
           sendBookingCancelled: jest.fn(),
         },
+      },
+      {
+        provide: TaxResolverService,
+        useValue: { resolveTaxForVenue: jest.fn().mockResolvedValue({ rate: 11, region: 'DEFAULT' }) },
+      },
+      {
+        provide: BookingCodeService,
+        useValue: { generate: jest.fn().mockReturnValue('BOK-20260908-A1B2C3') },
       },
     ],
   }).compile();
