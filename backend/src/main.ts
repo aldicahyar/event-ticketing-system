@@ -15,6 +15,7 @@ import { parse as parseYaml } from 'yaml';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { resolveCorsOrigins } from './common/utils/cors.utils';
+import { buildRateLimitOptions } from './common/rate-limit/rate-limit.config';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ActorInterceptor } from './common/interceptors/actor.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -46,10 +47,14 @@ async function bootstrap() {
 
   await app.register(compress);
 
-  await app.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute',
-  });
+  // ===== GAP-13: Rate limiting with Stripe webhook isolation =====
+  // Webhook endpoints get a dedicated high-capacity quota (default 1000/min)
+  // so Stripe burst deliveries and retries are never rejected with 429.
+  const rateLimitSettings = buildRateLimitOptions(configService, logger);
+  await app.register(rateLimit, rateLimitSettings.options);
+  logger.log(
+    `🚦 Rate limits active — global: ${rateLimitSettings.globalMax}/${rateLimitSettings.timeWindow}, Stripe webhook: ${rateLimitSettings.webhookMax}/${rateLimitSettings.timeWindow}`,
+  );
 
   // ===== CMS: media uploads (multipart) + static serving =====
   // Multipart is consumed manually in MediaController via req.file().
