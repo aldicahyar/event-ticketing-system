@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import type Stripe from 'stripe';
 import { PrismaService } from '../../common/database/prisma.service';
 import { StripeService } from '../../common/stripe/stripe.service';
+import { resolvePaymentIntentId } from '../../common/stripe/stripe.utils';
 import { RefundActor, RefundsService } from '../refunds/refunds.service';
 import { QueryActivityDto, QueryAdminPaymentDto } from './dto/admin.dto';
 
@@ -120,12 +121,11 @@ export class AdminService {
       let intentId = providerTxId;
       if (providerTxId.startsWith('cs_')) {
         const session = await this.stripe.retrieveCheckoutSession(providerTxId);
-        const pi = session.payment_intent;
-        intentId = typeof pi === 'string' ? pi : ((pi as Stripe.PaymentIntent | null)?.id ?? '');
+        intentId = resolvePaymentIntentId(session) ?? '';
       }
       if (!intentId.startsWith('pi_')) return { unavailable: true, reason: 'No payment intent' };
 
-      const intent = await this.stripe.client.paymentIntents.retrieve(intentId, {
+      const intent = await this.stripe.retrievePaymentIntent(intentId, {
         expand: ['latest_charge.balance_transaction'],
       });
       const charge = intent.latest_charge as Stripe.Charge | null;

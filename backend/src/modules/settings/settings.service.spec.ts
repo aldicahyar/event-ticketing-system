@@ -9,7 +9,12 @@ describe('SettingsService — Perks', () => {
   const perksUpdate = jest.fn();
 
   const prisma = {
-    t_mtr_perks: { findMany: perksFindMany, findUnique: perksFindUnique, create: perksCreate, update: perksUpdate },
+    t_mtr_perks: {
+      findMany: perksFindMany,
+      findUnique: perksFindUnique,
+      create: perksCreate,
+      update: perksUpdate,
+    },
   } as unknown as PrismaService;
 
   const service = new SettingsService(prisma);
@@ -89,9 +94,7 @@ describe('SettingsService — Perks', () => {
     it('throws NotFoundException when perk does not exist', async () => {
       perksFindUnique.mockResolvedValue(null);
 
-      await expect(service.updatePerk('missing', {} as any)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.updatePerk('missing', {} as any)).rejects.toThrow(NotFoundException);
     });
 
     it('throws ConflictException when renaming to an existing label', async () => {
@@ -99,9 +102,9 @@ describe('SettingsService — Perks', () => {
         .mockResolvedValueOnce({ id: 'perk-1', label: 'Free Drinks' })
         .mockResolvedValueOnce({ id: 'perk-2', label: 'Parking Area' });
 
-      await expect(
-        service.updatePerk('perk-1', { label: 'Parking Area' } as any),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.updatePerk('perk-1', { label: 'Parking Area' } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 });

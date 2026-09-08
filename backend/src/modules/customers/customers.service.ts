@@ -175,8 +175,7 @@ export class CustomersService {
       throw new BadRequestException('Invalid returnUrl format');
     }
 
-    const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
     let allowedOrigins: string[];
     try {
       allowedOrigins = [new URL(frontendUrl).origin];
@@ -187,7 +186,11 @@ export class CustomersService {
     // Include localhost origins in non-production for local dev/e2e convenience.
     const isProd = this.configService.get<string>('NODE_ENV') === 'production';
     if (!isProd) {
-      allowedOrigins.push('http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000');
+      allowedOrigins.push(
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+      );
     }
 
     if (!allowedOrigins.includes(parsed.origin)) {

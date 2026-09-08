@@ -362,9 +362,7 @@ export class EventsService {
     const invalid = requested.filter((f) => !valid.has(f));
 
     if (invalid.length > 0) {
-      throw new BadRequestException(
-        `Unknown or inactive features: ${invalid.join(', ')}`,
-      );
+      throw new BadRequestException(`Unknown or inactive features: ${invalid.join(', ')}`);
     }
   }
 

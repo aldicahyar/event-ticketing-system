@@ -84,7 +84,10 @@ describe('CustomersService', () => {
       (prisma.t_mtr_users.findUnique as jest.Mock).mockResolvedValue(
         user({ stripe_customer_id: 'cus_deleted' }),
       );
-      (stripe.retrieveCustomer as jest.Mock).mockResolvedValue({ id: 'cus_deleted', deleted: true });
+      (stripe.retrieveCustomer as jest.Mock).mockResolvedValue({
+        id: 'cus_deleted',
+        deleted: true,
+      });
       (stripe.createCustomer as jest.Mock).mockResolvedValue({ id: 'cus_recreated' });
 
       const result = await service.ensureCustomer('user-1');
@@ -126,7 +129,12 @@ describe('CustomersService', () => {
           name: 'Test User',
           metadata: { userId: 'user-1', platform: 'event-ticketing' },
         },
-        { operation: 'customer_create', entityId: 'user-1', discriminator: '1', fingerprint: { userId: 'user-1' } },
+        {
+          operation: 'customer_create',
+          entityId: 'user-1',
+          discriminator: '1',
+          fingerprint: { userId: 'user-1' },
+        },
       );
       expect(prisma.t_mtr_users.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },

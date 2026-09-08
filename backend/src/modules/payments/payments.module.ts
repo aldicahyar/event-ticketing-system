@@ -34,7 +34,6 @@ import {
   ReviewOpenedHandler,
   ReviewClosedHandler,
 } from './webhook/handlers/radar.handler';
-import { ConfigService } from '@nestjs/config';
 import { DisputesModule } from '../disputes/disputes.module';
 
 // Token for injecting all webhook handlers as an array
@@ -103,13 +102,13 @@ export const WEBHOOK_HANDLERS = 'WEBHOOK_HANDLERS';
       ],
     },
 
-    // Central webhook processor — depends on ConfigService,
-    // WebhookEventLogService, and the handler array.
+    // Central webhook processor — GAP-14: no ConfigService needed, the unified
+    // StripeService now owns the webhook secret and SDK instance.
     {
       provide: WebhookProcessorService,
-      inject: [ConfigService, WebhookEventLogService, StripeService, WEBHOOK_HANDLERS],
-      useFactory: (configService, eventLogService, stripeService, handlers) =>
-        new WebhookProcessorService(configService, eventLogService, stripeService, handlers),
+      inject: [WebhookEventLogService, StripeService, WEBHOOK_HANDLERS],
+      useFactory: (eventLogService, stripeService, handlers) =>
+        new WebhookProcessorService(eventLogService, stripeService, handlers),
     },
   ],
   exports: [PaymentsService, PaymentAuditService],

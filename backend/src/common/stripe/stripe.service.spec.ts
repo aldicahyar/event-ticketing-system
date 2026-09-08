@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import type Stripe from 'stripe';
 import { StripeService } from './stripe.service';
 import { IdempotencyKeyService } from './idempotency/idempotency-key.service';
 import { IdempotencyStoreService } from './idempotency/idempotency-store.service';
@@ -7,9 +8,19 @@ const configMock = {
   get: jest.fn((key: string) => {
     if (key === 'STRIPE_SECRET_KEY') return 'sk_test_mock';
     if (key === 'STRIPE_API_VERSION') return '2023-10-16';
+    if (key === 'STRIPE_WEBHOOK_SECRET') return 'whsec_mock';
     return undefined;
   }),
 } as unknown as ConfigService;
+
+/**
+ * Test-only accessor for the encapsulated SDK instance. GAP-14 made the raw
+ * client private on purpose — specs reach in via this cast to spy on the SDK
+ * surface the curated methods delegate to.
+ */
+function sdk(service: StripeService): Stripe {
+  return (service as unknown as { stripe: Stripe }).stripe;
+}
 
 function createStoreMock() {
   return {
@@ -37,7 +48,7 @@ describe('StripeService', () => {
 
   it('passes an idempotency key to checkout.sessions.create', async () => {
     const createSpy = jest
-      .spyOn(service.client.checkout.sessions, 'create')
+      .spyOn(sdk(service).checkout.sessions, 'create')
       .mockResolvedValue({ id: 'cs_1' } as any);
 
     await service.createCheckoutSession({} as any, {
@@ -55,7 +66,7 @@ describe('StripeService', () => {
 
   it('passes an idempotency key to refunds.create', async () => {
     const createSpy = jest
-      .spyOn(service.client.refunds, 'create')
+      .spyOn(sdk(service).refunds, 'create')
       .mockResolvedValue({ id: 're_1' } as any);
 
     await service.createRefund({} as any, {
@@ -75,9 +86,9 @@ describe('StripeService', () => {
       status: 'COMPLETED',
       resourceId: 'cs_existing',
     });
-    const createSpy = jest.spyOn(service.client.checkout.sessions, 'create');
+    const createSpy = jest.spyOn(sdk(service).checkout.sessions, 'create');
     const retrieveSpy = jest
-      .spyOn(service.client.checkout.sessions, 'retrieve')
+      .spyOn(sdk(service).checkout.sessions, 'retrieve')
       .mockResolvedValue({ id: 'cs_existing' } as any);
 
     const result = await service.createCheckoutSession({} as any, {
@@ -92,7 +103,7 @@ describe('StripeService', () => {
 
   it('marks the key FAILED and rethrows when Stripe errors', async () => {
     jest
-      .spyOn(service.client.checkout.sessions, 'create')
+      .spyOn(sdk(service).checkout.sessions, 'create')
       .mockRejectedValue(new Error('stripe down'));
 
     await expect(
@@ -103,13 +114,13 @@ describe('StripeService', () => {
 
   it('passes typed idempotency options to dispute update, close, and upload', async () => {
     const updateSpy = jest
-      .spyOn(service.client.disputes, 'update')
+      .spyOn(sdk(service).disputes, 'update')
       .mockResolvedValue({ id: 'dp_1' } as never);
     const closeSpy = jest
-      .spyOn(service.client.disputes, 'close')
+      .spyOn(sdk(service).disputes, 'close')
       .mockResolvedValue({ id: 'dp_1' } as never);
     const uploadSpy = jest
-      .spyOn(service.client.files, 'create')
+      .spyOn(sdk(service).files, 'create')
       .mockResolvedValue({ id: 'file_1' } as never);
 
     await service.updateDispute(
@@ -155,7 +166,7 @@ describe('StripeService', () => {
     } as unknown as ConfigService;
     const disabled = new StripeService(disabledConfig, new IdempotencyKeyService(), store);
     const createSpy = jest
-      .spyOn(disabled.client.checkout.sessions, 'create')
+      .spyOn(sdk(disabled).checkout.sessions, 'create')
       .mockResolvedValue({ id: 'cs_2' } as any);
 
     await disabled.createCheckoutSession({} as any, {
@@ -166,5 +177,50 @@ describe('StripeService', () => {
     expect(createSpy).toHaveBeenCalledWith({}, {});
     expect(store.reserve).not.toHaveBeenCalled();
     expect(store.complete).not.toHaveBeenCalled();
+  });
+
+  describe('constructWebhookEvent', () => {
+    it('throws when STRIPE_WEBHOOK_SECRET is not configured', () => {
+      const badConfig = {
+        get: jest.fn((key: string) => (key === 'STRIPE_SECRET_KEY' ? 'sk_test_mock' : undefined)),
+      } as unknown as ConfigService;
+      const noSecret = new StripeService(badConfig, new IdempotencyKeyService(), store);
+
+      expect(() => noSecret.constructWebhookEvent(Buffer.from('{}'), 'sig')).toThrow(
+        'STRIPE_WEBHOOK_SECRET is not configured',
+      );
+    });
+
+    it('delegates to stripe.webhooks.constructEvent with the configured secret', () => {
+      const constructSpy = jest
+        .spyOn(sdk(service).webhooks, 'constructEvent')
+        .mockReturnValue({ id: 'evt_1' } as never);
+
+      const body = Buffer.from('{"id":"evt_1"}');
+      const result = service.constructWebhookEvent(body, 'sig_abc');
+
+      expect(constructSpy).toHaveBeenCalledWith(body, 'sig_abc', 'whsec_mock');
+      expect(result.id).toBe('evt_1');
+    });
+  });
+
+  it('delegates retrievePaymentIntent with expand params', async () => {
+    const retrieveSpy = jest
+      .spyOn(sdk(service).paymentIntents, 'retrieve')
+      .mockResolvedValue({ id: 'pi_1' } as never);
+
+    await service.retrievePaymentIntent('pi_1', { expand: ['latest_charge'] });
+
+    expect(retrieveSpy).toHaveBeenCalledWith('pi_1', { expand: ['latest_charge'] });
+  });
+
+  it('delegates listBalanceTransactions with list params', async () => {
+    const listSpy = jest
+      .spyOn(sdk(service).balanceTransactions, 'list')
+      .mockResolvedValue({ data: [], has_more: false } as never);
+
+    await service.listBalanceTransactions({ created: { gte: 1 }, limit: 100 });
+
+    expect(listSpy).toHaveBeenCalledWith({ created: { gte: 1 }, limit: 100 });
   });
 });

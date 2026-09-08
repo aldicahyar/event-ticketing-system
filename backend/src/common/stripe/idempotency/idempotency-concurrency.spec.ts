@@ -1,10 +1,18 @@
 import { ConflictException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import type Stripe from 'stripe';
 import { IdempotencyKeyService } from './idempotency-key.service';
 import { IdempotencyStoreService } from './idempotency-store.service';
 import { StripeService } from '../stripe.service';
 import { IdempotencyContext } from '../interfaces/idempotency.interface';
+
+/**
+ * Test-only accessor for the encapsulated SDK instance (GAP-14).
+ */
+function sdk(service: StripeService): Stripe {
+  return (service as unknown as { stripe: Stripe }).stripe;
+}
 
 /**
  * Load verification for Phase 3 / GAP-05 (milestone M6).
@@ -100,7 +108,7 @@ describe('Idempotency load verification (GAP-05 M6)', () => {
     stripeService = new StripeService(createConfigMock(), new IdempotencyKeyService(), store);
 
     let sessionCounter = 0;
-    createSession = jest.spyOn(stripeService.client.checkout.sessions, 'create').mockImplementation(
+    createSession = jest.spyOn(sdk(stripeService).checkout.sessions, 'create').mockImplementation(
       () =>
         new Promise((resolve) => {
           // Keep the winning request IN_FLIGHT long enough for the rest of
@@ -113,7 +121,7 @@ describe('Idempotency load verification (GAP-05 M6)', () => {
     );
 
     jest
-      .spyOn(stripeService.client.checkout.sessions, 'retrieve')
+      .spyOn(sdk(stripeService).checkout.sessions, 'retrieve')
       .mockImplementation((id: string) => Promise.resolve({ id } as any));
   });
 

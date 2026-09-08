@@ -37,10 +37,9 @@ describe('CustomersController', () => {
       'https://billing.stripe.com/session/abc',
     );
 
-    const result = await controller.createPortalSession(
-      { id: 'user-1' } as never,
-      { returnUrl: 'https://app.example.com/profile' },
-    );
+    const result = await controller.createPortalSession({ id: 'user-1' } as never, {
+      returnUrl: 'https://app.example.com/profile',
+    });
 
     expect(service.createPortalSession).toHaveBeenCalledWith(
       'user-1',

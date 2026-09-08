@@ -289,7 +289,7 @@ export class AnalyticsService {
         },
         _sum: { amount: true },
       }),
-      this.stripe.client.balanceTransactions.list({
+      this.stripe.listBalanceTransactions({
         created: {
           gte: Math.floor(start.getTime() / 1000),
           lte: Math.floor((end.getTime() - 1) / 1000),

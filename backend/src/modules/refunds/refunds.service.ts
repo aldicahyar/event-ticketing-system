@@ -7,8 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RefundStatus } from '@prisma/client';
-import type Stripe from 'stripe';
 import { StripeService } from '../../common/stripe/stripe.service';
+import { resolvePaymentIntentId } from '../../common/stripe/stripe.utils';
 import { PaymentAuditService } from '../payments/audit/payment-audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateRefundDto } from './dto/create-refund.dto';
@@ -341,7 +341,7 @@ export class RefundsService {
     // PaymentIntent id. Resolve it so old payments can still be refunded.
     if (paymentIntentId.startsWith('cs_')) {
       const session = await this.stripeService.retrieveCheckoutSession(paymentIntentId);
-      paymentIntentId = this.paymentIntentIdFromSession(session);
+      paymentIntentId = resolvePaymentIntentId(session) ?? '';
       if (!paymentIntentId) {
         throw new BadRequestException('Checkout session has no Stripe payment intent');
       }
@@ -364,12 +364,6 @@ export class RefundsService {
         fingerprint: { amount: Number(refund.amount), currency: refund.currency },
       },
     );
-  }
-
-  private paymentIntentIdFromSession(session: Stripe.Checkout.Session): string | null {
-    const pi = session.payment_intent;
-    if (typeof pi === 'string') return pi;
-    return (pi as Stripe.PaymentIntent | null)?.id ?? null;
   }
 
   private async getRefund(id: string, organizerId?: string) {

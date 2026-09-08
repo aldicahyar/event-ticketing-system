@@ -7,12 +7,13 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CustomersService } from '../customers/customers.service';
 import { StripeService } from '../../common/stripe/stripe.service';
+import { resolvePaymentIntentId } from '../../common/stripe/stripe.utils';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_CURRENCY } from '../../common/constants/currency.constants';
 
@@ -62,7 +63,6 @@ export type PaymentOutcome = 'confirmed' | 'skipped' | 'late';
 
 @Injectable()
 export class PaymentsService implements OnModuleInit, OnModuleDestroy {
-  private readonly stripe: Stripe;
   private readonly logger = new Logger(PaymentsService.name);
   private recoverInterval?: NodeJS.Timeout; // Fix #1: optional (definite assignment)
   private readonly frontendUrl: string;
@@ -74,9 +74,9 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     private readonly stripeService: StripeService,
     private readonly customersService: CustomersService,
   ) {
-    // The unified StripeService owns the single Stripe client. Reads reuse it;
-    // writes go through StripeService so they get an Idempotency-Key (GAP-05).
-    this.stripe = this.stripeService.client;
+    // GAP-14: every Stripe call goes through the unified StripeService —
+    // writes are idempotent by construction (GAP-05), reads are curated
+    // pass-throughs. No raw SDK access from this service.
 
     // Fix #4: frontend URL from config with fallback for local dev
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3001';
@@ -99,15 +99,6 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return String(err);
   }
 
-  // ── Helper: resolve the PaymentIntent id (pi_...) from a Checkout Session.
-  // `session.payment_intent` is a string by default, or an expanded object.
-  // We store the PI id (not the cs_... session id) so Stripe refunds resolve.
-  private resolvePaymentIntentId(session: Stripe.Checkout.Session): string | null {
-    const pi = session.payment_intent;
-    if (typeof pi === 'string') return pi;
-    return (pi as Stripe.PaymentIntent | null)?.id ?? null;
-  }
-
   /**
    * Fallback method: directly verify a Stripe checkout session by ID.
    * Called by the frontend success page when the user returns from Stripe
@@ -127,7 +118,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     let session: Stripe.Checkout.Session;
     try {
-      session = await this.stripe.checkout.sessions.retrieve(session_id);
+      session = await this.stripeService.retrieveCheckoutSession(session_id);
     } catch (err: unknown) {
       this.logger.error(
         `Failed to retrieve Stripe session ${session_id}: ${this.getErrorMessage(err)}`,
@@ -231,7 +222,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     let session: Stripe.Checkout.Session | null = null;
     if (booking.stripe_session_id) {
       try {
-        session = await this.stripe.checkout.sessions.retrieve(booking.stripe_session_id);
+        session = await this.stripeService.retrieveCheckoutSession(booking.stripe_session_id);
       } catch (err: unknown) {
         this.logger.warn(
           `recoverSession: failed to retrieve session ${booking.stripe_session_id}: ${this.getErrorMessage(err)}`,
@@ -501,7 +492,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       for (const b of pending) {
         if (!b.stripe_session_id) continue;
         try {
-          const session = await this.stripe.checkout.sessions.retrieve(b.stripe_session_id);
+          const session = await this.stripeService.retrieveCheckoutSession(b.stripe_session_id);
           if (session.payment_status === 'paid') {
             this.logger.log(
               `pollPendingBookings: session ${session.id} for booking ${b.booking_code} is paid — syncing`,
@@ -536,7 +527,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       let startingAfter: string | undefined;
 
       while (hasMore) {
-        const page = await this.stripe.checkout.sessions.list({
+        const page = await this.stripeService.listCheckoutSessions({
           created: { gte: oneWeekAgo },
           limit: 100,
           starting_after: startingAfter,
@@ -569,7 +560,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
    */
   async expireStripeSession(stripe_session_id: string, booking_code: string): Promise<void> {
     try {
-      const session = await this.stripe.checkout.sessions.retrieve(stripe_session_id);
+      const session = await this.stripeService.retrieveCheckoutSession(stripe_session_id);
 
       // Only expire sessions that are still open (user could still pay).
       if (session.status === 'open') {
@@ -743,7 +734,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       //    recorded via provider_tx_id unique index).
       // Store the PaymentIntent id (pi_...) — Stripe refunds + webhook
       // handlers match on payment_intent, not the cs_... session id.
-      const paymentIntentId = this.resolvePaymentIntentId(session);
+      const paymentIntentId = resolvePaymentIntentId(session);
       const providerTxId = paymentIntentId ?? session.id;
       const existingPayment = await tx.t_trx_payments.findUnique({
         where: { provider_tx_id: providerTxId },
@@ -863,10 +854,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         `booking_status_at_detection=${booking.status}`,
     );
 
-    const paymentIntentId =
-      typeof session.payment_intent === 'string'
-        ? session.payment_intent
-        : (session.payment_intent as Stripe.PaymentIntent | null)?.id;
+    const paymentIntentId = resolvePaymentIntentId(session);
 
     // 1. Record the payment (for audit) — idempotent on provider_tx_id.
     // Prefer the PaymentIntent id so a later refund can resolve it.
@@ -1002,7 +990,10 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       const seatLabels = rawSeats.map(
         (s: { row: string; number: number }) => `${s.row}${s.number}`,
       );
-      const groupedMap = new Map<string, { quantity: number; totalPrice: number; seatNumbers: string[] }>();
+      const groupedMap = new Map<
+        string,
+        { quantity: number; totalPrice: number; seatNumbers: string[] }
+      >();
       for (const s of rawSeats) {
         const tier = s.tier?.name ?? 'General Admission';
         const entry = groupedMap.get(tier) ?? { quantity: 0, totalPrice: 0, seatNumbers: [] };

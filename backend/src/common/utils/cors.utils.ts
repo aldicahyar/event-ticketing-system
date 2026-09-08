@@ -15,9 +15,7 @@ export function resolveCorsOrigins(raw: string | undefined, nodeEnv: string): st
   }
 
   if (origins.length === 0) {
-    throw new Error(
-      'CORS_ORIGIN wajib diisi di production: daftar origin https dipisah koma.',
-    );
+    throw new Error('CORS_ORIGIN wajib diisi di production: daftar origin https dipisah koma.');
   }
 
   const invalid = origins.filter((origin) => !SAFE_HTTPS_ORIGIN.test(origin));

@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import {
   IWebhookEventHandler,
   WebhookHandlerResult,
@@ -32,22 +31,13 @@ import { StripeService } from '../../../common/stripe/stripe.service';
 @Injectable()
 export class WebhookProcessorService {
   private readonly logger = new Logger('WebhookProcessor');
-  private readonly stripe: Stripe;
-  private readonly webhookSecret: string;
   private readonly handlerMap: Map<string, IWebhookEventHandler>;
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly eventLogService: WebhookEventLogService,
     private readonly stripeService: StripeService,
     handlers: IWebhookEventHandler[],
   ) {
-    this.webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') ?? '';
-
-    // Reuse the single Stripe client owned by StripeService for signature
-    // verification (no writes here, so no idempotency key needed).
-    this.stripe = this.stripeService.client;
-
     // Build a lookup map from event type → handler for O(1) dispatch.
     // This is built once at construction, not per-request.
     this.handlerMap = new Map();
@@ -75,11 +65,9 @@ export class WebhookProcessorService {
     // signature if it was a transient issue.
     let event: Stripe.Event;
     try {
-      if (!this.webhookSecret) {
-        throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
-      }
-
-      event = this.stripe.webhooks.constructEvent(rawBody, signature, this.webhookSecret);
+      // GAP-14: delegate to the unified StripeService which encapsulates
+      // the webhook secret and the raw Stripe SDK `constructEvent`.
+      event = this.stripeService.constructWebhookEvent(rawBody, signature);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Webhook signature verification failed: ${msg}`);

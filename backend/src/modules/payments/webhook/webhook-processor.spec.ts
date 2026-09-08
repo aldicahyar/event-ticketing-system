@@ -1,5 +1,4 @@
-import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import { WebhookProcessorService } from './webhook-processor.service';
 import { WebhookEventLogService } from './webhook-event-log.service';
 import { StripeService } from '../../../common/stripe/stripe.service';
@@ -10,19 +9,8 @@ import {
 
 // ── Mock dependencies ──────────────────────────────────────────
 
-const mockConfigService = {
-  get: jest.fn((key: string) => {
-    if (key === 'STRIPE_SECRET_KEY') return 'sk_test_mock';
-    if (key === 'STRIPE_WEBHOOK_SECRET') return 'whsec_mock';
-    if (key === 'STRIPE_API_VERSION') return undefined;
-    return undefined;
-  }),
-} as unknown as ConfigService;
-
-// StripeService wrapper exposing a real Stripe client so that
-// constructEvent (signature verification) behaves like production.
 const mockStripeService = {
-  client: new Stripe('sk_test_mock', { apiVersion: '2023-10-16' }),
+  constructWebhookEvent: jest.fn(),
 } as unknown as StripeService;
 
 const mockEventLogService = {
@@ -75,12 +63,10 @@ describe('WebhookProcessorService', () => {
     completedHandler = new MockHandler('checkout.session.completed');
     refundedHandler = new MockHandler('charge.refunded');
 
-    processor = new WebhookProcessorService(
-      mockConfigService,
-      mockEventLogService,
-      mockStripeService,
-      [completedHandler, refundedHandler],
-    );
+    processor = new WebhookProcessorService(mockEventLogService, mockStripeService, [
+      completedHandler,
+      refundedHandler,
+    ]);
   });
 
   describe('initialization', () => {
@@ -92,50 +78,41 @@ describe('WebhookProcessorService', () => {
   });
 
   describe('process - signature verification', () => {
-    it('should throw if STRIPE_WEBHOOK_SECRET is not configured', async () => {
-      const badConfig = {
-        get: jest.fn(() => undefined),
-      } as unknown as ConfigService;
+    it('should throw and rethrow when constructWebhookEvent fails', async () => {
+      (mockStripeService.constructWebhookEvent as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid signature');
+      });
 
-      const badProcessor = new WebhookProcessorService(
-        badConfig,
-        mockEventLogService,
-        mockStripeService,
-        [],
+      await expect(processor.process(Buffer.from('invalid'), 'bad_signature')).rejects.toThrow(
+        'Invalid signature',
       );
-
-      await expect(badProcessor.process(Buffer.from('test'), 'sig')).rejects.toThrow(
-        'STRIPE_WEBHOOK_SECRET',
+      expect(mockStripeService.constructWebhookEvent).toHaveBeenCalledWith(
+        Buffer.from('invalid'),
+        'bad_signature',
       );
-    });
-
-    it('should throw on invalid signature', async () => {
-      // constructEvent will fail with invalid signature
-      await expect(processor.process(Buffer.from('invalid'), 'bad_signature')).rejects.toThrow();
     });
   });
 
   describe('process - idempotency', () => {
     it('should skip duplicate events', async () => {
-      // We need to mock constructEvent — but since we're using a real Stripe
-      // instance with a fake key, we can't easily mock it.
-      // Instead, test the idempotency check logic via the handler mock.
-      // This test verifies that isDuplicate returning true skips processing.
+      const event = makeStripeEvent('checkout.session.completed');
+      (mockStripeService.constructWebhookEvent as jest.Mock).mockReturnValue(event);
+      (mockEventLogService.isDuplicate as jest.Mock).mockResolvedValue(true);
 
-      mockEventLogService.isDuplicate = jest.fn().mockResolvedValue(true);
+      const result = await processor.process(Buffer.from('{}'), 'sig');
 
-      // We can't easily get past signature verification without mocking Stripe.
-      // The real test for idempotency is in the event log service spec.
-      expect(mockEventLogService.isDuplicate).toBeDefined();
+      expect(result).toEqual({ received: true });
+      expect(completedHandler.calls).toBe(0);
+      expect(mockEventLogService.logReceived).not.toHaveBeenCalled();
     });
   });
 
   describe('process - handler result', () => {
     it('marks success=false as failed and throws for Stripe retry', async () => {
       completedHandler.result = { success: false, message: 'transaction failed' };
-      mockEventLogService.isDuplicate = jest.fn().mockResolvedValue(false);
+      (mockEventLogService.isDuplicate as jest.Mock).mockResolvedValue(false);
       const event = makeStripeEvent('checkout.session.completed');
-      jest.spyOn(mockStripeService.client.webhooks, 'constructEvent').mockReturnValue(event);
+      (mockStripeService.constructWebhookEvent as jest.Mock).mockReturnValue(event);
 
       await expect(processor.process(Buffer.from('{}'), 'signature')).rejects.toThrow(
         'transaction failed',

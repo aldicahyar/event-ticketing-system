@@ -106,16 +106,12 @@ describe('AnalyticsService', () => {
         t_trx_payments: { aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 1000 } }) },
       };
       const stripe = {
-        client: {
-          balanceTransactions: {
-            list: jest.fn().mockResolvedValue({
-              data: [
-                { id: 'txn_1', type: 'charge', amount: 100000, fee: 3000, created: 1 },
-                { id: 'txn_2', type: 'payout', amount: 999999, fee: 0, created: 2 },
-              ],
-            }),
-          },
-        },
+        listBalanceTransactions: jest.fn().mockResolvedValue({
+          data: [
+            { id: 'txn_1', type: 'charge', amount: 100000, fee: 3000, created: 1 },
+            { id: 'txn_2', type: 'payout', amount: 999999, fee: 0, created: 2 },
+          ],
+        }),
       };
       const result = await makeService(prisma, stripe).reconciliation('2026-08-01', '2026-08-10');
       expect(result.stripe_gross).toBe(1000);
@@ -129,13 +125,9 @@ describe('AnalyticsService', () => {
         t_trx_payments: { aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 500 } }) },
       };
       const stripe = {
-        client: {
-          balanceTransactions: {
-            list: jest.fn().mockResolvedValue({
-              data: [{ id: 't', type: 'charge', amount: 100000, fee: 0, created: 1 }],
-            }),
-          },
-        },
+        listBalanceTransactions: jest.fn().mockResolvedValue({
+          data: [{ id: 't', type: 'charge', amount: 100000, fee: 0, created: 1 }],
+        }),
       };
       const result = await makeService(prisma, stripe).reconciliation('2026-08-01', '2026-08-10');
       expect(result.status).toBe('MISMATCHED');

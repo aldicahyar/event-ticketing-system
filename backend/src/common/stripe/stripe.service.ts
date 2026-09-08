@@ -7,16 +7,30 @@ import { IdempotencyStoreService } from './idempotency/idempotency-store.service
 import { IDEMPOTENCY_ENABLED_CONFIG_KEY } from './idempotency/idempotency.constants';
 
 /**
+ * Single source of truth for the Stripe API version. Override per environment
+ * via STRIPE_API_VERSION; never hardcode the literal elsewhere (GAP-14).
+ */
+export const DEFAULT_STRIPE_API_VERSION = '2023-10-16';
+
+/** Default per-request HTTP timeout in ms. `0` disables the limit. */
+const DEFAULT_STRIPE_TIMEOUT_MS = 30_000;
+
+/** Default automatic network retries performed by the Stripe SDK. `0` = off. */
+const DEFAULT_STRIPE_MAX_NETWORK_RETRIES = 2;
+
+/**
  * Central owner of the Stripe SDK client and the single place where write
  * operations are performed. Every write (create/refund/expire) automatically
  * receives a deterministic Idempotency-Key, so callers cannot forget it — this
  * closes the root cause of GAP-05.
  *
- * Read operations (retrieve/list) are exposed as-is; they are naturally
- * idempotent and do not take an idempotency key.
+ * Read operations (retrieve/list) are exposed as curated pass-through methods;
+ * they are naturally idempotent and do not take an idempotency key.
  *
- * This service is also the sole instantiator of `new Stripe(...)`, unifying the
- * previously duplicated clients (partially addresses GAP-14).
+ * This service is the sole instantiator of `new Stripe(...)` and the only
+ * reader of Stripe-related configuration (secret key, API version, webhook
+ * secret, timeout, retries). The SDK instance is fully encapsulated — feature
+ * modules cannot bypass this service (completes GAP-14).
  */
 @Injectable()
 export class StripeService {
@@ -24,6 +38,8 @@ export class StripeService {
   private readonly stripe: Stripe;
   /** Rollback switch: when false, Stripe calls run without idempotency keys. */
   private readonly idempotencyEnabled: boolean;
+  /** Shared secret used to verify incoming webhook signatures. */
+  private readonly webhookSecret: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -35,8 +51,21 @@ export class StripeService {
       throw new Error('STRIPE_SECRET_KEY is required to initialise the Stripe client');
     }
     const apiVersion = (this.configService.get<string>('STRIPE_API_VERSION') ??
-      '2023-10-16') as Stripe.LatestApiVersion;
-    this.stripe = new Stripe(secretKey, { apiVersion });
+      DEFAULT_STRIPE_API_VERSION) as Stripe.LatestApiVersion;
+    this.stripe = new Stripe(secretKey, {
+      apiVersion,
+      timeout: this.parseNonNegativeInt('STRIPE_TIMEOUT_MS', DEFAULT_STRIPE_TIMEOUT_MS),
+      maxNetworkRetries: this.parseNonNegativeInt(
+        'STRIPE_MAX_NETWORK_RETRIES',
+        DEFAULT_STRIPE_MAX_NETWORK_RETRIES,
+      ),
+    });
+    this.webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') ?? '';
+    if (!this.webhookSecret) {
+      this.logger.warn(
+        'STRIPE_WEBHOOK_SECRET is not set — webhook signature verification will fail until it is configured',
+      );
+    }
     this.idempotencyEnabled =
       this.configService.get<string>(IDEMPOTENCY_ENABLED_CONFIG_KEY) !== 'false';
     if (!this.idempotencyEnabled) {
@@ -46,9 +75,48 @@ export class StripeService {
     }
   }
 
-  /** Raw client for read-only operations that need the full SDK surface. */
-  get client(): Stripe {
-    return this.stripe;
+  /**
+   * Verify a raw webhook request against the configured STRIPE_WEBHOOK_SECRET.
+   * Throws when the secret is missing or the signature does not match — the
+   * caller (WebhookProcessorService) relies on the throw to make Stripe retry.
+   */
+  constructWebhookEvent(rawBody: Buffer, signature: string): Stripe.Event {
+    if (!this.webhookSecret) {
+      throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
+    }
+    return this.stripe.webhooks.constructEvent(rawBody, signature, this.webhookSecret);
+  }
+
+  /** Retrieve a PaymentIntent (read-only), e.g. for the admin ops snapshot. */
+  retrievePaymentIntent(
+    id: string,
+    params?: Stripe.PaymentIntentRetrieveParams,
+  ): Promise<Stripe.PaymentIntent> {
+    return this.stripe.paymentIntents.retrieve(id, params);
+  }
+
+  /** List balance transactions (read-only), e.g. for revenue reconciliation. */
+  listBalanceTransactions(
+    params: Stripe.BalanceTransactionListParams,
+  ): Promise<Stripe.ApiList<Stripe.BalanceTransaction>> {
+    return this.stripe.balanceTransactions.list(params);
+  }
+
+  /**
+   * Parse a non-negative integer config value, falling back when unset or
+   * malformed. Keeps client options env-driven with safe defaults (GAP-14).
+   */
+  private parseNonNegativeInt(configKey: string, fallback: number): number {
+    const raw = this.configService.get<string>(configKey);
+    if (raw === undefined || raw === '') {
+      return fallback;
+    }
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      this.logger.warn(`Invalid ${configKey}="${raw}" — falling back to ${fallback}`);
+      return fallback;
+    }
+    return Math.floor(parsed);
   }
 
   /**
@@ -172,8 +240,7 @@ export class StripeService {
     return this.runIdempotent(
       ctx,
       (options) => this.stripe.customers.create(params, options),
-      (resourceId) =>
-        this.stripe.customers.retrieve(resourceId) as Promise<Stripe.Customer>,
+      (resourceId) => this.stripe.customers.retrieve(resourceId) as Promise<Stripe.Customer>,
     );
   }
 
