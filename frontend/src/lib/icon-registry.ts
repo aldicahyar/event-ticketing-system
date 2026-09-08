@@ -1,8 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, BarChart3, Activity, ClipboardList,
-  Calendar, MapPin, Layers, Percent, ShieldCheck, Menu as MenuIcon, Lock,
-  CreditCard, Ticket, User, TrendingUp,
+  Calendar, MapPin, Layers, Percent, Tag, ShieldCheck, Menu as MenuIcon, Lock,
+  CreditCard, Ticket, User, TrendingUp, Wallet,
   // User management
   Users, UserCog, UserPlus, KeyRound, Unlock,
   // Content (CMS)
@@ -36,6 +36,7 @@ export const ICON_REGISTRY: Record<string, LucideIcon> = {
   MapPin,
   Layers,
   Percent,
+  Tag,
   ShieldCheck,
   Menu: MenuIcon,
   Lock,
@@ -59,6 +60,7 @@ export const ICON_REGISTRY: Record<string, LucideIcon> = {
   CreditCard,
   Ticket,
   User,
+  Wallet,
 
   // Misc
   ChevronRight,

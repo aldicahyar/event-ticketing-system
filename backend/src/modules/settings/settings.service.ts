@@ -1,6 +1,7 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service';
 import { UpdateTierSettingDto, UpdateTaxSettingDto } from './dto/update-settings.dto';
+import { CreatePerkDto, UpdatePerkDto } from './dto/perk.dto';
 import { SeatType } from '@prisma/client';
 
 @Injectable()
@@ -134,6 +135,77 @@ export class SettingsService implements OnModuleInit {
         created_by: adminName,
         updated_by: adminName,
       },
+    });
+  }
+
+  async getActivePerksGrouped() {
+    const perks = await this.prisma.t_mtr_perks.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: [{ type: 'asc' }, { label: 'asc' }],
+    });
+
+    return {
+      PERK: perks.filter((p) => p.type === 'PERK').map((p) => p.label),
+      FACILITY: perks.filter((p) => p.type === 'FACILITY').map((p) => p.label),
+    };
+  }
+
+  async getAllPerks() {
+    return this.prisma.t_mtr_perks.findMany({
+      orderBy: [{ type: 'asc' }, { label: 'asc' }],
+    });
+  }
+
+  async createPerk(dto: CreatePerkDto) {
+    const existing = await this.prisma.t_mtr_perks.findUnique({
+      where: { label: dto.label },
+    });
+    if (existing) {
+      throw new ConflictException(`Perk with label '${dto.label}' already exists`);
+    }
+
+    return this.prisma.t_mtr_perks.create({
+      data: {
+        label: dto.label,
+        type: dto.type,
+        status: dto.status || 'ACTIVE',
+      },
+    });
+  }
+
+  async updatePerk(id: string, dto: UpdatePerkDto) {
+    const perk = await this.prisma.t_mtr_perks.findUnique({ where: { id } });
+    if (!perk) {
+      throw new NotFoundException(`Perk with ID ${id} not found`);
+    }
+
+    if (dto.label && dto.label !== perk.label) {
+      const duplicate = await this.prisma.t_mtr_perks.findUnique({
+        where: { label: dto.label },
+      });
+      if (duplicate) {
+        throw new ConflictException(`Perk with label '${dto.label}' already exists`);
+      }
+    }
+
+    return this.prisma.t_mtr_perks.update({
+      where: { id },
+      data: {
+        label: dto.label,
+        type: dto.type,
+        status: dto.status,
+      },
+    });
+  }
+
+  async deletePerk(id: string) {
+    const perk = await this.prisma.t_mtr_perks.findUnique({ where: { id } });
+    if (!perk) {
+      throw new NotFoundException(`Perk with ID ${id} not found`);
+    }
+
+    return this.prisma.t_mtr_perks.delete({
+      where: { id },
     });
   }
 }

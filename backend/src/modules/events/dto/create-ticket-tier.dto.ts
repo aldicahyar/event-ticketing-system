@@ -36,6 +36,7 @@ export class CreateTicketTierDto {
   @ApiPropertyOptional({ example: ['VIP Lounge', 'Fast Track'] })
   @IsArray()
   @IsString({ each: true })
+  @MinLength(1, { each: true, message: 'Each feature must not be empty' })
   @IsOptional()
   features?: string[];
 

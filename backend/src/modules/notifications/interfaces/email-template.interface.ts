@@ -19,7 +19,22 @@ export interface PaymentSuccessEmailData {
   currency: string;
   seatCount: number;
   seats: string[];
+  /**
+   * Grouped items for the receipt layout. Groups seats by their tier/type.
+   */
+  groupedItems?: Array<{
+    type: string;
+    quantity: number;
+    totalPrice: number;
+    seatNumbers: string[];
+  }>;
+  /** Subtotal of all seats before tax */
+  subtotal?: number | null;
+  /** Tax and platform fees (totalAmount - subtotal) */
+  taxAmount?: number | null;
   eventDate: string | null;
+  /** ISO timestamp of the actual payment (Stripe paid transition). */
+  paidAt?: string | null;
   venueName: string | null;
   venueCity: string | null;
   ticketUrl: string;

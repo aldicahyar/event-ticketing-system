@@ -10,12 +10,14 @@ describe('EventsService', () => {
   const update = jest.fn();
   const deleteMany = jest.fn();
   const count = jest.fn();
+  const perksFindMany = jest.fn();
 
   const prisma = {
     t_trx_events: { findMany, findUnique, create, update },
     t_mtr_venues: { findUnique },
     t_trx_event_ticket_tiers: { create, deleteMany },
     t_mtr_seats: { createMany, deleteMany, count },
+    t_mtr_perks: { findMany: perksFindMany },
     $transaction: jest.fn((callback) => callback(prisma)),
   } as unknown as PrismaService;
 
@@ -137,6 +139,34 @@ describe('EventsService', () => {
       });
       expect(result).toHaveProperty('id', 'event-1');
     });
+
+    it('throws BadRequestException when tier contains unknown or inactive features', async () => {
+      const dto = {
+        title: 'Event With Invalid Feature',
+        description: 'Valid long enough description',
+        venue_id: 'venue-1',
+        event_date: '2026-08-15T19:00:00.000Z',
+        start_date_time: '2026-07-15T10:00:00.000Z',
+        end_date_time: '2026-08-15T22:00:00.000Z',
+        base_price: 100000,
+        ticket_tiers: [
+          {
+            name: 'VIP',
+            price: 500000,
+            stock: 2,
+            features: ['Ghost Perk', 'Free Welcome Drink'],
+            start_date_time: '2026-07-15T10:00:00.000Z',
+            end_date_time: '2026-08-15T22:00:00.000Z',
+          },
+        ],
+      };
+
+      perksFindMany.mockResolvedValue([{ label: 'Free Welcome Drink' }]);
+
+      await expect(service.create(dto as any, 'organizer-1')).rejects.toThrow(
+        'Unknown or inactive features: Ghost Perk',
+      );
+    });
   });
 
   describe('update with ticket_tiers', () => {
@@ -224,10 +254,40 @@ describe('EventsService', () => {
         end_date_time: new Date('2026-08-15T22:00:00.000Z'),
       });
 
-      (prisma.t_mtr_seats.count as jest.Mock).mockResolvedValue(1);
+      (prisma.t_mtr_seats.count as jest.Mock).mockResolvedValueOnce(1);
 
       await expect(service.update(updateDto as any)).rejects.toThrow(
         'Cannot modify event tickets/tiers. Some tickets are already reserved or sold.',
+      );
+    });
+
+    it('throws BadRequestException on update when tier contains unknown or inactive features', async () => {
+      const updateDto = {
+        id: 'event-1',
+        ticket_tiers: [
+          {
+            name: 'VVIP',
+            price: 1000000,
+            stock: 1,
+            features: ['Unknown Feature'],
+            start_date_time: '2026-07-15T10:00:00.000Z',
+            end_date_time: '2026-08-15T22:00:00.000Z',
+          },
+        ],
+      };
+
+      (prisma.t_trx_events.findUnique as jest.Mock).mockResolvedValue({
+        id: 'event-1',
+        venue_id: 'venue-1',
+        start_date_time: new Date('2026-07-15T10:00:00.000Z'),
+        end_date_time: new Date('2026-08-15T22:00:00.000Z'),
+      });
+
+      (prisma.t_mtr_seats.count as jest.Mock).mockResolvedValueOnce(0);
+      perksFindMany.mockResolvedValue([]);
+
+      await expect(service.update(updateDto as any)).rejects.toThrow(
+        'Unknown or inactive features: Unknown Feature',
       );
     });
   });

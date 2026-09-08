@@ -650,6 +650,22 @@ enum RefundStatus {
   REJECTED
 }
 
+enum PerkType {
+  PERK
+  FACILITY
+}
+
+model t_mtr_perks {
+  id         String   @id @default(cuid())
+  label      String   @unique
+  type       PerkType
+  status     String   @default("ACTIVE")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([type, status])
+}
+
 model t_trx_event_ticket_tiers {
   id              String        @id @default(cuid())
   event_id        String

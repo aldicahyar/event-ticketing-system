@@ -16,6 +16,7 @@ import { ResumePaymentBanner } from '@/components/payments/ResumePaymentBanner';
 interface OrderEvent {
   id: string;
   title: string;
+  event_date?: string;
   start_date_time: string;
   image_url?: string | null;
   venue?: { id: string; name: string; city: string } | null;
@@ -113,8 +114,9 @@ export default function DashboardPage() {
 
 
   const isUpcoming = (o: Order) => {
-    if (!o.event?.start_date_time) return false;
-    return new Date(o.event.start_date_time).getTime() >= Date.now();
+    const rawDate = o.event?.event_date || o.event?.start_date_time;
+    if (!rawDate) return false;
+    return new Date(rawDate).getTime() >= Date.now();
   };
 
   // Recent = the 3 latest bookings (list is sorted booked_at desc by the API).
@@ -125,8 +127,8 @@ export default function DashboardPage() {
     .filter(isUpcoming)
     .sort(
       (a, b) =>
-        new Date(a.event.start_date_time).getTime() -
-        new Date(b.event.start_date_time).getTime(),
+        new Date(a.event.event_date || a.event.start_date_time).getTime() -
+        new Date(b.event.event_date || b.event.start_date_time).getTime(),
     )
     .slice(0, 4);
 
@@ -344,8 +346,8 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 text-xs md:text-sm text-[#CCCCCC] mb-3">
                 <Calendar className="w-3 h-3 md:w-4 md:h-4 shrink-0" aria-hidden="true" />
-                {order.event?.start_date_time
-                  ? new Date(order.event.start_date_time).toLocaleDateString('en-GB', {
+                {(order.event?.event_date || order.event?.start_date_time)
+                  ? new Date(order.event.event_date || order.event.start_date_time).toLocaleDateString('en-GB', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',

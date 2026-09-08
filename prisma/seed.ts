@@ -119,13 +119,22 @@ const MENUS = [
     order: 4,
   },
   {
+    code: 'PERK_SETTINGS',
+    name: 'Perk Settings',
+    name_en: 'Perk Settings',
+    parent_code: null,
+    icon: 'Tag',
+    slug: '/dashboard/admin/perk-settings',
+    order: 5,
+  },
+  {
     code: 'TAX_SETTINGS',
     name: 'Tax Settings',
     name_en: 'Tax Settings',
     parent_code: null,
     icon: 'Percent',
     slug: '/dashboard/tax-settings',
-    order: 5,
+    order: 6,
   },
   {
     code: 'DISPUTES',
@@ -134,7 +143,7 @@ const MENUS = [
     parent_code: null,
     icon: 'AlertTriangle',
     slug: '/dashboard/admin/disputes',
-    order: 7,
+    order: 8,
   },
   {
     code: 'REFUNDS',
@@ -143,7 +152,7 @@ const MENUS = [
     parent_code: null,
     icon: 'RotateCcw',
     slug: '/dashboard/refunds',
-    order: 6,
+    order: 7,
   },
   {
     code: 'REFUND_POLICY_SETTINGS',
@@ -152,7 +161,7 @@ const MENUS = [
     parent_code: null,
     icon: 'SlidersHorizontal',
     slug: '/dashboard/admin/refund-policies',
-    order: 7,
+    order: 9,
   },
   // ----- Admin: Access Control group -----
   // Parent has no slug: it is a collapsible container, not a page.
@@ -261,13 +270,22 @@ const MENUS = [
     order: 3,
   },
   {
+    code: 'BILLING',
+    name: 'Billing & Payment Methods',
+    name_en: 'Billing & Payment Methods',
+    parent_code: null,
+    icon: 'Wallet',
+    slug: '/dashboard/billing',
+    order: 4,
+  },
+  {
     code: 'PROFILE',
     name: 'Profile',
     name_en: 'Profile',
     parent_code: null,
     icon: 'User',
     slug: '/dashboard/profile',
-    order: 4,
+    order: 5,
   },
 ] as const;
 
@@ -287,6 +305,7 @@ const PERMISSION_MATRIX: Array<
   ['ADMIN', 'EVENTS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'VENUES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'TIER_SETTINGS', { can_view: true, can_edit: true }],
+  ['ADMIN', 'PERK_SETTINGS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'TAX_SETTINGS', { can_view: true, can_edit: true }],
   ['ADMIN', 'REFUNDS', { can_view: true, can_edit: true }],
   ['ADMIN', 'DISPUTES', { can_view: true, can_edit: true }],
@@ -314,6 +333,7 @@ const PERMISSION_MATRIX: Array<
   ['ATTENDEE', 'OVERVIEW', { can_view: true }],
   ['ATTENDEE', 'ORDERS', { can_view: true }],
   ['ATTENDEE', 'MY_TICKETS', { can_view: true }],
+  ['ATTENDEE', 'BILLING', { can_view: true, can_edit: true }],
   ['ATTENDEE', 'PROFILE', { can_view: true, can_edit: true }],
 ];
 
@@ -334,6 +354,46 @@ const STARTER_PAGES = [
     excerpt: 'Answers to common questions.',
     content: '<h2>FAQ</h2><p>Add your frequently asked questions here.</p>',
   },
+] as const;
+
+// ============================================================
+// 4b. PERKS & FACILITIES MASTER DATA
+// ============================================================
+// Labels referenced by t_trx_event_ticket_tiers.features (validated in EventsService).
+const PERKS = [
+  // --- PERKS (value-add dari organizer) ---
+  { label: 'Standard Entry', type: 'PERK' },
+  { label: 'Free Welcome Drink', type: 'PERK' },
+  { label: 'Merchandise Kit', type: 'PERK' },
+  { label: 'Meet & Greet', type: 'PERK' },
+  { label: 'Photo with Performer', type: 'PERK' },
+  { label: 'Fast Track Entry', type: 'PERK' },
+  { label: 'Early Entry', type: 'PERK' },
+  { label: 'VIP Lounge Access', type: 'PERK' },
+  { label: 'Backstage Tour', type: 'PERK' },
+  { label: 'Food & Beverage Voucher', type: 'PERK' },
+  { label: 'Free Parking', type: 'PERK' },
+  { label: 'Event Program Book', type: 'PERK' },
+  { label: 'Lucky Draw Entry', type: 'PERK' },
+  { label: 'Signed Poster', type: 'PERK' },
+  { label: 'Priority Seating', type: 'PERK' },
+
+  // --- FACILITIES (fasilitas venue) ---
+  { label: 'Parking Area', type: 'FACILITY' },
+  { label: 'Air Conditioning', type: 'FACILITY' },
+  { label: 'Prayer Room', type: 'FACILITY' },
+  { label: 'Food Court', type: 'FACILITY' },
+  { label: 'Accessible Restroom', type: 'FACILITY' },
+  { label: 'First Aid Station', type: 'FACILITY' },
+  { label: 'Wheelchair Accessible', type: 'FACILITY' },
+  { label: 'Free Wi-Fi', type: 'FACILITY' },
+  { label: 'ATM', type: 'FACILITY' },
+  { label: 'Smoking Area', type: 'FACILITY' },
+  { label: 'Cloakroom', type: 'FACILITY' },
+  { label: 'Charging Station', type: 'FACILITY' },
+  { label: 'Information Desk', type: 'FACILITY' },
+  { label: 'Medical Team on Site', type: 'FACILITY' },
+  { label: 'Security 24 Hours', type: 'FACILITY' },
 ] as const;
 
 // ============================================================
@@ -485,16 +545,32 @@ async function main() {
     }
   }
 
+  // --- Perks & facilities master data ---
+  console.log(`→ Upserting ${PERKS.length} perks/facilities...`);
+  for (const perk of PERKS) {
+    await prisma.t_mtr_perks.upsert({
+      where: { label: perk.label },
+      update: { type: perk.type },
+      create: {
+        label: perk.label,
+        type: perk.type,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
   // Summary
   const roleCount = await prisma.t_mtr_roles.count();
   const menuCount = await prisma.t_mtr_menus.count();
   const permCount = await prisma.t_mtr_role_menu_permissions.count();
   const pageCount = await prisma.t_mtr_pages.count();
+  const perkCount = await prisma.t_mtr_perks.count();
   console.log('\n✅ Seed complete!');
   console.log(`   Roles:       ${roleCount}`);
   console.log(`   Menus:       ${menuCount}`);
   console.log(`   Permissions: ${permCount}`);
   console.log(`   Pages:       ${pageCount}`);
+  console.log(`   Perks:       ${perkCount}`);
 }
 
 main()

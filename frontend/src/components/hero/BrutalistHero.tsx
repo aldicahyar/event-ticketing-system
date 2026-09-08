@@ -31,7 +31,7 @@ const mapDbEventToHeroEvent = (e: any): HeroEvent => {
     id: e.id,
     artist: e.title,
     tour: e.subtitle || 'WORLD TOUR',
-    date: e.start_date_time,
+    date: e.event_date || e.start_date_time,
     venue: e.venue?.name || 'VENUE',
     price: minPrice,
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2000&auto=format&fit=crop',
@@ -98,12 +98,12 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
   useEffect(() => {
     const target = new Date(targetDate).getTime();
 
-    const interval = setInterval(() => {
+    const tick = () => {
       const now = new Date().getTime();
       const distance = target - now;
 
       if (distance < 0) {
-        clearInterval(interval);
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         return;
       }
 
@@ -113,7 +113,10 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
         minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
         seconds: Math.floor((distance % (1000 * 60)) / 1000)
       });
-    }, 1000);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
 
     return () => clearInterval(interval);
   }, [targetDate]);

@@ -3,6 +3,7 @@ import { Prisma, t_mtr_venues } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { CreateTicketTierDto } from './dto/create-ticket-tier.dto';
 import { SettingsService } from '../settings/settings.service';
 import { DEFAULT_CURRENCY } from '../../common/constants/currency.constants';
 
@@ -36,6 +37,7 @@ export class EventsService {
           );
         }
       }
+      await this.validateTierFeatures(dto.ticket_tiers);
     }
 
     // 1. Verify venue exists
@@ -244,6 +246,7 @@ export class EventsService {
           );
         }
       }
+      await this.validateTierFeatures(dto.ticket_tiers);
     }
 
     // Use transaction if ticket tiers are provided
@@ -341,6 +344,28 @@ export class EventsService {
     }
 
     return updatedEvent;
+  }
+
+  /**
+   * Ensure every tier feature exists in t_mtr_perks and is ACTIVE.
+   * Throws BadRequestException listing the offending labels otherwise.
+   */
+  private async validateTierFeatures(tiers: CreateTicketTierDto[]) {
+    const requested = [...new Set(tiers.flatMap((t) => t.features ?? []))];
+    if (requested.length === 0) return;
+
+    const activePerks = await this.prisma.t_mtr_perks.findMany({
+      where: { label: { in: requested }, status: 'ACTIVE' },
+      select: { label: true },
+    });
+    const valid = new Set(activePerks.map((p) => p.label));
+    const invalid = requested.filter((f) => !valid.has(f));
+
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Unknown or inactive features: ${invalid.join(', ')}`,
+      );
+    }
   }
 
   /**

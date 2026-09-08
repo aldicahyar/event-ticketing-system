@@ -24,7 +24,7 @@ type BookingWithEvent = Prisma.t_trx_bookingsGetPayload<{
 }>;
 
 type BookingWithSeats = Prisma.t_trx_bookingsGetPayload<{
-  include: { seats: true };
+  include: { seats: { include: { tier: true } } };
 }>;
 
 // ── Recovery result type (Fix #15: consistent return shape) ──────
@@ -605,7 +605,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     // $transaction callback below.
     const booking = await this.prisma.t_trx_bookings.findUnique({
       where: { id: booking_id },
-      include: { seats: true },
+      include: { seats: { include: { tier: true } } },
     });
 
     if (!booking) {
@@ -996,11 +996,29 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         },
       });
 
-      // Format seats as human-readable labels (e.g. "A1, A2, B3")
-      // using the seats relation, NOT the raw seat_ids UUIDs.
-      const seatLabels = (booking.seats ?? []).map(
+      // Format seats as human-readable labels and group them by tier/type
+      // so the email receipt shows one line per tier with seat badges.
+      const rawSeats = booking.seats ?? [];
+      const seatLabels = rawSeats.map(
         (s: { row: string; number: number }) => `${s.row}${s.number}`,
       );
+      const groupedMap = new Map<string, { quantity: number; totalPrice: number; seatNumbers: string[] }>();
+      for (const s of rawSeats) {
+        const tier = s.tier?.name ?? 'General Admission';
+        const entry = groupedMap.get(tier) ?? { quantity: 0, totalPrice: 0, seatNumbers: [] };
+        entry.quantity += 1;
+        entry.totalPrice += Number(s.price);
+        entry.seatNumbers.push(`${s.row}${s.number}`);
+        groupedMap.set(tier, entry);
+      }
+      const groupedItems = [...groupedMap.entries()].map(([type, g]) => ({ type, ...g }));
+      const subtotal = groupedItems.reduce((sum, g) => sum + g.totalPrice, 0);
+
+      // Payment timestamp: session.created is a unix second epoch; fall back
+      // to current timestamp when missing.
+      const paidAt = session.created
+        ? new Date(session.created * 1000).toISOString()
+        : new Date().toISOString();
 
       await this.notificationsService.sendPaymentSuccess(user.email, {
         bookingCode: booking.booking_code,
@@ -1012,7 +1030,11 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         currency: session.currency ?? DEFAULT_CURRENCY.toLowerCase(),
         seatCount: seatLabels.length,
         seats: seatLabels,
+        groupedItems,
+        subtotal,
+        taxAmount: amountPaid > subtotal ? amountPaid - subtotal : 0,
         eventDate: event?.start_date_time?.toISOString() ?? null,
+        paidAt,
         venueName: event?.venue?.name ?? null,
         venueCity: event?.venue?.city ?? null,
         ticketUrl: `${this.frontendUrl}/dashboard/my-tickets?order=${booking.id}`,

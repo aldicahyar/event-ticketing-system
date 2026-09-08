@@ -192,7 +192,7 @@ describe('Email Templates', () => {
       expect(content.html).toContain('BOK-TEST-001');
       expect(content.html).toContain('Concert Test');
       expect(content.html).toContain('John Doe');
-      expect(content.html).toContain('A1, A2');
+      expect(content.html).toContain('A1');
       expect(content.text).toContain('BOK-TEST-001');
       expect(content.text).toContain('$150.00');
     });
@@ -211,6 +211,40 @@ describe('Email Templates', () => {
       expect(content.text).not.toContain('Rp 1,500,000');
     });
 
+    it('should group seats by tier with seat badges and tax breakdown', async () => {
+      const { buildPaymentSuccessEmail } = await import('./templates/payment-success.template');
+      const content = buildPaymentSuccessEmail({
+        ...successData,
+        groupedItems: [
+          { type: 'VIP', quantity: 2, totalPrice: 200, seatNumbers: ['A1', 'A2'] },
+          { type: 'Regular', quantity: 1, totalPrice: 150, seatNumbers: ['B5'] },
+        ],
+        subtotal: 350,
+        taxAmount: 38,
+        totalAmount: 388,
+        eventDate: '2026-09-10T02:00:00.000Z', // 09:00 WIB
+        paidAt: '2026-09-07T07:30:00.000Z', // 14:30 WIB
+      });
+
+      // One line per tier with quantity and total price
+      expect(content.html).toContain('VIP');
+      expect(content.html).toContain('&times; 2');
+      expect(content.html).toContain('Regular');
+      expect(content.html).toContain('$200.00');
+      // Seat numbers rendered as individual badges
+      expect(content.html).toContain('>A1<');
+      expect(content.html).toContain('>B5<');
+      // Transparent pricing breakdown
+      expect(content.html).toContain('Subtotal');
+      expect(content.html).toContain('$350.00');
+      expect(content.html).toContain('Tax & Fees');
+      expect(content.html).toContain('$38.00');
+      expect(content.html).toContain('$388.00');
+      // Dates are rendered in Asia/Jakarta (WIB), not UTC
+      expect(content.html).toContain('10 Sept 2026 09:00 WIB');
+      expect(content.html).toContain('07 Sept 2026 14:30 WIB');
+    });
+
     it('should handle missing optional fields gracefully', async () => {
       const { buildPaymentSuccessEmail } = await import('./templates/payment-success.template');
       const content = buildPaymentSuccessEmail({
@@ -220,9 +254,11 @@ describe('Email Templates', () => {
         venueCity: null,
       });
 
-      expect(content.text).not.toContain('Date:');
-      // Seats array still has values, so not 'General Admission'
-      expect(content.text).toContain('A1, A2');
+      // Event date/venue are omitted, but the payment date always renders.
+      expect(content.text).not.toContain('Event Date:');
+      expect(content.text).toContain('Payment Date:');
+      // Flat seats fall back to bracketed badge list
+      expect(content.text).toContain('[A1] [A2]');
     });
   });
 

@@ -1,9 +1,9 @@
 import {
   LayoutDashboard, BarChart3, Activity, ClipboardList,
-  Calendar, MapPin, Layers, Percent,
+  Calendar, MapPin, Layers, Percent, Tag,
   ShieldCheck, Users, Menu as MenuIcon, Lock,
   Image as ImageIcon, FileText, LayoutTemplate,
-  CreditCard, Ticket, User, TrendingUp, RotateCcw, SlidersHorizontal, Scale,
+  CreditCard, Ticket, User, TrendingUp, RotateCcw, SlidersHorizontal, Scale, Wallet,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -45,6 +45,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: 'Manage Events', href: '/dashboard/events', icon: Calendar, requiredRole: 'ADMIN' },
   { label: 'Manage Venues', href: '/dashboard/venues', icon: MapPin, requiredRole: 'ADMIN' },
   { label: 'Tier Settings', href: '/dashboard/tier-settings', icon: Layers, requiredRole: 'ADMIN' },
+  { label: 'Perk Settings', href: '/dashboard/admin/perk-settings', icon: Tag, requiredRole: 'ADMIN' },
   { label: 'Tax Settings', href: '/dashboard/tax-settings', icon: Percent, requiredRole: 'ADMIN' },
   { label: 'Refunds', href: '/dashboard/refunds', icon: RotateCcw, requiredRole: 'ADMIN' },
   { label: 'Disputes', href: '/dashboard/admin/disputes', icon: Scale, requiredRole: 'ADMIN' },
@@ -91,6 +92,7 @@ export const ATTENDEE_NAV: NavItem[] = [
   { label: 'Overview', href: '/dashboard', icon: TrendingUp },
   { label: 'Orders', href: '/dashboard/orders', icon: CreditCard },
   { label: 'My Tickets', href: '/dashboard/my-tickets', icon: Ticket },
+  { label: 'Billing', href: '/dashboard/billing', icon: Wallet },
   { label: 'Profile', href: '/dashboard/profile', icon: User },
 ];
 

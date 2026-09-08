@@ -657,7 +657,7 @@ function CheckoutContent() {
                       </div>
                       <div>
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Date</div>
-                        <div className="font-bold text-xs md:text-sm">{eventData ? new Date(eventData.start_date_time).toLocaleDateString() : '...'}</div>
+                        <div className="font-bold text-xs md:text-sm">{eventData ? new Date(eventData.event_date || eventData.start_date_time).toLocaleDateString() : '...'}</div>
                       </div>
                       <div className="col-span-2">
                         <div className="text-xs text-mono-light-grey uppercase mb-1">Tickets</div>

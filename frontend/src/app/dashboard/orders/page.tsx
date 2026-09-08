@@ -32,6 +32,7 @@ interface OrderEvent {
   id: string;
   title: string;
   description?: string;
+  event_date?: string;
   start_date_time: string;
   image_url?: string | null;
   venue?: {
@@ -245,7 +246,9 @@ export default function OrdersPage() {
     if (order.status === 'CANCELLED') return 'cancelled';
     if (order.status === 'EXPIRED') return 'expired';
     if (order.status === 'PENDING') return 'pending';
-    const event_date = order.event?.start_date_time ? new Date(order.event.start_date_time) : null;
+    // event_date = tanggal pelaksanaan; fallback start_date_time (sales start) untuk data lama.
+    const rawEventDate = order.event?.event_date || order.event?.start_date_time;
+    const event_date = rawEventDate ? new Date(rawEventDate) : null;
     const now = new Date();
     if (event_date && event_date < now) return 'completed';
     return 'upcoming';
@@ -427,8 +430,8 @@ export default function OrdersPage() {
                         <div className="flex flex-wrap gap-3 text-xs text-[#CCCCCC]">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {order.event?.start_date_time
-                              ? new Date(order.event.start_date_time).toLocaleDateString()
+                            {(order.event?.event_date || order.event?.start_date_time)
+                              ? new Date(order.event.event_date || order.event.start_date_time).toLocaleDateString()
                               : '—'}
                           </span>
                           {order.seats[0] && (

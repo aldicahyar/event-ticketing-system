@@ -90,4 +90,38 @@ describe('CreateTicketTierDto Validation', () => {
     expect(startError).toBeDefined();
     expect(endError).toBeDefined();
   });
+
+  it('should pass validation with a valid features array', async () => {
+    const rawData = {
+      name: 'VIP Front Row',
+      price: 750000,
+      stock: 100,
+      features: ['Meet & Greet', 'Fast Track Entry'],
+      start_date_time: '2026-08-01T10:00:00.000Z',
+      end_date_time: '2026-08-10T23:59:59.000Z',
+    };
+
+    const dto = plainToInstance(CreateTicketTierDto, rawData);
+    const errors = await validate(dto);
+
+    expect(errors.length).toBe(0);
+  });
+
+  it('should fail validation when a feature item is an empty string', async () => {
+    const rawData = {
+      name: 'VIP Front Row',
+      price: 750000,
+      stock: 100,
+      features: ['Meet & Greet', ''],
+      start_date_time: '2026-08-01T10:00:00.000Z',
+      end_date_time: '2026-08-10T23:59:59.000Z',
+    };
+
+    const dto = plainToInstance(CreateTicketTierDto, rawData);
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
+    const featuresError = errors.find((e) => e.property === 'features');
+    expect(featuresError).toBeDefined();
+  });
 });

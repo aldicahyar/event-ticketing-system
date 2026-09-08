@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, Trash2, Tag, AlertCircle, X, Armchair, Users } from 'lucide-react';
+import React from 'react';
+import { Plus, Trash2, Tag, AlertCircle, Armchair, Users } from 'lucide-react';
 import { formatNumberWithDots, parseDotsToNumber } from '@/lib/currency';
+import { PerksCombobox } from './PerksCombobox';
 
 export interface TicketTierInput {
   id?: string;
@@ -33,7 +34,6 @@ export function TicketTiersEditor({
   defaultSalesStart,
   defaultSalesEnd,
 }: TicketTiersEditorProps) {
-  const [newFeatureInputs, setNewFeatureInputs] = useState<{ [key: number]: string }>({});
 
   const handleAddTier = () => {
     if (tiers.length >= maxTiers) return;
@@ -45,7 +45,7 @@ export function TicketTiersEditor({
       price: 150000,
       stock: 100,
       description: '',
-      features: ['Standard Entry'],
+      features: [],
       is_seated: false, // Default to Standing/General Admission
       start_date_time: defaultSalesStart || now.toISOString().slice(0, 16),
       end_date_time: defaultSalesEnd || future.toISOString().slice(0, 16),
@@ -65,24 +65,6 @@ export function TicketTiersEditor({
       return { ...tier, [field]: value };
     });
     onChange(updated);
-  };
-
-  const handleAddFeature = (tierIndex: number) => {
-    const inputVal = (newFeatureInputs[tierIndex] || '').trim();
-    if (!inputVal) return;
-
-    const currentFeatures = tiers[tierIndex].features || [];
-    if (!currentFeatures.includes(inputVal)) {
-      handleUpdateTier(tierIndex, 'features', [...currentFeatures, inputVal]);
-    }
-
-    setNewFeatureInputs((prev) => ({ ...prev, [tierIndex]: '' }));
-  };
-
-  const handleRemoveFeature = (tierIndex: number, featureIndex: number) => {
-    const currentFeatures = tiers[tierIndex].features || [];
-    const updated = currentFeatures.filter((_, i) => i !== featureIndex);
-    handleUpdateTier(tierIndex, 'features', updated);
   };
 
   const getTierErrors = (tier: TicketTierInput) => {
@@ -282,54 +264,26 @@ export function TicketTiersEditor({
                     />
                   </div>
 
-                  {/* Features & Perks Multi-Tag Input */}
+                  {/* Features & Perks — strict multi-select from master data */}
                   <div className="md:col-span-3 border-t border-mono-dark-grey/50 pt-3">
                     <label className="block text-[10px] text-mono-light-grey uppercase tracking-widest mb-1">
                       Perks & Facilities (Features)
                     </label>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {(tier.features || []).map((feat, fIdx) => (
-                        <span
-                          key={fIdx}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-mono-dark-grey text-white text-xs border border-mono-light-grey/30"
-                        >
-                          <span>{feat}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFeature(index, fIdx)}
-                            className="text-mono-light-grey hover:text-red-400"
-                            aria-label={`Remove perk ${feat}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newFeatureInputs[index] || ''}
-                        onChange={(e) =>
-                          setNewFeatureInputs((prev) => ({ ...prev, [index]: e.target.value }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddFeature(index);
-                          }
-                        }}
-                        placeholder="Type a perk (e.g. VIP Lounge, Free Drink) and press Enter or Add"
-                        className="flex-1 bg-black border border-white/60 text-white px-3 py-1.5 text-xs focus:outline-none focus:border-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleAddFeature(index)}
-                        className="px-3 py-1.5 bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-mono-light-grey"
+                    <PerksCombobox
+                      value={tier.features || []}
+                      onChange={(features) => handleUpdateTier(index, 'features', features)}
+                    />
+                    <p className="text-[10px] text-mono-light-grey uppercase tracking-widest mt-1.5">
+                      Only existing ACTIVE master data items can be selected —{' '}
+                      <a
+                        href="/dashboard/admin/perk-settings"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-white"
                       >
-                        + Add Perk
-                      </button>
-                    </div>
+                        manage perks
+                      </a>
+                    </p>
                   </div>
                 </div>
               </div>
