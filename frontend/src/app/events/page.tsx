@@ -34,13 +34,13 @@ const mapDbEventToFrontend = (e: any): EventListItem => {
 
   return {
     id: e.id,
-    artist: e.title.toUpperCase(),
-    tour: e.subtitle.toUpperCase() || '',
+    artist: (e.title || '').toUpperCase(),
+    tour: (e.subtitle || '').toUpperCase(),
     date: e.event_date || e.start_date_time,
-    venue: e.venue?.name.toUpperCase() || '',
+    venue: e.venue?.name?.toUpperCase() || '',
     price: minPrice,
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
-    genre: e.genre.toUpperCase() || '',
+    genre: (e.genre || 'ALL').toUpperCase(),
     ticketsLeft: 200,
     status: e.status === 'PUBLISHED' ? 'available' : 'selling_fast'
   };

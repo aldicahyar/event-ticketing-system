@@ -6,7 +6,7 @@ import { Mail, ArrowRight, Shield, CheckCircle, Facebook, Twitter, Instagram, Yo
 
 const FOOTER_LINKS = {
   'Events': [
-    { label: 'Upcoming Tours', href: '/events?filter=upcoming' },
+    { label: 'Upcoming Tours', href: '/events' },
     { label: 'Lineup', href: '/lineup' },
     { label: 'Artists', href: '/lineup' },
     { label: 'Venues', href: '/venues' }
