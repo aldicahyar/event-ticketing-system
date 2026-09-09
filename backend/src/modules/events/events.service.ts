@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { Prisma, t_mtr_venues } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -15,11 +15,50 @@ interface SeatMap {
 }
 
 @Injectable()
-export class EventsService {
+export class EventsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(EventsService.name);
+  private statusInterval?: NodeJS.Timeout;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
   ) {}
+
+  onModuleInit() {
+    // Run immediately on startup, then every 5 minutes
+    this.autoCompletePastEvents();
+    this.statusInterval = setInterval(() => this.autoCompletePastEvents(), 5 * 60 * 1000);
+    this.statusInterval.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.statusInterval) clearInterval(this.statusInterval);
+  }
+
+  /**
+   * Background job: automatically transitions past PUBLISHED/ONGOING events to COMPLETED.
+   * Uses a single batch UPDATE query for minimal DB load.
+   */
+  async autoCompletePastEvents(): Promise<number> {
+    try {
+      const now = new Date();
+      const result = await this.prisma.t_trx_events.updateMany({
+        where: {
+          status: { in: ['PUBLISHED', 'ONGOING'] },
+          event_date: { lt: now },
+        },
+        data: { status: 'COMPLETED' },
+      });
+
+      if (result.count > 0) {
+        this.logger.log(`autoCompletePastEvents: transitioned ${result.count} event(s) to COMPLETED`);
+      }
+      return result.count;
+    } catch (error) {
+      this.logger.error('Failed to run autoCompletePastEvents job', error);
+      return 0;
+    }
+  }
 
   async create(dto: CreateEventDto, organizer_id: string) {
     // Issue 1 fix: validate start_date_time must be before end_date_time
@@ -396,6 +435,16 @@ export class EventsService {
   async remove(id: string) {
     // Check if event exists
     await this.findOne(id);
+
+    // Prevent silent FK violation: bookings reference events without cascade delete
+    const bookingCount = await this.prisma.t_trx_bookings.count({
+      where: { event_id: id },
+    });
+    if (bookingCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete event with ${bookingCount} booking(s). Set its status to CANCELLED instead to hide it from the public listing.`,
+      );
+    }
 
     // Delete event (associated seats will be deleted due to Cascade onDelete in schema)
     await this.prisma.t_trx_events.delete({

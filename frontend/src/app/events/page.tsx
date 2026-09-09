@@ -11,6 +11,7 @@ import { IndustrialBadge } from '@/components/ui/industrial-components';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
+import { filterUpcomingEvents } from '@/lib/events';
 
 interface EventListItem {
   id: string;
@@ -58,7 +59,8 @@ export default function EventsPage() {
       try {
         const list = await apiClient.get<any[]>('/events');
         if (list && Array.isArray(list)) {
-          setEvents(list.map(mapDbEventToFrontend));
+          const publicEvents = filterUpcomingEvents(list);
+          setEvents(publicEvents.map(mapDbEventToFrontend));
         }
       } catch (err) {
         console.error('Failed to load events:', err);

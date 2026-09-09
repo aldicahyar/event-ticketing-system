@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { TechnicalMetadata, Crosshair } from './TechnicalMetadata';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
+import { filterUpcomingEvents } from '@/lib/events';
 
 interface HeroEvent {
   id: string;
@@ -153,8 +154,14 @@ export const BrutalistHero = () => {
       try {
         const list = await apiClient.get<any[]>('/events');
         if (list && Array.isArray(list) && list.length > 0) {
-          const activeEvents = list.filter(e => e.status === 'PUBLISHED' || e.status === 'ONGOING');
+          const activeEvents = filterUpcomingEvents(list);
           if (activeEvents.length > 0) {
+            // Show nearest event_date first (default highlighted event)
+            activeEvents.sort(
+              (a, b) =>
+                new Date(a.event_date || a.start_date_time).getTime() -
+                new Date(b.event_date || b.start_date_time).getTime()
+            );
             // Limit to a maximum of 6 featured events to keep the hero section layout clean and premium
             setEvents(activeEvents.slice(0, 6).map(mapDbEventToHeroEvent));
           }
