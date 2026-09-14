@@ -45,6 +45,7 @@ yarn-error.log*
 docs/
 .database-mcp/
 .trae/
+.next
 
 # Prisma
 prisma/migrations/
