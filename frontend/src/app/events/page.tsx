@@ -32,6 +32,8 @@ const mapDbEventToFrontend = (e: any): EventListItem => {
     minPrice = Math.min(...e.ticket_tiers.map((t: any) => Number(t.price)));
   }
 
+  const genreName = e.genre?.name || (typeof e.genre === 'string' ? e.genre : '');
+
   return {
     id: e.id,
     artist: (e.title || '').toUpperCase(),
@@ -40,16 +42,17 @@ const mapDbEventToFrontend = (e: any): EventListItem => {
     venue: e.venue?.name?.toUpperCase() || '',
     price: minPrice,
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
-    genre: (e.genre || 'ALL').toUpperCase(),
+    genre: genreName,
     ticketsLeft: 200,
     status: e.status === 'PUBLISHED' ? 'available' : 'selling_fast'
   };
 };
 
-const GENRES = ['All', 'Metalcore', 'Alternative Metal', 'Progressive Metalcore', 'Melodic Hardcore', 'Alternative Rock'];
+const DEFAULT_GENRES = ['All', 'Metalcore', 'Alternative Metal', 'Progressive Metalcore', 'Melodic Hardcore', 'Alternative Rock'];
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventListItem[]>([]);
+  const [genres, setGenres] = useState<string[]>(DEFAULT_GENRES);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
   const [sortBy, setSortBy] = useState('date');
@@ -57,7 +60,16 @@ export default function EventsPage() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        const list = await apiClient.get<any[]>('/events');
+        const [list, activeGenres] = await Promise.all([
+          apiClient.get<any[]>('/events'),
+          apiClient.listActiveGenres().catch(() => []),
+        ]);
+
+        if (activeGenres && activeGenres.length > 0) {
+          const names = Array.from(new Set(activeGenres.map((g: any) => g.name)));
+          setGenres(['All', ...names]);
+        }
+
         if (list && Array.isArray(list)) {
           const publicEvents = filterUpcomingEvents(list);
           setEvents(publicEvents.map(mapDbEventToFrontend));
@@ -72,7 +84,7 @@ export default function EventsPage() {
   }, []);
 
   const filteredEvents = events.filter(event => 
-    filter === 'All' ? true : event.genre === filter
+    filter === 'All' ? true : event.genre.toLowerCase() === filter.toLowerCase()
   ).sort((a, b) => {
     if (sortBy === 'date') return new Date(a.date).getTime() - new Date(b.date).getTime();
     if (sortBy === 'price') return a.price - b.price;
@@ -156,7 +168,7 @@ export default function EventsPage() {
           >
             {/* Genre Filter */}
             <div role="group" aria-label="Filter by genre" className="flex gap-2 overflow-x-auto scrollbar-none pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap">
-              {GENRES.map((genre) => (
+              {genres.map((genre) => (
                 <button
                   key={genre}
                   onClick={() => setFilter(genre)}

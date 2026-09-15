@@ -14,6 +14,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { MediaModule } from './modules/media/media.module';
 import { PagesModule } from './modules/pages/pages.module';
+import { GenresModule } from './modules/genres/genres.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RefundsModule } from './modules/refunds/refunds.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
@@ -60,6 +61,7 @@ import { HealthModule } from './common/modules/health/health.module';
     RbacModule,
     MediaModule,
     PagesModule,
+    GenresModule,
   ],
 })
 export class AppModule {}

@@ -12,20 +12,28 @@ describe('EventsService', () => {
   const count = jest.fn();
   const perksFindMany = jest.fn();
 
+  const venuesFindUnique = jest.fn();
+  const genresFindUnique = jest.fn();
+
   const prisma = {
     t_trx_events: { findMany, findUnique, create, update },
-    t_mtr_venues: { findUnique },
+    t_mtr_venues: { findUnique: venuesFindUnique },
+    t_mtr_genres: { findUnique: genresFindUnique },
     t_trx_event_ticket_tiers: { create, deleteMany },
     t_mtr_seats: { createMany, deleteMany, count },
     t_mtr_perks: { findMany: perksFindMany },
     $transaction: jest.fn((callback) => callback(prisma)),
   } as unknown as PrismaService;
 
-  const settingsService = {} as SettingsService;
+  const settingsService = {
+    getActiveTiers: jest.fn().mockResolvedValue([]),
+  } as unknown as SettingsService;
   const service = new EventsService(prisma, settingsService);
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default venue exists so legacy create/update tests pass venue validation
+    venuesFindUnique.mockResolvedValue({ id: 'venue-1', seat_map: { rows: 2, seatsPerRow: 2 } });
   });
 
   describe('findAll', () => {
@@ -288,6 +296,107 @@ describe('EventsService', () => {
 
       await expect(service.update(updateDto as any)).rejects.toThrow(
         'Unknown or inactive features: Unknown Feature',
+      );
+    });
+  });
+
+  describe('create with genre_id', () => {
+    const baseDto = {
+      title: 'Genre Event',
+      description: 'A valid, long enough description.',
+      venue_id: 'venue-1',
+      event_date: '2026-08-15T19:00:00.000Z',
+      start_date_time: '2026-07-15T10:00:00.000Z',
+      end_date_time: '2026-08-15T22:00:00.000Z',
+      base_price: 100000,
+      genre_id: 'genre-1',
+    };
+
+    it('rejects when the genre does not exist', async () => {
+      venuesFindUnique.mockResolvedValue({ id: 'venue-1' });
+      genresFindUnique.mockResolvedValue(null);
+
+      await expect(service.create(baseDto as any, 'org-1')).rejects.toThrow(
+        "Genre with ID 'genre-1' not found or inactive",
+      );
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the genre is inactive', async () => {
+      venuesFindUnique.mockResolvedValue({ id: 'venue-1' });
+      genresFindUnique.mockResolvedValue({
+        id: 'genre-1',
+        is_active: false,
+      });
+
+      await expect(service.create(baseDto as any, 'org-1')).rejects.toThrow(
+        "Genre with ID 'genre-1' not found or inactive",
+      );
+    });
+
+    it('persists genre_id when the genre is valid', async () => {
+      venuesFindUnique.mockResolvedValue({ id: 'venue-1' });
+      genresFindUnique.mockResolvedValue({
+        id: 'genre-1',
+        is_active: true,
+      });
+      create.mockResolvedValue({ id: 'event-1', genre_id: 'genre-1' });
+
+      await service.create(baseDto as any, 'org-1');
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ genre_id: 'genre-1' }) }),
+      );
+    });
+  });
+
+  describe('update with genre_id', () => {
+    it('rejects when the target genre does not exist', async () => {
+      findUnique.mockResolvedValue({
+        id: 'event-1',
+        venue_id: 'venue-1',
+        start_date_time: new Date('2026-07-15T10:00:00.000Z'),
+        end_date_time: new Date('2026-08-15T22:00:00.000Z'),
+      });
+      genresFindUnique.mockResolvedValue(null);
+
+      await expect(
+        service.update({ id: 'event-1', genre_id: 'genre-nope' } as any),
+      ).rejects.toThrow("Genre with ID 'genre-nope' not found or inactive");
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the target genre is inactive', async () => {
+      findUnique.mockResolvedValue({
+        id: 'event-1',
+        venue_id: 'venue-1',
+        start_date_time: new Date('2026-07-15T10:00:00.000Z'),
+        end_date_time: new Date('2026-08-15T22:00:00.000Z'),
+      });
+      genresFindUnique.mockResolvedValue({
+        id: 'genre-inactive',
+        is_active: false,
+      });
+
+      await expect(
+        service.update({ id: 'event-1', genre_id: 'genre-inactive' } as any),
+      ).rejects.toThrow("Genre with ID 'genre-inactive' not found or inactive");
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('clears the relation when genre_id is null', async () => {
+      findUnique.mockResolvedValue({
+        id: 'event-1',
+        venue_id: 'venue-1',
+        start_date_time: new Date('2026-07-15T10:00:00.000Z'),
+        end_date_time: new Date('2026-08-15T22:00:00.000Z'),
+      });
+      update.mockResolvedValue({ id: 'event-1', genre_id: null });
+
+      await service.update({ id: 'event-1', genre_id: null } as any);
+
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ genre: { disconnect: true } }) }),
       );
     });
   });

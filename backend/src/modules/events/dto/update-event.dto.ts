@@ -48,6 +48,13 @@ export class UpdateEventDto {
   @IsOptional()
   venue_id?: string;
 
+  @ApiPropertyOptional({
+    description: 'Genre ID, or null to clear',
+  })
+  @IsString()
+  @IsOptional()
+  genre_id?: string | null;
+
   @ApiPropertyOptional({ example: '2026-08-15T19:00:00.000Z' })
   @IsDateString()
   @IsOptional()

@@ -10,6 +10,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatCurrency, DEFAULT_CURRENCY, formatNumberWithDots, parseDotsToNumber } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
 import { TicketTiersEditor, TicketTierInput } from '@/components/events/TicketTiersEditor';
+import type { Genre } from '@/types/genre';
 
 interface Venue {
   id: string;
@@ -30,6 +31,12 @@ interface Event {
   status: string;
   image_url?: string;
   venue_id?: string;
+  genre_id?: string;
+  genre?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
   tickets_sold: number;
   ticket_tiers?: TicketTierInput[];
   venue?: {
@@ -48,6 +55,7 @@ const DEFAULT_FORM = {
   subtitle: '',
   description: '',
   venue_id: '',
+  genre_id: '',
   event_date: '',
   start_date_time: '',
   end_date_time: '',
@@ -72,6 +80,7 @@ export default function EventsManagementPage() {
   
   const [events, setEvents] = useState<Event[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -97,9 +106,10 @@ export default function EventsManagementPage() {
       setError('');
 
       try {
-        const [eventsData, venuesData] = await Promise.all([
+        const [eventsData, venuesData, genresData] = await Promise.all([
           apiClient.get<Event[]>('/events'),
-          apiClient.get<Venue[]>('/venues')
+          apiClient.get<Venue[]>('/venues'),
+          apiClient.listActiveGenres(),
         ]);
 
         if (!cancelled) {
@@ -107,6 +117,7 @@ export default function EventsManagementPage() {
             setEvents(eventsData || []);
           }
           setVenues(venuesData || []);
+          setGenres(genresData || []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -200,6 +211,7 @@ export default function EventsManagementPage() {
       subtitle: event.subtitle || '',
       description: event.description,
       venue_id: event.venue_id || '',
+      genre_id: event.genre_id || '',
       event_date: toDatetimeLocal(event.event_date),
       start_date_time: toDatetimeLocal(event.start_date_time),
       end_date_time: toDatetimeLocal(event.end_date_time),
@@ -231,6 +243,7 @@ export default function EventsManagementPage() {
       subtitle: formData.subtitle || undefined,
       description: formData.description,
       venue_id: formData.venue_id,
+      genre_id: formData.genre_id || null,
       event_date: new Date(formData.event_date).toISOString(),
       start_date_time: new Date(formData.start_date_time).toISOString(),
       end_date_time: new Date(formData.end_date_time).toISOString(),
@@ -539,6 +552,26 @@ export default function EventsManagementPage() {
                   {venues.map((venue) => (
                     <option key={venue.id} value={venue.id}>
                       {venue.name} ({venue.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Genre Selection */}
+              <div>
+                <label htmlFor="event-genre_id" className="block text-xs text-mono-light-grey uppercase tracking-widest mb-2">
+                  Select Genre (Optional)
+                </label>
+                <select
+                  id="event-genre_id"
+                  value={formData.genre_id}
+                  onChange={(e) => setFormData({ ...formData, genre_id: e.target.value })}
+                  className="w-full bg-black border border-white text-white px-4 py-3 focus:outline-none focus:border-white/50 min-h-touch uppercase"
+                >
+                  <option value="">-- No Genre --</option>
+                  {genres.map((genre) => (
+                    <option key={genre.id} value={genre.id}>
+                      {genre.name} ({genre.code})
                     </option>
                   ))}
                 </select>

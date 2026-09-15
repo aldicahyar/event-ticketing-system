@@ -88,24 +88,35 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException(`Venue with ID ${dto.venue_id} not found`);
     }
 
+    // Validate genre_id when provided
+    if (dto.genre_id) {
+      const genre = await this.prisma.t_mtr_genres.findUnique({ where: { id: dto.genre_id } });
+      if (!genre || !genre.is_active) {
+        throw new BadRequestException(`Genre with ID '${dto.genre_id}' not found or inactive`);
+      }
+    }
+
+    const eventData = {
+      title: dto.title,
+      subtitle: dto.subtitle,
+      description: dto.description,
+      venue_id: dto.venue_id,
+      genre_id: dto.genre_id || null,
+      event_date: new Date(dto.event_date),
+      start_date_time: start,
+      end_date_time: end,
+      status: dto.status || 'DRAFT',
+      base_price: dto.base_price,
+      currency: dto.currency || DEFAULT_CURRENCY,
+      organizer_id: organizer_id,
+      image_url: dto.image_url,
+    };
+
     // Use transaction if ticket tiers are provided
     if (dto.ticket_tiers && dto.ticket_tiers.length > 0) {
       return this.prisma.$transaction(async (tx) => {
         const event = await tx.t_trx_events.create({
-          data: {
-            title: dto.title,
-            subtitle: dto.subtitle,
-            description: dto.description,
-            venue_id: dto.venue_id,
-            event_date: new Date(dto.event_date),
-            start_date_time: start,
-            end_date_time: end,
-            status: dto.status || 'DRAFT',
-            base_price: dto.base_price,
-            currency: dto.currency || DEFAULT_CURRENCY,
-            organizer_id: organizer_id,
-            image_url: dto.image_url,
-          },
+          data: eventData,
         });
 
         for (const tier of dto.ticket_tiers!) {
@@ -144,27 +155,14 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 
         return tx.t_trx_events.findUnique({
           where: { id: event.id },
-          include: { venue: true, seats: true, ticket_tiers: true },
+          include: { venue: true, genre: true, seats: true, ticket_tiers: true },
         });
       });
     }
 
     // 2. Create the event
     const event = await this.prisma.t_trx_events.create({
-      data: {
-        title: dto.title,
-        subtitle: dto.subtitle,
-        description: dto.description,
-        venue_id: dto.venue_id,
-        event_date: new Date(dto.event_date),
-        start_date_time: start,
-        end_date_time: end,
-        status: dto.status || 'DRAFT',
-        base_price: dto.base_price,
-        currency: dto.currency || DEFAULT_CURRENCY,
-        organizer_id: organizer_id,
-        image_url: dto.image_url,
-      },
+      data: eventData,
     });
 
     // 3. Generate seats automatically based on t_mtr_venues seat_map configuration
@@ -183,6 +181,13 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
             city: true,
             address: true,
             capacity: true,
+          },
+        },
+        genre: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
           },
         },
         bookings: {
@@ -224,6 +229,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       where: { id },
       include: {
         venue: true,
+        genre: true,
         ticket_tiers: true,
         seats: {
           orderBy: [{ row: 'asc' }, { number: 'asc' }],
@@ -255,12 +261,27 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // Validate and map genre change (null clears the relation)
+    let resolvedGenre: Prisma.t_trx_eventsUpdateInput['genre'] = undefined;
+    if (updates.genre_id !== undefined && updates.genre_id !== null) {
+      const genre = await this.prisma.t_mtr_genres.findUnique({
+        where: { id: updates.genre_id },
+      });
+      if (!genre || !genre.is_active) {
+        throw new BadRequestException(`Genre with ID '${updates.genre_id}' not found or inactive`);
+      }
+      resolvedGenre = { connect: { id: updates.genre_id } };
+    } else if (updates.genre_id === null) {
+      resolvedGenre = { disconnect: true };
+    }
+
     // Build update data with Date conversions using Prisma's native EventUpdateInput type
     const updateData: Prisma.t_trx_eventsUpdateInput = {
       title: updates.title,
       subtitle: updates.subtitle,
       description: updates.description,
       venue: updates.venue_id ? { connect: { id: updates.venue_id } } : undefined,
+      genre: resolvedGenre,
       event_date: updates.event_date ? new Date(updates.event_date) : undefined,
       start_date_time: updates.start_date_time ? new Date(updates.start_date_time) : undefined,
       end_date_time: updates.end_date_time ? new Date(updates.end_date_time) : undefined,
@@ -352,7 +373,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 
         return tx.t_trx_events.findUnique({
           where: { id },
-          include: { venue: true, seats: true, ticket_tiers: true },
+          include: { venue: true, genre: true, seats: true, ticket_tiers: true },
         });
       });
     }

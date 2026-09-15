@@ -100,6 +100,20 @@ model t_mtr_menus {
   @@index([is_active])
 }
 
+model t_mtr_genres {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  events      t_trx_events[]
+
+  @@index([is_active])
+}
+
 /// Permission pivot: what a role can do with a menu.
 /// can_view gates visibility in sidebar. can_create/can_edit/can_delete gate action buttons.
 model t_mtr_role_menu_permissions {
@@ -252,16 +266,19 @@ model t_trx_events {
   updated_at      DateTime         @updatedAt
   subtitle        String?
   event_date      DateTime         @default(now())
+  genre_id        String?
   seats           t_mtr_seats[]
   bookings        t_trx_bookings[]
   ticket_tiers    t_trx_event_ticket_tiers[]
   venue           t_mtr_venues     @relation(fields: [venue_id], references: [id])
   organizer       t_mtr_users      @relation("EventOrganizer", fields: [organizer_id], references: [id])
+  genre           t_mtr_genres?    @relation(fields: [genre_id], references: [id])
 
   @@index([venue_id])
   @@index([status])
   @@index([start_date_time])
   @@index([organizer_id])
+  @@index([genre_id])
   // Composite: optimize "upcoming published events" listing query
   @@index([status, start_date_time])
 }

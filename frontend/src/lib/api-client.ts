@@ -28,6 +28,8 @@ import type {
   ListPagesQuery,
 } from '@/types/page';
 
+import type { Genre, CreateGenreDto, UpdateGenreDto } from '@/types/genre';
+
 import type {
   DisputeDetail,
   DisputeListResult,
@@ -536,6 +538,34 @@ class ApiClient {
 
   async deletePage(id: string) {
     return this.delete<{ id: string; deleted: boolean }>(`/pages/${id}`);
+  }
+
+  // ============================================================
+  // GENRES (admin: /genres/admin, public: /genres)
+  // ============================================================
+
+  async listGenresAdmin(query?: { search?: string; is_active?: boolean }) {
+    return this.get<Genre[]>('/genres/admin', this.cleanParams(query as Record<string, unknown>));
+  }
+
+  async listActiveGenres() {
+    return this.get<Genre[]>('/genres');
+  }
+
+  async getGenre(id: string) {
+    return this.get<Genre>(`/genres/${id}`);
+  }
+
+  async createGenre(dto: CreateGenreDto) {
+    return this.post<Genre>('/genres', dto);
+  }
+
+  async updateGenre(id: string, dto: UpdateGenreDto) {
+    return this.patch<Genre>(`/genres/${id}`, dto);
+  }
+
+  async deleteGenre(id: string) {
+    return this.delete<{ id: string; deleted: boolean }>(`/genres/${id}`);
   }
 
   // ============================================================

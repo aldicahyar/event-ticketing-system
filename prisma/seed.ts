@@ -240,6 +240,15 @@ const MENUS = [
     slug: '/dashboard/admin/pages',
     order: 2,
   },
+  {
+    code: 'GENRES',
+    name: 'Genres',
+    name_en: 'Genres',
+    parent_code: 'CONTENT',
+    icon: 'Music',
+    slug: '/dashboard/content/genres',
+    order: 3,
+  },
 
   // ----- Attendee/Organizer: Personal -----
   {
@@ -319,6 +328,7 @@ const PERMISSION_MATRIX: Array<
   ['ADMIN', 'CONTENT', { can_view: true }],
   ['ADMIN', 'MEDIA', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'PAGES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'GENRES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
 
   // ----- ORGANIZER: personal area + manage events/venues -----
   ['ORGANIZER', 'OVERVIEW', { can_view: true }],
@@ -395,6 +405,26 @@ const PERKS = [
   { label: 'Medical Team on Site', type: 'FACILITY' },
   { label: 'Security 24 Hours', type: 'FACILITY' },
 ] as const;
+
+// ============================================================
+// 4c. GENRES MASTER DATA
+// ============================================================
+// Event genre master list. Referenced by t_trx_events.genre_id (validated in EventsService).
+const GENRES = [
+  { code: 'METALCORE', name: 'Metalcore', description: 'Heavy breakdowns and melodic hooks' },
+  { code: 'ALTERNATIVE_METAL', name: 'Alternative Metal', description: 'Alternative rock with heavy riffs' },
+  { code: 'PROGRESSIVE_METALCORE', name: 'Progressive Metalcore', description: 'Technical and experimental metalcore' },
+  { code: 'MELODIC_HARDCORE', name: 'Melodic Hardcore', description: 'Fast-paced melodic punk energy' },
+  { code: 'ALTERNATIVE_ROCK', name: 'Alternative Rock', description: 'Guitar-driven alternative rock' },
+  { code: 'POST_HARDCORE', name: 'Post-Hardcore', description: 'Screamo-tinged post-hardcore' },
+] as const;
+
+// One-time backfill for existing events that predate the genre relation.
+// Only events with genre_id NULL are touched. Extend this map when adding more.
+const EVENT_GENRE_BACKFILL: Array<{ titlePrefix: string; genreCode: string }> = [
+  { titlePrefix: 'BRING ME THE HORIZON', genreCode: 'METALCORE' },
+  { titlePrefix: 'MY CHEMICAL ROMANCE', genreCode: 'ALTERNATIVE_ROCK' },
+];
 
 // ============================================================
 // SEED EXECUTION
@@ -559,18 +589,59 @@ async function main() {
     });
   }
 
+  // --- Genres master data ---
+  console.log(`→ Upserting ${GENRES.length} genres...`);
+  for (const genre of GENRES) {
+    await prisma.t_mtr_genres.upsert({
+      where: { code: genre.code },
+      update: {
+        name: genre.name,
+        description: genre.description,
+        is_active: true,
+      },
+      create: {
+        code: genre.code,
+        name: genre.name,
+        description: genre.description,
+        is_active: true,
+      },
+    });
+  }
+
+  // --- Backfill genre_id for events predating the genre relation ---
+  console.log('→ Backfilling event genres...');
+  for (const { titlePrefix, genreCode } of EVENT_GENRE_BACKFILL) {
+    const genre = await prisma.t_mtr_genres.findUnique({ where: { code: genreCode } });
+    if (!genre) {
+      console.log(`   ⚠️  Genre '${genreCode}' not found, skipping backfill`);
+      continue;
+    }
+    const result = await prisma.t_trx_events.updateMany({
+      where: {
+        title: { startsWith: titlePrefix },
+        genre_id: null,
+      },
+      data: { genre_id: genre.id },
+    });
+    if (result.count > 0) {
+      console.log(`   + backfilled ${result.count} event(s) matching '${titlePrefix}' → ${genreCode}`);
+    }
+  }
+
   // Summary
   const roleCount = await prisma.t_mtr_roles.count();
   const menuCount = await prisma.t_mtr_menus.count();
   const permCount = await prisma.t_mtr_role_menu_permissions.count();
   const pageCount = await prisma.t_mtr_pages.count();
   const perkCount = await prisma.t_mtr_perks.count();
+  const genreCount = await prisma.t_mtr_genres.count();
   console.log('\n✅ Seed complete!');
   console.log(`   Roles:       ${roleCount}`);
   console.log(`   Menus:       ${menuCount}`);
   console.log(`   Permissions: ${permCount}`);
   console.log(`   Pages:       ${pageCount}`);
   console.log(`   Perks:       ${perkCount}`);
+  console.log(`   Genres:      ${genreCount}`);
 }
 
 main()
