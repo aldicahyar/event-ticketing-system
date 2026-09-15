@@ -184,7 +184,7 @@ export default function AdminGenresPage() {
           <button type="button" onClick={() => setForm((f) => ({ ...f, is_active: !f.is_active }))} aria-pressed={form.is_active}
             className="flex items-center gap-3 border border-mono-dark-grey p-3 w-full hover:border-white transition-colors">
             {form.is_active
-              ? <ToggleRight className="w-6 h-6 text-yellow-400 shrink-0" />
+              ? <ToggleRight className="w-6 h-6 text-white shrink-0" />
               : <ToggleLeft className="w-6 h-6 text-mono-light-grey shrink-0" />}
             <span className="text-left">
               <span className="block text-xs uppercase tracking-widest font-bold">{form.is_active ? 'Active' : 'Inactive'}</span>
@@ -194,7 +194,7 @@ export default function AdminGenresPage() {
 
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setView('list')} className="px-6 py-3 border border-mono-dark-grey text-[#CCCCCC] font-bold uppercase hover:border-white hover:text-white transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="px-8 py-3 bg-yellow-400 text-black font-bold uppercase border-2 border-yellow-400 hover:bg-transparent hover:text-yellow-400 transition-colors flex items-center gap-2 disabled:opacity-50">
+            <button type="submit" disabled={saving} className="px-8 py-3 bg-white text-black font-bold uppercase border-2 border-white hover:bg-transparent hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50">
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingId ? 'Update Genre' : 'Create Genre'}
             </button>
           </div>
@@ -233,7 +233,7 @@ export default function AdminGenresPage() {
             </button>
           )}
         </div>
-        <button onClick={openCreate} className="px-4 py-2 bg-yellow-400 text-black text-xs font-bold uppercase tracking-wide hover:bg-transparent hover:text-yellow-400 border border-yellow-400 transition-all flex items-center justify-center gap-2 shrink-0">
+        <button onClick={openCreate} className="px-4 py-2 bg-white text-black text-xs font-bold uppercase tracking-wide hover:bg-transparent hover:text-white border border-white transition-all flex items-center justify-center gap-2 shrink-0">
           <Plus className="w-4 h-4" /> New Genre
         </button>
       </div>
