@@ -6,7 +6,7 @@ import { IndustrialBadge } from '@/components/ui/industrial-components';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
-import { filterUpcomingEvents } from '@/lib/events';
+import { filterUpcomingEvents, getMinPrice } from '@/lib/events';
 
 interface EventItem {
   id: string;
@@ -21,20 +21,15 @@ interface EventItem {
 }
 
 const mapDbEventToFrontend = (e: any): EventItem => {
-  let minPrice = Number(e.base_price);
-  if (e.ticket_tiers && e.ticket_tiers.length > 0) {
-    minPrice = Math.min(...e.ticket_tiers.map((t: any) => Number(t.price)));
-  }
-
   return {
     id: e.id,
     artist: e.title,
     date: e.event_date || e.start_date_time,
-    price: minPrice,
-    genre: 'Metalcore',
+    price: getMinPrice(e),
+    genre: e.genre?.name || (typeof e.genre === 'string' ? e.genre : 'Music'),
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=1000&auto=format&fit=crop',
-    ticketsLeft: e.available_seats ?? (e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 0),
-    status: e.status === 'PUBLISHED' ? 'available' : 'selling_fast',
+    ticketsLeft: Number(e.available_seats) || (e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 0),
+    status: (Number(e.available_seats) || 0) < 100 ? 'selling_fast' : 'available',
     venue: e.venue?.name || 'Venue'
   };
 };
@@ -77,7 +72,13 @@ export const EventList = () => {
   const filteredEvents = events.filter(event =>
     filter === 'All' ? true : event.genre === filter
   ).sort((a, b) => {
-    if (sortBy === 'Date') return new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (sortBy === 'Date') {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      if (isNaN(da)) return 1;
+      if (isNaN(db)) return -1;
+      return da - db;
+    }
     if (sortBy === 'Price') return a.price - b.price;
     return 0;
   });
@@ -165,7 +166,9 @@ export const EventList = () => {
                     <div className="flex items-center gap-2 text-mono-light-grey text-xs mb-2">
                       <Calendar className="w-3 h-3" aria-hidden="true" />
                       <time dateTime={event.date}>
-                        {new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}
+                        {isNaN(new Date(event.date).getTime())
+                          ? 'TBA'
+                          : new Date(event.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}
                       </time>
                       <span className="text-mono-dark-grey" aria-hidden="true">|</span>
                       <MapPin className="w-3 h-3" aria-hidden="true" />

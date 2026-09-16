@@ -155,7 +155,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 
         return tx.t_trx_events.findUnique({
           where: { id: event.id },
-          include: { venue: true, genre: true, seats: true, ticket_tiers: true },
+          include: { venue: true, genre: true, seats: true, ticket_tiers: true, artists: { include: { artist: true } } },
         });
       });
     }
@@ -165,10 +165,52 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       data: eventData,
     });
 
+    // Lineup assignment (artist_ids) runs in its own short transaction
+    if (dto.artist_ids !== undefined) {
+      await this.prisma.$transaction((tx) =>
+        this.syncEventArtists(tx, event.id, dto.artist_ids),
+      );
+    }
+
     // 3. Generate seats automatically based on t_mtr_venues seat_map configuration
     await this.generateSeatsForEvent(event.id, venue, dto.base_price);
 
     return this.findOne(event.id);
+  }
+
+  /**
+   * Replace the artist lineup of an event. Semantics (mirrors ticket_tiers):
+   *   undefined  -> do not touch the existing lineup
+   *   []         -> clear all artists
+   *   [...]      -> replace with exactly this set (deduped)
+   * Every id must reference an existing, active artist.
+   */
+  private async syncEventArtists(
+    tx: Prisma.TransactionClient,
+    event_id: string,
+    artist_ids: string[] | undefined,
+  ) {
+    if (artist_ids === undefined) return;
+
+    const ids = [...new Set(artist_ids)];
+    if (ids.length > 0) {
+      const active = await tx.t_mtr_artists.findMany({
+        where: { id: { in: ids }, is_active: true },
+        select: { id: true },
+      });
+      if (active.length !== ids.length) {
+        const found = new Set(active.map((a) => a.id));
+        const invalid = ids.filter((id) => !found.has(id));
+        throw new BadRequestException(`Unknown or inactive artist ids: ${invalid.join(', ')}`);
+      }
+    }
+
+    await tx.t_trx_event_artists.deleteMany({ where: { event_id } });
+    if (ids.length > 0) {
+      await tx.t_trx_event_artists.createMany({
+        data: ids.map((artist_id) => ({ event_id, artist_id })),
+      });
+    }
   }
 
   async findAll() {
@@ -206,6 +248,13 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
           },
         },
         ticket_tiers: true,
+        artists: {
+          include: {
+            artist: {
+              select: { id: true, code: true, name: true, image_url: true, origin: true },
+            },
+          },
+        },
         _count: {
           select: {
             seats: {
@@ -231,6 +280,13 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
         venue: true,
         genre: true,
         ticket_tiers: true,
+        artists: {
+          include: {
+            artist: {
+              select: { id: true, code: true, name: true, image_url: true, origin: true },
+            },
+          },
+        },
         seats: {
           orderBy: [{ row: 'asc' }, { number: 'asc' }],
         },
@@ -309,8 +365,15 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       await this.validateTierFeatures(dto.ticket_tiers);
     }
 
-    // Use transaction if ticket tiers are provided
-    if (dto.ticket_tiers && dto.ticket_tiers.length > 0) {
+    // Rebuilding tiers drops and recreates every seat. Only do it — and apply
+    // the sold-ticket guard — when the submitted tiers actually differ from
+    // the stored ones. The admin form always posts the full tier list, so
+    // without this check a pure lineup (artist_ids) change would be rejected
+    // on any event that has already sold tickets.
+    const tiersChanged =
+      dto.ticket_tiers?.length > 0 && (await this.tiersChanged(id, dto.ticket_tiers));
+
+    if (tiersChanged) {
       // Prevent updates if any seats are already reserved or sold
       const nonAvailableSeatsCount = await this.prisma.t_mtr_seats.count({
         where: { event_id: id, status: { in: ['RESERVED', 'SOLD'] } },
@@ -323,6 +386,11 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       }
 
       return this.prisma.$transaction(async (tx) => {
+        // Lineup assignment belongs in the same transaction as the tier rebuild.
+        if (dto.artist_ids !== undefined) {
+          await this.syncEventArtists(tx, id, dto.artist_ids);
+        }
+
         const updatedEvent = await tx.t_trx_events.update({
           where: { id },
           data: updateData,
@@ -373,7 +441,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 
         return tx.t_trx_events.findUnique({
           where: { id },
-          include: { venue: true, genre: true, seats: true, ticket_tiers: true },
+          include: { venue: true, genre: true, seats: true, ticket_tiers: true, artists: { include: { artist: true } } },
         });
       });
     }
@@ -382,6 +450,11 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       where: { id },
       data: updateData,
     });
+
+    // Lineup assignment (artist_ids) runs in its own short transaction.
+    if (dto.artist_ids !== undefined) {
+      await this.prisma.$transaction((tx) => this.syncEventArtists(tx, id, dto.artist_ids));
+    }
 
     // If venue was changed, regenerate seats from scratch (new seat map).
     if (venue) {
@@ -404,6 +477,69 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     }
 
     return updatedEvent;
+  }
+
+  /**
+   * Detect whether the submitted tiers differ from the stored ones, so a form
+   * save that only touched the lineup doesn't trigger a seat rebuild.
+   */
+  private async tiersChanged(event_id: string, submitted: CreateTicketTierDto[]) {
+    const stored = await this.prisma.t_trx_event_ticket_tiers.findMany({
+      where: { event_id },
+    });
+    if (stored.length !== submitted.length) return true;
+
+    const sig = (
+      name: string,
+      price: Prisma.Decimal | number,
+      stock: number,
+      description: string | null | undefined,
+      features: string[],
+      is_seated: boolean | undefined,
+      start: Date | string,
+      end: Date | string,
+    ) =>
+      JSON.stringify([
+        name,
+        Number(price),
+        Number(stock),
+        description ?? '',
+        [...features].sort(),
+        is_seated ?? true,
+        new Date(start).getTime(),
+        new Date(end).getTime(),
+      ]);
+
+    const storedSigs = stored
+      .map((t) =>
+        sig(
+          t.name,
+          t.price,
+          t.stock,
+          t.description,
+          t.features,
+          t.is_seated,
+          t.start_date_time,
+          t.end_date_time,
+        ),
+      )
+      .sort();
+    const submittedSigs = submitted
+      .map((t) =>
+        sig(
+          t.name,
+          t.price,
+          t.stock,
+          t.description,
+          t.features ?? [],
+          t.is_seated,
+          t.start_date_time,
+          t.end_date_time,
+        ),
+      )
+      .sort();
+
+    return JSON.stringify(storedSigs) !== JSON.stringify(submittedSigs);
   }
 
   /**

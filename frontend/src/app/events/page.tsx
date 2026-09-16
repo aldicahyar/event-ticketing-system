@@ -11,7 +11,7 @@ import { IndustrialBadge } from '@/components/ui/industrial-components';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
-import { filterUpcomingEvents } from '@/lib/events';
+import { filterUpcomingEvents, getMinPrice } from '@/lib/events';
 
 interface EventListItem {
   id: string;
@@ -27,11 +27,6 @@ interface EventListItem {
 }
 
 const mapDbEventToFrontend = (e: any): EventListItem => {
-  let minPrice = Number(e.base_price);
-  if (e.ticket_tiers && e.ticket_tiers.length > 0) {
-    minPrice = Math.min(...e.ticket_tiers.map((t: any) => Number(t.price)));
-  }
-
   const genreName = e.genre?.name || (typeof e.genre === 'string' ? e.genre : '');
 
   return {
@@ -40,11 +35,12 @@ const mapDbEventToFrontend = (e: any): EventListItem => {
     tour: (e.subtitle || '').toUpperCase(),
     date: e.event_date || e.start_date_time,
     venue: e.venue?.name?.toUpperCase() || '',
-    price: minPrice,
+    price: getMinPrice(e),
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
     genre: genreName,
-    ticketsLeft: 200,
-    status: e.status === 'PUBLISHED' ? 'available' : 'selling_fast'
+    // available_seats is computed server-side from AVAILABLE seats.
+    ticketsLeft: Number(e.available_seats) || 0,
+    status: e.available_seats < 100 ? 'selling_fast' : 'available'
   };
 };
 
@@ -53,6 +49,8 @@ const DEFAULT_GENRES = ['All', 'Metalcore', 'Alternative Metal', 'Progressive Me
 export default function EventsPage() {
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [genres, setGenres] = useState<string[]>(DEFAULT_GENRES);
+  const [ticketsSold, setTicketsSold] = useState(0);
+  const [cityCount, setCityCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
   const [sortBy, setSortBy] = useState('date');
@@ -73,6 +71,14 @@ export default function EventsPage() {
         if (list && Array.isArray(list)) {
           const publicEvents = filterUpcomingEvents(list);
           setEvents(publicEvents.map(mapDbEventToFrontend));
+
+          // Real stats from the same payload — no hardcoded numbers.
+          setTicketsSold(
+            publicEvents.reduce((sum, e) => sum + (Number(e.tickets_sold) || 0), 0),
+          );
+          setCityCount(
+            new Set(publicEvents.map((e) => e.venue?.city).filter(Boolean)).size,
+          );
         }
       } catch (err) {
         console.error('Failed to load events:', err);
@@ -103,8 +109,10 @@ export default function EventsPage() {
     }
   };
 
-  const formatEventDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+  const formatEventDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 'TBA' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+  };
 
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
@@ -139,9 +147,9 @@ export default function EventsPage() {
           >
             {[
               { icon: Ticket, label: 'Total Events', value: events.length },
-              { icon: Users, label: 'Tickets Sold', value: '50K+' },
+              { icon: Users, label: 'Tickets Sold', value: ticketsSold.toLocaleString('en-US') },
               { icon: TrendingUp, label: 'Upcoming', value: events.filter(e => new Date(e.date) > new Date()).length },
-              { icon: Calendar, label: 'Cities', value: '5+' }
+              { icon: Calendar, label: 'Cities', value: cityCount }
             ].map((stat) => (
               <div key={stat.label} className="flex items-center gap-2">
                 <stat.icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
@@ -317,7 +325,7 @@ export default function EventsPage() {
       <footer className="border-t border-mono-dark-grey py-8">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-mono-light-grey">
-            <p>&copy; 2024 EventTicket. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} EventTicket. All rights reserved.</p>
             <div className="flex gap-6">
               <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

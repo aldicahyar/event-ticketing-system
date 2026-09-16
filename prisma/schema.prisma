@@ -110,8 +110,44 @@ model t_mtr_genres {
   updated_at  DateTime @updatedAt
   
   events      t_trx_events[]
+  artists     t_mtr_artists[]
 
   @@index([is_active])
+}
+
+model t_mtr_artists {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String   @unique
+  genre_id   String?
+  origin     String?
+  bio        String?  @db.Text
+  image_url  String?
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  genre  t_mtr_genres?        @relation(fields: [genre_id], references: [id])
+  events t_trx_event_artists[]
+
+  @@index([is_active])
+  @@index([name])
+}
+
+/// Lineup pivot: which artists perform at which event. M:N.
+/// An artist may appear in many events; an event may feature many artists.
+model t_trx_event_artists {
+  id         String   @id @default(cuid())
+  event_id   String
+  artist_id  String
+  created_at DateTime @default(now())
+
+  event  t_trx_events  @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  artist t_mtr_artists @relation(fields: [artist_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, artist_id])
+  @@index([event_id])
+  @@index([artist_id])
 }
 
 /// Permission pivot: what a role can do with a menu.
@@ -270,9 +306,10 @@ model t_trx_events {
   seats           t_mtr_seats[]
   bookings        t_trx_bookings[]
   ticket_tiers    t_trx_event_ticket_tiers[]
-  venue           t_mtr_venues     @relation(fields: [venue_id], references: [id])
-  organizer       t_mtr_users      @relation("EventOrganizer", fields: [organizer_id], references: [id])
-  genre           t_mtr_genres?    @relation(fields: [genre_id], references: [id])
+  venue       t_mtr_venues     @relation(fields: [venue_id], references: [id])
+  organizer   t_mtr_users      @relation("EventOrganizer", fields: [organizer_id], references: [id])
+  genre       t_mtr_genres?    @relation(fields: [genre_id], references: [id])
+  artists     t_trx_event_artists[]
 
   @@index([venue_id])
   @@index([status])

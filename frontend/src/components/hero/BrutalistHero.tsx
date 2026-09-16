@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { TechnicalMetadata, Crosshair } from './TechnicalMetadata';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
-import { filterUpcomingEvents } from '@/lib/events';
+import { filterUpcomingEvents, getMinPrice } from '@/lib/events';
 
 interface HeroEvent {
   id: string;
@@ -23,22 +23,17 @@ interface HeroEvent {
 }
 
 const mapDbEventToHeroEvent = (e: any): HeroEvent => {
-  let minPrice = Number(e.base_price);
-  if (e.ticket_tiers && e.ticket_tiers.length > 0) {
-    minPrice = Math.min(...e.ticket_tiers.map((t: any) => Number(t.price)));
-  }
-
   return {
     id: e.id,
     artist: e.title,
     tour: e.subtitle || 'WORLD TOUR',
     date: e.event_date || e.start_date_time,
     venue: e.venue?.name || 'VENUE',
-    price: minPrice,
+    price: getMinPrice(e),
     image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2000&auto=format&fit=crop',
-    ticketsLeft: e.available_seats ?? (e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 0),
-    totalTickets: e.venue?.capacity || 10000,
-    genre: 'Metalcore'
+    ticketsLeft: Number(e.available_seats) || (e.seats ? e.seats.filter((s: any) => s.status === 'AVAILABLE').length : 0),
+    totalTickets: Number(e.venue?.capacity) || 0,
+    genre: e.genre?.name || (typeof e.genre === 'string' ? e.genre : 'Music')
   };
 };
 
@@ -195,7 +190,9 @@ export const BrutalistHero = () => {
     setSelectedIndex(index);
   };
 
-  const soldPercent = ((selectedEvent.totalTickets - selectedEvent.ticketsLeft) / selectedEvent.totalTickets) * 100;
+  const soldPercent = selectedEvent.totalTickets > 0
+    ? ((selectedEvent.totalTickets - selectedEvent.ticketsLeft) / selectedEvent.totalTickets) * 100
+    : 0;
 
   return (
     <section
@@ -341,7 +338,9 @@ export const BrutalistHero = () => {
                 <div className="flex items-center gap-2 text-white">
                   <Calendar className="w-4 h-4 md:w-5 md:h-5" aria-hidden="true" />
                   <span className="uppercase text-xs sm:text-sm font-semibold">
-                    {new Date(selectedEvent.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {isNaN(new Date(selectedEvent.date).getTime())
+                      ? 'TBA'
+                      : new Date(selectedEvent.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-white">

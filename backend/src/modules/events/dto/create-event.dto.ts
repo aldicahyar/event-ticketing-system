@@ -90,4 +90,14 @@ export class CreateEventDto {
   @ValidateNested({ each: true })
   @Type(() => CreateTicketTierDto)
   ticket_tiers?: CreateTicketTierDto[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Artists featured at this event (lineup). undefined = leave unchanged (on update); [] = clear; [...] = replace.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  artist_ids?: string[];
 }

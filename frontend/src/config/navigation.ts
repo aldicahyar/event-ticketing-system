@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BarChart3, Activity, ClipboardList,
   Calendar, MapPin, Layers, Percent, Tag,
   ShieldCheck, Users, Menu as MenuIcon, Lock,
-  Image as ImageIcon, FileText, LayoutTemplate, Music,
+  Image as ImageIcon, FileText, LayoutTemplate, Music, Mic2,
   CreditCard, Ticket, User, TrendingUp, RotateCcw, SlidersHorizontal, Scale, Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -75,6 +75,7 @@ export const ADMIN_NAV: NavItem[] = [
       { label: 'Media', href: '/dashboard/content/media', icon: ImageIcon, requiredRole: 'ADMIN' },
       { label: 'Pages', href: '/dashboard/content/page', icon: FileText, requiredRole: 'ADMIN' },
       { label: 'Genres', href: '/dashboard/content/genres', icon: Music, requiredRole: 'ADMIN' },
+      { label: 'Artists', href: '/dashboard/content/artists', icon: Mic2, requiredRole: 'ADMIN' },
     ],
   },
 ];

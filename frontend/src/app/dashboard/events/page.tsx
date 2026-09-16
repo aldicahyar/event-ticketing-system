@@ -4,13 +4,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  Calendar, Plus, Edit2, Trash2, ArrowLeft, RefreshCw, TicketCheck
+  Calendar, Plus, Edit2, Trash2, ArrowLeft, RefreshCw, TicketCheck, Mic2, X
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { formatCurrency, DEFAULT_CURRENCY, formatNumberWithDots, parseDotsToNumber } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
 import { TicketTiersEditor, TicketTierInput } from '@/components/events/TicketTiersEditor';
 import type { Genre } from '@/types/genre';
+import type { Artist } from '@/types/artist';
 
 interface Venue {
   id: string;
@@ -42,6 +43,7 @@ interface Event {
   venue?: {
     name: string;
   };
+  artists?: { artist: { id: string; code: string; name: string } }[];
 }
 
 const EVENTS_POLL_INTERVAL_MS = 10_000;
@@ -63,7 +65,8 @@ const DEFAULT_FORM = {
   currency: DEFAULT_CURRENCY,
   status: 'DRAFT',
   image_url: '',
-  ticket_tiers: [] as TicketTierInput[]
+  ticket_tiers: [] as TicketTierInput[],
+  artist_ids: [] as string[],
 };
 
 // Helper untuk format waktu local ISO YYYY-MM-DDTHH:MM
@@ -81,6 +84,7 @@ export default function EventsManagementPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -106,10 +110,11 @@ export default function EventsManagementPage() {
       setError('');
 
       try {
-        const [eventsData, venuesData, genresData] = await Promise.all([
+        const [eventsData, venuesData, genresData, artistsData] = await Promise.all([
           apiClient.get<Event[]>('/events'),
           apiClient.get<Venue[]>('/venues'),
           apiClient.listActiveGenres(),
+          apiClient.listArtistsForLineup().catch(() => [] as Artist[]),
         ]);
 
         if (!cancelled) {
@@ -118,6 +123,7 @@ export default function EventsManagementPage() {
           }
           setVenues(venuesData || []);
           setGenres(genresData || []);
+          setArtists(artistsData || []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -223,7 +229,12 @@ export default function EventsManagementPage() {
         ...t,
         start_date_time: toDatetimeLocal(t.start_date_time),
         end_date_time: toDatetimeLocal(t.end_date_time)
-      })) : []
+      })) : [],
+      // Only active artists are assignable; any other is dropped to avoid a
+      // backend rejection on save.
+      artist_ids: (event.artists ?? [])
+        .map((a) => a.artist.id)
+        .filter((id) => artists.some((a) => a.id === id))
     });
     setActiveView('edit');
   };
@@ -260,7 +271,10 @@ export default function EventsManagementPage() {
             start_date_time: new Date(t.start_date_time).toISOString(),
             end_date_time: new Date(t.end_date_time).toISOString()
           }))
-        : undefined
+        : undefined,
+      // Always send the full set: undefined would leave the lineup untouched,
+      // [] clears it. The form is the single source of truth here.
+      artist_ids: formData.artist_ids,
     };
 
     try {
@@ -344,7 +358,14 @@ export default function EventsManagementPage() {
                 <td className="p-3 border-r border-mono-dark-grey">
                   <div className="font-bold uppercase text-white leading-tight mb-1">{event.title}</div>
                   <div className="text-[10px] text-mono-light-grey">ID: {event.id}</div>
-
+                  {event.artists && event.artists.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-[#CCCCCC]">
+                      <Mic2 className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      <span className="truncate">
+                        {event.artists.map((a) => a.artist.name).join(', ')}
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className="p-3 border-r border-mono-dark-grey text-sm uppercase text-[#CCCCCC]">
                   {event.venue?.name || 'Unassigned Venue'}
@@ -698,6 +719,61 @@ export default function EventsManagementPage() {
                   placeholder="Provide concert details, tour info, and rules..."
                   className="w-full bg-black border border-white text-white px-4 py-3 text-base focus:outline-none focus:border-white/50 focus-visible:outline-2 focus-visible:outline-white min-h-touch font-mono"
                 />
+              </div>
+
+              {/* Lineup / Artists (multi-select) */}
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 text-xs text-mono-light-grey uppercase tracking-widest">
+                    <Mic2 className="w-4 h-4" aria-hidden="true" />
+                    Lineup / Performing Artists
+                  </label>
+                  {formData.artist_ids.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, artist_ids: [] })}
+                      className="flex items-center gap-1 text-[10px] text-mono-light-grey hover:text-white uppercase tracking-widest"
+                    >
+                      <X className="w-3 h-3" /> Clear
+                    </button>
+                  )}
+                </div>
+                {artists.length === 0 ? (
+                  <p className="text-[11px] text-mono-light-grey">
+                    No active artists yet. Create some under Content &rarr; Artists first.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {artists.map((artist) => {
+                      const selected = formData.artist_ids.includes(artist.id);
+                      return (
+                        <button
+                          key={artist.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              artist_ids: selected
+                                ? formData.artist_ids.filter((id) => id !== artist.id)
+                                : [...formData.artist_ids, artist.id],
+                            })
+                          }
+                          className={`px-3 py-2 text-xs font-bold uppercase tracking-wide border transition-colors ${
+                            selected
+                              ? 'bg-white text-black border-white'
+                              : 'bg-black text-[#CCCCCC] border-mono-dark-grey hover:border-white hover:text-white'
+                          }`}
+                        >
+                          {artist.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="mt-1 text-[10px] text-mono-light-grey uppercase tracking-widest">
+                  {formData.artist_ids.length} selected
+                </p>
               </div>
             </div>
 

@@ -249,6 +249,15 @@ const MENUS = [
     slug: '/dashboard/content/genres',
     order: 3,
   },
+  {
+    code: 'ARTISTS',
+    name: 'Artists',
+    name_en: 'Artists',
+    parent_code: 'CONTENT',
+    icon: 'Mic2',
+    slug: '/dashboard/content/artists',
+    order: 4,
+  },
 
   // ----- Attendee/Organizer: Personal -----
   {
@@ -329,6 +338,7 @@ const PERMISSION_MATRIX: Array<
   ['ADMIN', 'MEDIA', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'PAGES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
   ['ADMIN', 'GENRES', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
+  ['ADMIN', 'ARTISTS', { can_view: true, can_create: true, can_edit: true, can_delete: true }],
 
   // ----- ORGANIZER: personal area + manage events/venues -----
   ['ORGANIZER', 'OVERVIEW', { can_view: true }],
@@ -628,6 +638,72 @@ async function main() {
     }
   }
 
+  // --- Backfill artists from event titles (legacy events used title = artist name) ---
+  // Generic parser: takes the band name from a title by cutting common suffix
+  // patterns. Leaves unparseable titles alone and reports them.
+  console.log('→ Backfilling artists from event titles...');
+  {
+    const STOPPERS = [
+      /\s+[-–—]\s+/,
+      /\s+live\s+in\s+/i,
+      /\s+in\s+(jakarta|bandung|surabaya|yogyakarta|semarang|malang|bali|medan)/i,
+      /\s+(tour|concert|show|gig|festival|live)$/i,
+    ];
+
+    const parseArtistFromTitle = (title: string): string | null => {
+      let name = title.trim();
+      for (const re of STOPPERS) {
+        const m = name.match(re);
+        if (m) name = name.slice(0, m.index).trim();
+      }
+      return name.length >= 2 ? name : null;
+    };
+
+    const events = await prisma.t_trx_events.findMany({
+      select: { id: true, title: true },
+    });
+    let createdArtists = 0;
+    let linkedEvents = 0;
+    const unparsed: string[] = [];
+
+    for (const ev of events) {
+      // Skip events that already have a lineup.
+      const existing = await prisma.t_trx_event_artists.count({ where: { event_id: ev.id } });
+      if (existing > 0) continue;
+
+      const name = parseArtistFromTitle(ev.title);
+      if (!name) {
+        unparsed.push(ev.title);
+        continue;
+      }
+
+      const code = name
+        .replace(/[^a-zA-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .toUpperCase();
+
+      const artist = await prisma.t_mtr_artists.upsert({
+        where: { code },
+        update: { is_active: true },
+        create: { code, name, is_active: true },
+      });
+      createdArtists += 1;
+
+      await prisma.t_trx_event_artists.upsert({
+        where: { event_id_artist_id: { event_id: ev.id, artist_id: artist.id } },
+        update: {},
+        create: { event_id: ev.id, artist_id: artist.id },
+      });
+      linkedEvents += 1;
+    }
+
+    console.log(`   + ${createdArtists} artist(s) ensured, ${linkedEvents} event(s) linked`);
+    if (unparsed.length > 0) {
+      console.log(`   ⚠️  ${unparsed.length} title(s) could not be parsed into an artist:`);
+      unparsed.slice(0, 10).forEach((t) => console.log(`     - ${t}`));
+    }
+  }
+
   // Summary
   const roleCount = await prisma.t_mtr_roles.count();
   const menuCount = await prisma.t_mtr_menus.count();
@@ -635,6 +711,7 @@ async function main() {
   const pageCount = await prisma.t_mtr_pages.count();
   const perkCount = await prisma.t_mtr_perks.count();
   const genreCount = await prisma.t_mtr_genres.count();
+  const artistCount = await prisma.t_mtr_artists.count();
   console.log('\n✅ Seed complete!');
   console.log(`   Roles:       ${roleCount}`);
   console.log(`   Menus:       ${menuCount}`);
@@ -642,6 +719,7 @@ async function main() {
   console.log(`   Pages:       ${pageCount}`);
   console.log(`   Perks:       ${perkCount}`);
   console.log(`   Genres:      ${genreCount}`);
+  console.log(`   Artists:     ${artistCount}`);
 }
 
 main()

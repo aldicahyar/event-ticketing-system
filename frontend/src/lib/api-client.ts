@@ -29,6 +29,13 @@ import type {
 } from '@/types/page';
 
 import type { Genre, CreateGenreDto, UpdateGenreDto } from '@/types/genre';
+import type {
+  Artist,
+  CreateArtistDto,
+  UpdateArtistDto,
+  ListArtistsQuery,
+} from '@/types/artist';
+import type { RawEvent } from '@/lib/events';
 
 import type {
   DisputeDetail,
@@ -566,6 +573,48 @@ class ApiClient {
 
   async deleteGenre(id: string) {
     return this.delete<{ id: string; deleted: boolean }>(`/genres/${id}`);
+  }
+
+  // ============================================================
+  // ARTISTS (public lineup + admin master data)
+  // ============================================================
+
+  /** Public: active artists with upcoming event counts, for /lineup. */
+  async listArtistsForLineup() {
+    return this.get<Artist[]>('/artists');
+  }
+
+  /** Public: artist detail by code. */
+  async getArtistByCode(code: string) {
+    return this.get<Artist>(`/artists/by-code/${encodeURIComponent(code)}`);
+  }
+
+  /** Public: upcoming events featuring this artist. */
+  async listArtistEvents(code: string) {
+    return this.get<RawEvent[]>(`/artists/by-code/${encodeURIComponent(code)}/events`);
+  }
+
+  async listArtistsAdmin(query?: ListArtistsQuery) {
+    return this.get<Artist[]>(
+      '/artists/admin',
+      this.cleanParams(query as Record<string, unknown>),
+    );
+  }
+
+  async getArtist(id: string) {
+    return this.get<Artist>(`/artists/${id}`);
+  }
+
+  async createArtist(dto: CreateArtistDto) {
+    return this.post<Artist>('/artists', dto);
+  }
+
+  async updateArtist(id: string, dto: UpdateArtistDto) {
+    return this.patch<Artist>(`/artists/${id}`, dto);
+  }
+
+  async deleteArtist(id: string) {
+    return this.delete<{ id: string; deleted: boolean }>(`/artists/${id}`);
   }
 
   // ============================================================

@@ -2,49 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, MapPin } from 'lucide-react';
-import { IndustrialBadge } from '@/components/ui/industrial-components';
+import { motion } from 'framer-motion';
+import { ArrowRight, MapPin } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
-import { formatCurrency } from '@/lib/currency';
-import { filterUpcomingEvents } from '@/lib/events';
-
-interface LineupItem {
-  id: string;
-  artist: string;
-  genre: string;
-  date: string;
-  venue: string;
-  price: number;
-  image: string;
-  status: 'headliner' | 'featured';
-}
-
-const mapDbEventToLineup = (e: any, index: number): LineupItem => {
-  let minPrice = Number(e.base_price);
-  if (e.ticket_tiers && e.ticket_tiers.length > 0) {
-    minPrice = Math.min(...e.ticket_tiers.map((t: any) => Number(t.price)));
-  }
-
-  return {
-    id: e.id,
-    artist: (e.title || '').toUpperCase(),
-    genre: e.genre?.name || (typeof e.genre === 'string' ? e.genre : ''),
-    date: e.event_date || e.start_date_time,
-    venue: e.venue?.name || '',
-    price: minPrice,
-    image: e.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
-    // ponytail: DB has no headliner flag; earliest upcoming show is headliner. Add a real field when needed.
-    status: index === 0 ? 'headliner' : 'featured'
-  };
-};
+import type { Artist } from '@/types/artist';
 
 const HERO_HEADING_ID = 'lineup-hero-heading';
 const GRID_HEADING_ID = 'lineup-grid-heading';
 const CTA_HEADING_ID = 'lineup-cta-heading';
 
 export default function LineupPage() {
-  const [lineup, setLineup] = useState<LineupItem[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
   const [genres, setGenres] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
@@ -52,23 +21,15 @@ export default function LineupPage() {
   useEffect(() => {
     async function loadLineup() {
       try {
-        const [list, activeGenres] = await Promise.all([
-          apiClient.get<any[]>('/events'),
-          apiClient.listActiveGenres().catch(() => []),
-        ]);
-
-        if (activeGenres && activeGenres.length > 0) {
-          const names = Array.from(new Set(activeGenres.map((g: any) => g.name)));
-          setGenres(['All', ...names]);
-        }
+        const list = await apiClient.listArtistsForLineup();
 
         if (list && Array.isArray(list)) {
-          const upcoming = filterUpcomingEvents(list).sort((a: any, b: any) => {
-            const da = new Date(a.event_date || a.start_date_time).getTime();
-            const db = new Date(b.event_date || b.start_date_time).getTime();
-            return da - db;
-          });
-          setLineup(upcoming.map(mapDbEventToLineup));
+          setArtists(list);
+
+          const genreNames = Array.from(
+            new Set(list.map((a) => a.genre?.name).filter(Boolean) as string[]),
+          );
+          if (genreNames.length > 0) setGenres(['All', ...genreNames]);
         }
       } catch (err) {
         console.error('Failed to load lineup:', err);
@@ -79,8 +40,11 @@ export default function LineupPage() {
     loadLineup();
   }, []);
 
-  const filteredLineup = lineup.filter(
-    event => filter === 'All' || event.genre.toLowerCase() === filter.toLowerCase()
+  // Artists with at least one upcoming show; the backend already filters the
+  // events relation, this is just defense in depth.
+  const withShows = artists.filter((a) => (a.events?.length ?? 0) > 0);
+  const filteredArtists = withShows.filter(
+    (a) => filter === 'All' || a.genre?.name === filter,
   );
 
   return (
@@ -94,26 +58,28 @@ export default function LineupPage() {
             Artist <span className="text-transparent stroke-text" aria-hidden="true" style={{ WebkitTextStroke: "2px white" }}>Lineup</span>
           </h1>
           <p className="text-lg md:text-xl text-mono-light-grey uppercase tracking-widest mb-8">
-            // {new Date().getFullYear()} Tour Schedule
+            // {new Date().getFullYear()} Performing Artists
           </p>
 
           {/* Filters */}
-          <div role="group" aria-label="Filter lineup" className="flex gap-2 overflow-x-auto scrollbar-none pb-2">
-            {genres.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                aria-pressed={filter === f}
-                className={`px-3 py-2.5 md:px-4 md:py-2 text-xs md:text-sm font-bold uppercase tracking-wide border transition-all duration-300 min-h-touch whitespace-nowrap focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
-                  filter === f
-                    ? 'bg-white text-black border-white'
-                    : 'bg-black text-[#CCCCCC] border-mono-dark-grey hover:border-white hover:text-white'
-                }`}
-              >
-                {f === 'featured' ? 'Featured' : f}
-              </button>
-            ))}
-          </div>
+          {genres.length > 1 && (
+            <div role="group" aria-label="Filter lineup by genre" className="flex gap-2 overflow-x-auto scrollbar-none pb-2">
+              {genres.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  aria-pressed={filter === f}
+                  className={`px-3 py-2.5 md:px-4 md:py-2 text-xs md:text-sm font-bold uppercase tracking-wide border transition-all duration-300 min-h-touch whitespace-nowrap focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
+                    filter === f
+                      ? 'bg-white text-black border-white'
+                      : 'bg-black text-[#CCCCCC] border-mono-dark-grey hover:border-white hover:text-white'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -126,86 +92,89 @@ export default function LineupPage() {
               <div className="w-12 h-12 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" />
               <p className="uppercase tracking-widest text-sm">// LOADING_LINEUP...</p>
             </div>
-          ) : filteredLineup.length === 0 ? (
+          ) : filteredArtists.length === 0 ? (
             <div role="alert" className="text-center py-16 border border-mono-dark-grey">
               <h3 className="font-display font-bold text-2xl uppercase text-white mb-2">
                 No Artists Found
               </h3>
               <p className="text-mono-light-grey uppercase tracking-widest text-sm mb-4">
-                Try adjusting your filters
+                {filter !== 'All' ? 'Try adjusting your filters' : 'The lineup has not been announced yet'}
               </p>
-              <button
-                onClick={() => setFilter('All')}
-                className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-              >
-                View All Lineup
-              </button>
+              {filter !== 'All' && (
+                <button
+                  onClick={() => setFilter('All')}
+                  className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                >
+                  View All Lineup
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredLineup.map((artist) => (
-                <Link
-                  key={artist.id}
-                  href={`/events/${artist.id}`}
-                  aria-label={artist.artist}
-                  className="group block bg-black border border-mono-dark-grey hover:border-white transition-all duration-300 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-                >
-                  {/* Image */}
-                  <div className="relative aspect-square overflow-hidden">
-                    <img
-                      src={artist.image}
-                      alt={artist.artist}
-                      className="w-full h-full object-cover grayscale contrast-125 group-hover:grayscale-0 group-hover:scale-105 transition-all duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />
+              {filteredArtists.map((artist, idx) => {
+                const showCount = artist.events?.length ?? 0;
+                return (
+                  <motion.div
+                    key={artist.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(idx * 0.03, 0.3) }}
+                  >
+                    <Link
+                      href={`/artists/${encodeURIComponent(artist.code)}`}
+                      aria-label={`View ${artist.name} events`}
+                      className="group block h-full bg-black border border-mono-dark-grey hover:border-white transition-all duration-300 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                    >
+                      {/* Image (or honest typographic block when no photo exists) */}
+                      <div className="relative aspect-square overflow-hidden">
+                        {artist.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={artist.image_url}
+                            alt={artist.name}
+                            className="w-full h-full object-cover grayscale contrast-125 group-hover:grayscale-0 group-hover:scale-105 transition-all duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-black flex items-center justify-center border-b border-mono-dark-grey">
+                            <span className="font-display font-bold text-7xl md:text-8xl uppercase text-transparent stroke-text" aria-hidden="true" style={{ WebkitTextStroke: '2px #444' }}>
+                              {artist.name.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />
 
-                    {/* Status Badge */}
-                    <div className="absolute top-3 left-3">
-                      <IndustrialBadge className={
-                        artist.status === 'headliner'
-                          ? 'bg-white text-black border-white'
-                          : 'bg-black text-white border-white'
-                      }>
-                        {artist.status === 'headliner' ? 'HEADLINER' : 'FEATURED'}
-                      </IndustrialBadge>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-4">
-                    <h3 className="font-display font-bold text-lg uppercase text-white leading-none mb-2 group-hover:text-white">
-                      {artist.artist}
-                    </h3>
-                    <p className="text-xs text-mono-light-grey uppercase tracking-widest mb-3">
-                      {artist.genre || 'Music'}
-                    </p>
-
-                    {/* Date & Venue */}
-                    <div className="space-y-1 mb-4">
-                      <div className="flex items-center gap-2 text-xs text-[#CCCCCC]">
-                        <Calendar className="w-3 h-3" aria-hidden="true" />
-                        <time dateTime={artist.date}>
-                          {new Date(artist.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </time>
+                        {/* Show count badge */}
+                        <div className="absolute top-3 left-3 bg-black text-white border border-white px-2 py-1 text-[10px] font-bold uppercase tracking-widest">
+                          {showCount} {showCount === 1 ? 'Show' : 'Shows'}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-[#CCCCCC]">
-                        <MapPin className="w-3 h-3" aria-hidden="true" />
-                        <span className="truncate">{artist.venue}</span>
-                      </div>
-                    </div>
 
-                    {/* Price & CTA */}
-                    <div className="flex items-center justify-between pt-3 border-t border-mono-dark-grey">
-                      <span className="text-sm font-bold text-white">
-                        {formatCurrency(artist.price)}
-                      </span>
-                      <span className="text-xs font-bold uppercase text-white group-hover:underline flex items-center gap-1">
-                        Get Tickets <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                      {/* Content */}
+                      <div className="p-4">
+                        <h3 className="font-display font-bold text-lg uppercase text-white leading-none mb-2">
+                          {artist.name}
+                        </h3>
+                        <p className="text-xs text-mono-light-grey uppercase tracking-widest mb-3">
+                          {artist.genre?.name || '—'}
+                        </p>
+
+                        {artist.origin && (
+                          <div className="flex items-center gap-2 text-xs text-[#CCCCCC]">
+                            <MapPin className="w-3 h-3" aria-hidden="true" />
+                            <span className="truncate">{artist.origin}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-end pt-3 mt-3 border-t border-mono-dark-grey">
+                          <span className="text-xs font-bold uppercase text-white group-hover:underline flex items-center gap-1">
+                            View Events <ArrowRight className="w-3 h-3" aria-hidden="true" />
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -11,6 +11,7 @@ describe('EventsService', () => {
   const deleteMany = jest.fn();
   const count = jest.fn();
   const perksFindMany = jest.fn();
+  const tiersFindMany = jest.fn();
 
   const venuesFindUnique = jest.fn();
   const genresFindUnique = jest.fn();
@@ -19,7 +20,7 @@ describe('EventsService', () => {
     t_trx_events: { findMany, findUnique, create, update },
     t_mtr_venues: { findUnique: venuesFindUnique },
     t_mtr_genres: { findUnique: genresFindUnique },
-    t_trx_event_ticket_tiers: { create, deleteMany },
+    t_trx_event_ticket_tiers: { create, deleteMany, findMany: tiersFindMany },
     t_mtr_seats: { createMany, deleteMany, count },
     t_mtr_perks: { findMany: perksFindMany },
     $transaction: jest.fn((callback) => callback(prisma)),
@@ -207,6 +208,7 @@ describe('EventsService', () => {
           seats: [{}],
         });
 
+      tiersFindMany.mockResolvedValue([]);
       (prisma.t_mtr_seats.count as jest.Mock).mockResolvedValue(0);
       (prisma.t_trx_events.update as jest.Mock).mockResolvedValue({
         id: 'event-1',
@@ -262,6 +264,7 @@ describe('EventsService', () => {
         end_date_time: new Date('2026-08-15T22:00:00.000Z'),
       });
 
+      tiersFindMany.mockResolvedValue([]);
       (prisma.t_mtr_seats.count as jest.Mock).mockResolvedValueOnce(1);
 
       await expect(service.update(updateDto as any)).rejects.toThrow(
@@ -291,6 +294,7 @@ describe('EventsService', () => {
         end_date_time: new Date('2026-08-15T22:00:00.000Z'),
       });
 
+      tiersFindMany.mockResolvedValue([]);
       (prisma.t_mtr_seats.count as jest.Mock).mockResolvedValueOnce(0);
       perksFindMany.mockResolvedValue([]);
 
