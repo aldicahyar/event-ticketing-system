@@ -12,7 +12,7 @@ const HERO_HEADING_ID = 'lineup-hero-heading';
 const GRID_HEADING_ID = 'lineup-grid-heading';
 const CTA_HEADING_ID = 'lineup-cta-heading';
 
-export default function LineupPage() {
+export default function ArtistsPage() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [genres, setGenres] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
@@ -49,13 +49,13 @@ export default function LineupPage() {
 
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
-      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup', active: true }]} />
+      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/artists', label: 'Artists', active: true }]} />
 
       {/* Hero Section */}
       <section aria-labelledby={HERO_HEADING_ID} className="py-16 md:py-24 border-b border-mono-dark-grey">
         <div className="container mx-auto px-4 md:px-6">
           <h1 id={HERO_HEADING_ID} className="font-display font-bold text-3xl sm:text-4xl md:text-5xl md:text-7xl uppercase text-white mb-4">
-            Artist <span className="text-transparent stroke-text" aria-hidden="true" style={{ WebkitTextStroke: "2px white" }}>Lineup</span>
+            Performing <span className="text-transparent stroke-text" aria-hidden="true" style={{ WebkitTextStroke: "2px white" }}>Artists</span>
           </h1>
           <p className="text-lg md:text-xl text-mono-light-grey uppercase tracking-widest mb-8">
             // {new Date().getFullYear()} Performing Artists
@@ -105,7 +105,7 @@ export default function LineupPage() {
                   onClick={() => setFilter('All')}
                   className="px-6 py-3 bg-white text-black font-bold uppercase tracking-wide min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                 >
-                  View All Lineup
+                  View All Artists
                 </button>
               )}
             </div>

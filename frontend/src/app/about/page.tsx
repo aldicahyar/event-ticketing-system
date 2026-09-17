@@ -69,7 +69,7 @@ export default function AboutPage() {
       <Navbar links={[
         { href: '/events', label: 'Events' },
         { href: '/venues', label: 'Venues' },
-        { href: '/lineup', label: 'Lineup' },
+        { href: '/artists', label: 'Artists' },
         { href: '/help', label: 'Help' },
       ]} />
 

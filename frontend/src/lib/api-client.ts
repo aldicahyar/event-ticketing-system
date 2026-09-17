@@ -579,7 +579,7 @@ class ApiClient {
   // ARTISTS (public lineup + admin master data)
   // ============================================================
 
-  /** Public: active artists with upcoming event counts, for /lineup. */
+  /** Public: active artists with upcoming event counts, for /artists. */
   async listArtistsForLineup() {
     return this.get<Artist[]>('/artists');
   }

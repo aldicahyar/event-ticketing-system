@@ -118,7 +118,7 @@ export default function EventsPage() {
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       
       {/* Navbar */}
-      <Navbar links={[{ href: '/events', label: 'Events', active: true }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup' }]} />
+      <Navbar links={[{ href: '/events', label: 'Events', active: true }, { href: '/venues', label: 'Venues' }, { href: '/artists', label: 'Artists' }]} />
 
       {/* Hero Section */}
       <section aria-label="Events hero" className="relative py-16 md:py-24 border-b border-mono-dark-grey overflow-hidden">
@@ -313,10 +313,10 @@ export default function EventsPage() {
             Subscribe to get pre-sale access and exclusive updates
           </p>
           <Link 
-            href="/lineup"
+            href="/artists"
             className="inline-block px-8 py-4 bg-white text-black border-2 border-white font-bold uppercase tracking-wide hover:bg-transparent hover:text-white transition-all duration-300 min-h-[44px] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
           >
-            View Full Lineup
+            View All Artists
           </Link>
         </div>
       </section>

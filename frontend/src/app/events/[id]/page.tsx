@@ -178,7 +178,7 @@ export default function EventDetailPage() {
               : Number(eventData.base_price),
             currency: eventData.currency || DEFAULT_CURRENCY,
             image: eventData.image_url || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14',
-            genre: eventData.genre?.toUpperCase() || 'GENERAL',
+            genre: (eventData.genre?.name || eventData.genre || 'GENERAL').toUpperCase(),
             description: eventData.description || '',
             ticketsLeft: (eventData.seats || []).filter((s: any) => s.status === 'AVAILABLE').length,
             tiers: computedTiers
@@ -286,7 +286,7 @@ export default function EventDetailPage() {
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
       {/* Shared Navbar */}
-      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup' }]} showAuth={false} />
+      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/artists', label: 'Artists' }]} showAuth={false} />
 
       {/* Hero Image */}
       <div className="relative h-[30vh] sm:h-[35vh] md:h-[50vh] overflow-hidden">

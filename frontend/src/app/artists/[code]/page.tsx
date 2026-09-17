@@ -49,7 +49,7 @@ export default function ArtistDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white font-mono">
-        <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup' }]} />
+        <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/artists', label: 'Artists' }]} />
         <div className="text-center py-24">
           <div className="w-12 h-12 border-4 border-white border-t-transparent animate-spin mx-auto mb-4" />
           <p className="uppercase tracking-widest text-sm">// LOADING_ARTIST...</p>
@@ -61,7 +61,7 @@ export default function ArtistDetailPage() {
   if (notFound || !artist) {
     return (
       <div className="min-h-screen bg-black text-white font-mono">
-        <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup' }]} />
+        <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/artists', label: 'Artists' }]} />
         <div className="container mx-auto px-4 md:px-6 py-24 text-center">
           <h1 className="font-display font-bold text-3xl md:text-4xl uppercase text-white mb-4">
             Artist Not Found
@@ -70,10 +70,10 @@ export default function ArtistDetailPage() {
             // UNKNOWN_ARTIST_CODE
           </p>
           <Link
-            href="/lineup"
+            href="/artists"
             className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black font-bold uppercase tracking-wide border-2 border-white hover:bg-transparent hover:text-white transition-all"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Lineup
+            <ArrowLeft className="w-4 h-4" /> Back to Artists
           </Link>
         </div>
       </div>
@@ -85,13 +85,13 @@ export default function ArtistDetailPage() {
 
   return (
     <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black">
-      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/lineup', label: 'Lineup', active: true }]} />
+      <Navbar links={[{ href: '/events', label: 'Events' }, { href: '/venues', label: 'Venues' }, { href: '/artists', label: 'Artists', active: true }]} />
 
       {/* Artist header */}
       <section className="border-b border-mono-dark-grey">
         <div className="container mx-auto px-4 md:px-6 py-12 md:py-16">
           <Link
-            href="/lineup"
+            href="/artists"
             className="inline-flex items-center gap-2 text-xs text-mono-light-grey hover:text-white uppercase tracking-widest mb-8 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
           >
             <ArrowLeft className="w-4 h-4" /> All Artists

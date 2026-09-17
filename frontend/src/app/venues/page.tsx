@@ -138,7 +138,7 @@ export default function VenuesPage() {
         links={[
           { href: '/events', label: 'Events' },
           { href: '/venues', label: 'Venues' },
-          { href: '/lineup', label: 'Lineup' },
+          { href: '/artists', label: 'Artists' },
           { href: '/help', label: 'Help' },
         ]}
       />

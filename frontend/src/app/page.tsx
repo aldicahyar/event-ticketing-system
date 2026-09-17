@@ -16,13 +16,13 @@ export default function Home() {
     ? [
         { href: '/events', label: 'Events' },
         { href: '/venues', label: 'Venues' },
-        { href: '/lineup', label: 'Lineup' },
+        { href: '/artists', label: 'Artists' },
         { href: '/dashboard', label: 'Dashboard' },
       ]
     : [
         { href: '/events', label: 'Events' },
         { href: '/venues', label: 'Venues' },
-        { href: '/lineup', label: 'Lineup' },
+        { href: '/artists', label: 'Artists' },
         { href: '/auth/login', label: 'Login' },
         { href: '/auth/register', label: 'Sign Up' },
       ];

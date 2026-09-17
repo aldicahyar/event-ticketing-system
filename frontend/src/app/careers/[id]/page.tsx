@@ -90,7 +90,7 @@ export default function CareerDetailPage() {
         <Navbar
           links={[
             { href: '/events', label: 'Events' },
-            { href: '/lineup', label: 'Lineup' },
+            { href: '/artists', label: 'Artists' },
             { href: '/help', label: 'Help' },
           ]}
         />
@@ -192,7 +192,7 @@ export default function CareerDetailPage() {
       <Navbar
         links={[
           { href: '/events', label: 'Events' },
-          { href: '/lineup', label: 'Lineup' },
+          { href: '/artists', label: 'Artists' },
           { href: '/help', label: 'Help' },
         ]}
       />

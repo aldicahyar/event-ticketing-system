@@ -1,6 +1,7 @@
 'use client';
 
 import { MotionConfig } from 'framer-motion';
+import NextTopLoader from 'nextjs-toploader';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -10,3 +11,5 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </MotionConfig>
   );
 }
+
+export { NextTopLoader };

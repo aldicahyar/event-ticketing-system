@@ -389,9 +389,9 @@ export const BrutalistHero = () => {
                     <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" aria-hidden="true" />
                   </button>
                 </Link>
-                <Link href="/lineup">
+                <Link href="/artists">
                   <button className="min-w-[140px] sm:min-w-[180px] px-6 sm:px-8 py-3 sm:py-4 bg-transparent border-2 border-mono-dark-grey text-[#CCCCCC] font-bold tracking-wide uppercase hover:border-white hover:text-white transition-all duration-300 text-sm md:text-base focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
-                    View Full Lineup
+                    View All Artists
                   </button>
                 </Link>
               </motion.div>

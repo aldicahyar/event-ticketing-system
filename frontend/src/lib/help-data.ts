@@ -157,7 +157,7 @@ Get familiar with the EventTicket interface.
 
 - **Home**: Featured events and upcoming tours
 - **Events**: Browse all available events
-- **Lineup**: View artist lineup and tour schedules
+- **Artists**: View artist profiles and tour schedules
 - **Dashboard**: Your tickets, orders, and account settings
 
 ## Dashboard Overview
@@ -540,9 +540,9 @@ Organize results by:
 - Price (low to high)
 - Popularity (most sold)
 
-## Artist Lineup
+## Artist Roster
 
-Check the **Lineup** page for:
+Check the **Artists** page for:
 - Complete tour schedules
 - Artist profiles
 - Genre filtering
